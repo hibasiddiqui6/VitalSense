@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
-import 'login_patient.dart';
 
-class PatientRegister extends StatelessWidget {
+class PatientRegister extends StatefulWidget {
   const PatientRegister({Key? key}) : super(key: key);
-  
-  get select_gender => null;
-  
+
+  @override
+  _PatientRegisterState createState() => _PatientRegisterState();
+}
+
+class _PatientRegisterState extends State<PatientRegister> {
+  // Define variables for each input
+  String fullName = '';
+  String email = '';
+  String password = '';
+  String confirmPassword = '';
+  String gender = '';
+  String age = '';
+
+  bool obscureText = true; // To manage password visibility
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +31,6 @@ class PatientRegister extends StatelessWidget {
             borderRadius: BorderRadius.circular(20), // Optional: curve the corners of the container
           ),
           child: SingleChildScrollView(
-            
             child: Padding(
               padding: const EdgeInsets.fromLTRB(33, 0, 33, 50),
               child: Center(
@@ -31,17 +41,14 @@ class PatientRegister extends StatelessWidget {
                     Container(
                       margin: const EdgeInsets.fromLTRB(4, 85, 0, 0),
                       child: IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      
-                      onPressed: () {
-                        Navigator.pop(context); // Navigate back to the previous screen
-                      },
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () {
+                          Navigator.pop(context); // Navigate back to the previous screen
+                        },
+                      ),
                     ),
-                    ),
-                    
                     const SizedBox(),
                     const Center(
-                      
                       child: Text(
                         'VitalSense',
                         style: TextStyle(
@@ -76,19 +83,29 @@ class PatientRegister extends StatelessWidget {
                             padding: const EdgeInsets.fromLTRB(24, 0, 34, 0),
                             color: Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
                             child: TextFormField(
+                              textAlign: TextAlign.start, // Align text to the left
                               decoration: const InputDecoration(
                                 labelText: 'Full Name',
+                                
                                 border: InputBorder.none,
                                 labelStyle: TextStyle(
                                   color: Color(0xFF3E3838),
-                                  fontSize: 18,
+                                  fontSize: 7,
                                   fontFamily: 'Inter',
                                 ),
                               ),
+                              style: const TextStyle(
+                                fontSize: 17, // Adjust font size for input text
+                                fontFamily: 'Inter',
+                              ),
+                              onChanged: (value) {
+                                setState(() {
+                                  fullName = value;
+                                });
+                              },
                             ),
                           ),
                           const SizedBox(height: 25),
-                          
                           // Gender Dropdown Field
                           Container(
                             width: 312,
@@ -96,29 +113,28 @@ class PatientRegister extends StatelessWidget {
                             padding: const EdgeInsets.fromLTRB(24, 0, 34, 0),
                             color: Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
                             child: DropdownButtonFormField<String>(
-                              
                               decoration: const InputDecoration(
                                 labelText: 'Gender',
                                 border: InputBorder.none,
+                                
                                 labelStyle: TextStyle(
                                   color: Color(0xFF3E3838),
-                                  fontSize: 18,
+                                  fontSize: 9,
                                   fontFamily: 'Inter',
                                 ),
                               ),
+                              padding: EdgeInsets.only(bottom: 10),
                               items: ['Male', 'Female']
-                                  
                                   .map((gender) => DropdownMenuItem<String>(
                                         value: gender,
                                         child: Text(gender),
-                                      
                                       ))
                                   .toList(),
-                              onChanged: (value) {},
-                              
-                                
-                               // Adjust icon size as needed
-                
+                              onChanged: (value) {
+                                setState(() {
+                                  gender = value ?? '';
+                                });
+                              },
                             ),
                           ),
                           const SizedBox(height: 25),
@@ -129,16 +145,27 @@ class PatientRegister extends StatelessWidget {
                             padding: const EdgeInsets.fromLTRB(24, 0, 34, 0),
                             color: Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
                             child: TextFormField(
+                              textAlign: TextAlign.start, // Align text to the left
                               decoration: const InputDecoration(
                                 labelText: 'Age',
                                 border: InputBorder.none,
+                                
                                 labelStyle: TextStyle(
                                   color: Color(0xFF3E3838),
-                                  fontSize: 18,
+                                  fontSize: 9,
                                   fontFamily: 'Inter',
                                 ),
                               ),
+                              style: const TextStyle(
+                                fontSize: 10, // Adjust font size for input text
+                                fontFamily: 'Inter',
+                              ),
                               keyboardType: TextInputType.number,
+                              onChanged: (value) {
+                                setState(() {
+                                  age = value;
+                                });
+                              },
                             ),
                           ),
                           const SizedBox(height: 25),
@@ -149,16 +176,27 @@ class PatientRegister extends StatelessWidget {
                             padding: const EdgeInsets.fromLTRB(24, 0, 34, 0),
                             color: Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
                             child: TextFormField(
+                              textAlign: TextAlign.start, // Align text to the left
                               decoration: const InputDecoration(
                                 labelText: 'Email',
+                                
                                 border: InputBorder.none,
                                 labelStyle: TextStyle(
                                   color: Color(0xFF3E3838),
-                                  fontSize: 18,
+                                  fontSize: 9,
                                   fontFamily: 'Inter',
                                 ),
                               ),
+                              style: const TextStyle(
+                                fontSize: 11, // Adjust font size for input text
+                                fontFamily: 'Inter',
+                              ),
                               keyboardType: TextInputType.emailAddress,
+                              onChanged: (value) {
+                                setState(() {
+                                  email = value;
+                                });
+                              },
                             ),
                           ),
                           const SizedBox(height: 25),
@@ -169,16 +207,37 @@ class PatientRegister extends StatelessWidget {
                             padding: const EdgeInsets.fromLTRB(24, 0, 34, 0),
                             color: Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
                             child: TextFormField(
-                              decoration: const InputDecoration(
+                              textAlign: TextAlign.start, // Align text to the left
+                              decoration: InputDecoration(
                                 labelText: 'Password',
+                               
                                 border: InputBorder.none,
-                                labelStyle: TextStyle(
+                                labelStyle: const TextStyle(
                                   color: Color(0xFF3E3838),
-                                  fontSize: 18,
+                                  fontSize: 9,
                                   fontFamily: 'Inter',
                                 ),
+                                suffixIcon: IconButton(
+                                  icon: Icon(obscureText
+                                      ? Icons.visibility_off
+                                      : Icons.visibility),
+                                  onPressed: () {
+                                    setState(() {
+                                      obscureText = !obscureText;
+                                    });
+                                  },
+                                ),
                               ),
-                              obscureText: true,
+                              obscureText: obscureText,
+                              style: const TextStyle(
+                                fontSize: 11, // Adjust font size for input text
+                                fontFamily: 'Inter',
+                              ),
+                              onChanged: (value) {
+                                setState(() {
+                                  password = value;
+                                });
+                              },
                             ),
                           ),
                           const SizedBox(height: 25),
@@ -189,16 +248,37 @@ class PatientRegister extends StatelessWidget {
                             padding: const EdgeInsets.fromLTRB(24, 0, 34, 0),
                             color: Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
                             child: TextFormField(
-                              decoration: const InputDecoration(
+                              textAlign: TextAlign.start, // Align text to the left
+                              decoration: InputDecoration(
                                 labelText: 'Confirm Password',
+                                
                                 border: InputBorder.none,
-                                labelStyle: TextStyle(
+                                labelStyle: const TextStyle(
                                   color: Color(0xFF3E3838),
-                                  fontSize: 18,
+                                  fontSize: 9,
                                   fontFamily: 'Inter',
                                 ),
+                                suffixIcon: IconButton(
+                                  icon: Icon(obscureText
+                                      ? Icons.visibility_off
+                                      : Icons.visibility),
+                                  onPressed: () {
+                                    setState(() {
+                                      obscureText = !obscureText;
+                                    });
+                                  },
+                                ),
                               ),
-                              obscureText: true,
+                              obscureText: obscureText,
+                              style: const TextStyle(
+                                fontSize: 7, // Adjust font size for input text
+                                fontFamily: 'Inter',
+                              ),
+                              onChanged: (value) {
+                                setState(() {
+                                  confirmPassword = value;
+                                });
+                              },
                             ),
                           ),
                           const SizedBox(height: 35),
@@ -227,7 +307,9 @@ class PatientRegister extends StatelessWidget {
                                 ],
                               ),
                               child: ElevatedButton(
-                                onPressed: () {},
+                                onPressed: () {
+                                  // Handle the registration logic here
+                                },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.transparent, // Make button transparent
                                   elevation: 0, // Remove default elevation
