@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:vitalsense/register_specialist.dart';
-
-import 'package:flutter/material.dart';
 import 'register_specialist.dart'; // Import the registration page
 
 class SpecialistLogin extends StatelessWidget {
