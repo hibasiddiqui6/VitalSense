@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'login_specialist.dart'; // Assuming there's a Specialist Login page
-
-import 'package:flutter/material.dart';
+import 'login_specialist.dart';
 
 class SpecialistRegister extends StatefulWidget {
   const SpecialistRegister({Key? key}) : super(key: key);

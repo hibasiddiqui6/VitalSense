@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:vitalsense/register_specialist.dart';
+import 'register_specialist.dart'; // Import the registration page
 
 import 'package:flutter/material.dart';
 import 'register_specialist.dart'; // Import the registration page
