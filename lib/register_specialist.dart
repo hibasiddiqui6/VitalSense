@@ -1,4 +1,7 @@
+import 'dart:convert'; // For JSON encoding and decoding
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'search_add_patient.dart';
 
 class SpecialistRegister extends StatefulWidget {
   const SpecialistRegister({Key? key}) : super(key: key);
@@ -8,31 +11,61 @@ class SpecialistRegister extends StatefulWidget {
 }
 
 class _SpecialistRegisterState extends State<SpecialistRegister> {
-  // Define variables for each input
   String fullName = '';
   String email = '';
   String password = '';
   String confirmPassword = '';
-  String profession = '';
-  String specialty = '';
+  String gender = '';
+  String age = '';
 
   bool obscurePassword = true;
   bool obscureConfirmPassword = true;
 
-  final _formKey = GlobalKey<FormState>(); // For form validation
+  final _formKey = GlobalKey<FormState>();
+  final GlobalKey _genderKey = GlobalKey();
 
-  final GlobalKey _professionKey = GlobalKey(); // Key for the profession field to get its position
+  // Define a function to store data persistently
+  Future<void> _saveSpecialistDetails(Map<String, String> specialistDetails) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    // Load the existing specialists list
+    List<String> specialistsList = prefs.getStringList('specialists') ?? [];
+
+    // Convert the specialist details map to a JSON string
+    String specialistJson = jsonEncode(specialistDetails);
+
+    // Add the new specialist to the list
+    specialistsList.add(specialistJson);
+
+    // Save the updated list back to SharedPreferences
+    await prefs.setStringList('specialists', specialistsList);
+  }
+
+  // Define a function to load the specialist details
+  Future<List<Map<String, String>>> _loadSpecialistDetails() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> specialistsList = prefs.getStringList('specialists') ?? [];
+    List<Map<String, String>> detailsList = [];
+
+    // Convert the JSON strings back to maps
+    for (String specialistJson in specialistsList) {
+      Map<String, String> specialist = Map<String, String>.from(jsonDecode(specialistJson));
+      detailsList.add(specialist);
+    }
+
+    return detailsList;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
         child: Container(
-          width: 412, // Fixed width
-          height: MediaQuery.of(context).size.height, // Full screen height
+          width: 412,
+          height: MediaQuery.of(context).size.height,
           decoration: BoxDecoration(
-            color: const Color(0xFFFBFBF4), // Sky green background color for the fixed frame size
-            borderRadius: BorderRadius.circular(20), // Optional: curve the corners of the container
+            color: const Color(0xFFFBFBF4),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: SingleChildScrollView(
             child: Container(
@@ -46,13 +79,12 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Back Button
                     Container(
                       margin: const EdgeInsets.fromLTRB(10, 55, 0, 0),
                       child: IconButton(
                         icon: const Icon(Icons.arrow_back),
                         onPressed: () {
-                          Navigator.pop(context); // Navigate back to the previous screen
+                          Navigator.pop(context);
                         },
                       ),
                     ),
@@ -78,60 +110,77 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                       ),
                     ),
                     const SizedBox(height: 25),
-                    // Full Name Field
                     _buildTextField(
                       label: 'Full Name',
-                      onChanged: (value) => fullName = value,
+                      onChanged: (value) {
+                        setState(() {
+                          fullName = value;
+                        });
+                      },
                       validator: (value) => value!.isEmpty ? 'Name is required' : null,
                     ),
                     const SizedBox(height: 20),
-                    // Profession Dropdown - Custom
-                    _buildProfessionDropdown(),
+                    _buildGenderDropdown(),
                     const SizedBox(height: 20),
-                    // Specialty Field
                     _buildTextField(
-                      label: 'Specialty',
-                      onChanged: (value) => specialty = value,
-                      validator: (value) => value!.isEmpty ? 'Specialty is required' : null,
+                      label: 'Age',
+                      onChanged: (value) {
+                        setState(() {
+                          age = value;
+                        });
+                      },
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value!.isEmpty) {
+                          return 'Age is required';
+                        } else if (!RegExp(r'^\d+$').hasMatch(value)) {
+                          return 'Age must be a number';
+                        } else if (int.tryParse(value)! >= 100) {
+                          return 'Age must be less than 100';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 20),
-                    // Email Field
                     _buildTextField(
                       label: 'Email',
-                      onChanged: (value) => email = value,
+                      onChanged: (value) {
+                        setState(() {
+                          email = value;
+                        });
+                      },
                       keyboardType: TextInputType.emailAddress,
-                      validator: (value) => value!.contains('@')
-                          ? null
-                          : 'Enter a valid email address',
+                      validator: (value) => value!.contains('@') ? null : 'Enter a valid email address',
                     ),
                     const SizedBox(height: 20),
-                    // Password Field
                     _buildTextField(
                       label: 'Password',
                       obscureText: obscurePassword,
-                      onChanged: (value) => password = value,
+                      onChanged: (value) {
+                        setState(() {
+                          password = value;
+                        });
+                      },
                       suffixIcon: _buildPasswordToggle(() {
                         setState(() => obscurePassword = !obscurePassword);
                       }),
-                      validator: (value) => value!.length < 6
-                          ? 'Password must be at least 6 characters'
-                          : null,
+                      validator: (value) => value!.length < 6 ? 'Password must be at least 6 characters' : null,
                     ),
                     const SizedBox(height: 20),
-                    // Confirm Password Field
                     _buildTextField(
                       label: 'Confirm Password',
                       obscureText: obscureConfirmPassword,
-                      onChanged: (value) => confirmPassword = value,
+                      onChanged: (value) {
+                        setState(() {
+                          confirmPassword = value;
+                        });
+                      },
                       suffixIcon: _buildPasswordToggle(() {
                         setState(() => obscureConfirmPassword = !obscureConfirmPassword);
                       }),
-                      validator: (value) => value != password
-                          ? 'Passwords do not match'
-                          : null,
+                      validator: (value) => value != password ? 'Passwords do not match' : null,
                     ),
                     const SizedBox(height: 35),
-                    // Register Button
                     Center(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
@@ -141,10 +190,23 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                           ),
                           backgroundColor: const Color(0xFF5C714C),
                         ),
-                        onPressed: () {
+                        onPressed: () async {
                           if (_formKey.currentState!.validate()) {
-                            // Handle registration logic here
+                            Map<String, String> specialistDetails = {
+                              'Full Name': fullName,
+                              'Age': age,
+                              'Email': email,
+                              'Password': password,
+                              'Confirm Password': confirmPassword,
+                              'Gender': gender,
+                            };
+                            await _saveSpecialistDetails(specialistDetails);
                             print('Registration successful');
+                            print('Registered Details: $specialistDetails');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => NoActivePatientsScreen()),
+                            );
                           }
                         },
                         child: const Text(
@@ -163,7 +225,6 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
     );
   }
 
-  // Build Text Field
   Widget _buildTextField({
     required String label,
     bool obscureText = false,
@@ -192,10 +253,9 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
     );
   }
 
-  // Build Profession Dropdown - Custom
-  Widget _buildProfessionDropdown() {
+  Widget _buildGenderDropdown() {
     return Container(
-      key: _professionKey, // Attach the key to the profession field
+      key: _genderKey,
       padding: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
         color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
@@ -203,53 +263,38 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
       ),
       child: GestureDetector(
         onTap: () async {
-          // Get the position of the profession input field
-          RenderBox renderBox = _professionKey.currentContext!.findRenderObject() as RenderBox;
-          Offset offset = renderBox.localToGlobal(Offset.zero); // Position of the field
+          RenderBox renderBox = _genderKey.currentContext!.findRenderObject() as RenderBox;
+          Offset offset = renderBox.localToGlobal(Offset.zero);
 
-          // Show custom dropdown menu positioned just below the profession field
-          String? selectedProfession = await showMenu<String>(
+          String? selectedGender = await showMenu<String>(
             context: context,
             position: RelativeRect.fromLTRB(
               offset.dx,
-              offset.dy + renderBox.size.height, // Position it right below the input field
+              offset.dy + renderBox.size.height,
               offset.dx + renderBox.size.width,
               offset.dy,
             ),
             items: [
-              PopupMenuItem<String>(
-                value: 'Doctor',
-                child: Text('Doctor'),
-              ),
-              PopupMenuItem<String>(
-                value: 'Nurse',
-                child: Text('Nurse'),
-              ),
-              PopupMenuItem<String>(
-                value: 'Technician',
-                child: Text('Technician'),
-              ),
+              PopupMenuItem<String>(value: 'Male', child: Text('Male')),
+              PopupMenuItem<String>(value: 'Female', child: Text('Female')),
             ],
           );
-          if (selectedProfession != null) {
+          if (selectedGender != null) {
             setState(() {
-              profession = selectedProfession;
+              gender = selectedGender;
             });
           }
         },
         child: InputDecorator(
-          decoration: InputDecoration(
-            // Removed labelText here
-            border: InputBorder.none,
-          ),
+          decoration: InputDecoration(border: InputBorder.none),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-               Text(profession.isEmpty ? 'Select Profession' : profession),
-               Padding(
-                 padding: const EdgeInsets.only(right: 6.0), // Adjust the margin here
-                 child: const Icon(Icons.arrow_drop_down),
-               ),
+              Text(gender.isEmpty ? 'Select Gender' : gender),
+              Padding(
+                padding: const EdgeInsets.only(right: 6.0),
+                child: const Icon(Icons.arrow_drop_down),
+              ),
             ],
           ),
         ),
@@ -257,7 +302,6 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
     );
   }
 
-  // Build Password Visibility Toggle
   Widget _buildPasswordToggle(VoidCallback onPressed) {
     return IconButton(
       icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),

@@ -3,6 +3,7 @@ import 'package:vitalsense/register_specialist.dart';
 
 import 'package:flutter/material.dart';
 import 'register_specialist.dart'; // Import the registration page
+import 'search_add_patient.dart';
 
 class SpecialistLogin extends StatelessWidget {
   const SpecialistLogin({Key? key}) : super(key: key);
@@ -212,7 +213,13 @@ class LoginButton extends StatelessWidget {
           ],
         ),
         child: ElevatedButton(
-          onPressed: () {},
+          onPressed: () {
+            // On button press, navigate to the search_add_patient.dart screen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const NoActivePatientsScreen()),
+            );
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             elevation: 0,

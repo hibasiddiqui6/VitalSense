@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:async'; // For delayed navigation
+import 'shirt_connection.dart'; // Import the page where you want to navigate after registration
 
 class PatientRegister extends StatefulWidget {
   const PatientRegister({Key? key}) : super(key: key);
@@ -20,8 +22,10 @@ class _PatientRegisterState extends State<PatientRegister> {
   bool obscureConfirmPassword = true;
 
   final _formKey = GlobalKey<FormState>(); // For form validation
-
   final GlobalKey _genderKey = GlobalKey(); // Key for the gender field to get its position
+
+  // A list to store the user details
+  List<String> userDetails = [];
 
   @override
   Widget build(BuildContext context) {
@@ -144,8 +148,26 @@ class _PatientRegisterState extends State<PatientRegister> {
                         ),
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
-                            // Handle registration logic here
-                            print('Registration successful');
+                            // Store the user input in the list
+                            userDetails.add(fullName);
+                            userDetails.add(email);
+                            userDetails.add(password);
+                            userDetails.add(gender);
+                            userDetails.add(age);
+
+                            // Print user details to the console (for debugging purposes)
+                            print('User Details: $userDetails');
+
+                            // Delay navigation by 3 seconds
+                            Future.delayed(const Duration(seconds: 3), () {
+                              // Navigate to the shirt_connection.dart page
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SmartShirtScreen(),
+                                ),
+                              );
+                            });
                           }
                         },
                         child: const Text(
