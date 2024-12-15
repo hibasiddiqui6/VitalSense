@@ -3,7 +3,7 @@ import 'login_patient.dart'; // Import the login page for user
 import 'login_specialist.dart'; // Import the login page for user
 
 class WelcomePage extends StatelessWidget {
-  const WelcomePage({Key? key}) : super(key: key);
+  const WelcomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +15,7 @@ class WelcomePage extends StatelessWidget {
           child: Container(
             width: 412, // Fixed width for the app
             constraints: BoxConstraints(
-              maxHeight: screenHeight, // Use full screen height responsively
+              maxHeight: screenHeight - 60 , // Use full screen height responsively
             ),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.black), // Optional: border for visibility
@@ -36,7 +36,7 @@ class WelcomePage extends StatelessWidget {
                 ),
                 // Content
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 38, vertical: 120),
+                  padding: const EdgeInsets.symmetric(horizontal: 38, vertical:90),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [

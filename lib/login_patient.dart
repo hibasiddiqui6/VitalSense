@@ -3,16 +3,18 @@ import 'register_patient.dart'; // Import the registration page
 import 'shirt_connection.dart'; // Import the shirt_connection.dart page
 
 class PatientLogin extends StatelessWidget {
-  const PatientLogin({Key? key}) : super(key: key);
+  const PatientLogin({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final maxHeight = MediaQuery.of(context).size.height;
+    // Get the height of the screen
+    double screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Center(
         child: FlexibleContainer(
-          maxHeight: maxHeight,
+          maxHeight: screenHeight - 60,
           child: SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(33, 30, 33, 135),
@@ -43,7 +45,7 @@ class FlexibleContainer extends StatelessWidget {
   final Widget child;
   final double maxHeight;
 
-  const FlexibleContainer({Key? key, required this.child, required this.maxHeight}) : super(key: key);
+  const FlexibleContainer({super.key, required this.child, required this.maxHeight});
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +68,7 @@ class FlexibleContainer extends StatelessWidget {
 
 /// Back Button Widget
 class BackButtonWidget extends StatelessWidget {
-  const BackButtonWidget({Key? key}) : super(key: key);
+  const BackButtonWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +86,7 @@ class BackButtonWidget extends StatelessWidget {
 
 /// Title Widget
 class TitleWidget extends StatelessWidget {
-  const TitleWidget({Key? key}) : super(key: key);
+  const TitleWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +104,7 @@ class TitleWidget extends StatelessWidget {
 
 /// Login Header
 class LoginHeader extends StatelessWidget {
-  const LoginHeader({Key? key}) : super(key: key);
+  const LoginHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +125,7 @@ class LoginHeader extends StatelessWidget {
 
 /// Login Form with input fields and login button
 class LoginForm extends StatelessWidget {
-  const LoginForm({Key? key}) : super(key: key);
+  const LoginForm({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -156,11 +158,11 @@ class InputField extends StatelessWidget {
   final bool obscureText;
 
   const InputField({
-    Key? key,
+    super.key,
     required this.labelText,
     required this.keyboardType,
     required this.obscureText,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +194,7 @@ class InputField extends StatelessWidget {
 
 /// Login Button Widget
 class LoginButton extends StatelessWidget {
-  const LoginButton({Key? key}) : super(key: key);
+  const LoginButton({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -252,7 +254,7 @@ class LoginButton extends StatelessWidget {
 
 /// Register Prompt Widget
 class RegisterPrompt extends StatelessWidget {
-  const RegisterPrompt({Key? key}) : super(key: key);
+  const RegisterPrompt({super.key});
 
   @override
   Widget build(BuildContext context) {

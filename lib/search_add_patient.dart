@@ -5,7 +5,7 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
 }
 
 class NoActivePatientsScreen extends StatefulWidget {
-  const NoActivePatientsScreen({Key? key}) : super(key: key);
+  const NoActivePatientsScreen({super.key});
 
   @override
   _NoActivePatientsScreenState createState() =>
@@ -55,7 +55,7 @@ class _NoActivePatientsScreenState extends State<NoActivePatientsScreen> {
       body: Center(
         child: Container(
           width: 412, // Fixed width for the center frame
-          height: screenHeight, // Adjust height to screen size (subtract appbar height)
+          height: screenHeight - 60, // Adjust height to screen size (subtract appbar height)
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0), // Padding inside the frame
           decoration: BoxDecoration(
             color: Colors.white, // Background color of the frame
@@ -73,7 +73,7 @@ class _NoActivePatientsScreenState extends State<NoActivePatientsScreen> {
             children: [
               // Custom AppBar inside the frame
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                padding: const EdgeInsets.fromLTRB(0,20.0,15,0),
                 child: Row(
                   children: [
                     IconButton(
@@ -85,6 +85,7 @@ class _NoActivePatientsScreenState extends State<NoActivePatientsScreen> {
                     Expanded(
                       child: Container(
                         height: 40,
+                       
                         decoration: BoxDecoration(
                           color: const Color(0xFFBFDCC3),
                           borderRadius: BorderRadius.circular(10),
@@ -93,7 +94,7 @@ class _NoActivePatientsScreenState extends State<NoActivePatientsScreen> {
                           children: [
                             Expanded(
                               child: Container(
-                                margin: const EdgeInsets.fromLTRB(10, 3, 0, 15),
+                                margin: const EdgeInsets.fromLTRB(20, 1, 50, 12),
                                 child: TextField(
                                   focusNode: _focusNode, // Attach the FocusNode
                                   decoration: const InputDecoration(
@@ -122,7 +123,7 @@ class _NoActivePatientsScreenState extends State<NoActivePatientsScreen> {
               const SizedBox(height: 30),
               // Main content below the AppBar, centered inside the frame
               Container(
-                margin: const EdgeInsets.fromLTRB(0, 150, 0, 0), // Add margin to the text
+                margin: const EdgeInsets.fromLTRB(0, 170, 0, 0), // Add margin to the text
                 child: const Text(
                   'No Active Patients',
                   style: TextStyle(
@@ -133,7 +134,7 @@ class _NoActivePatientsScreenState extends State<NoActivePatientsScreen> {
                 ),
               ),
               Container(
-                margin: const EdgeInsets.only(top: 20), // Add margin to the text
+                margin: const EdgeInsets.only(top: 0), // Add margin to the text
                 child: const Text(
                   'No readings to Display!',
                   style: TextStyle(

@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'search_add_patient.dart';
 
 class SpecialistRegister extends StatefulWidget {
-  const SpecialistRegister({Key? key}) : super(key: key);
+  const SpecialistRegister({super.key});
 
   @override
   _SpecialistRegisterState createState() => _SpecialistRegisterState();
@@ -62,14 +62,14 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
       body: Center(
         child: Container(
           width: 412,
-          height: MediaQuery.of(context).size.height,
+          height: MediaQuery.of(context).size.height - 60,
           decoration: BoxDecoration(
             color: const Color(0xFFFBFBF4),
             borderRadius: BorderRadius.circular(20),
           ),
           child: SingleChildScrollView(
             child: Container(
-              padding: const EdgeInsets.fromLTRB(33, 25, 33, 65),
+              padding: const EdgeInsets.fromLTRB(33, 0, 33, 20),
               decoration: BoxDecoration(
                 color: const Color.fromARGB(255, 206, 226, 206),
                 borderRadius: BorderRadius.circular(20),
@@ -80,7 +80,7 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      margin: const EdgeInsets.fromLTRB(10, 55, 0, 0),
+                      margin: const EdgeInsets.fromLTRB(10, 75, 0, 0),
                       child: IconButton(
                         icon: const Icon(Icons.arrow_back),
                         onPressed: () {

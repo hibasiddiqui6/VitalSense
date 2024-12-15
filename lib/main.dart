@@ -6,7 +6,7 @@ void main() {
 }
 
 class VitalSenseApp extends StatelessWidget {
-  const VitalSenseApp({Key? key}) : super(key: key);
+  const VitalSenseApp({super.key});
 
   @override
   Widget build(BuildContext context) {

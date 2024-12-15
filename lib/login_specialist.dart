@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:vitalsense/register_specialist.dart';
-
-import 'package:flutter/material.dart';
-import 'register_specialist.dart'; // Import the registration page
+import 'package:vitalsense/register_specialist.dart';  // Import the registration page
 import 'search_add_patient.dart';
 
 class SpecialistLogin extends StatelessWidget {
-  const SpecialistLogin({Key? key}) : super(key: key);
+  const SpecialistLogin({super.key});
 
   @override
   Widget build(BuildContext context) {
+    
     return Scaffold(
       body: Center(
         child: FixedContainer(
@@ -41,13 +39,14 @@ class SpecialistLogin extends StatelessWidget {
 /// FixedContainer for the background and layout constraints
 class FixedContainer extends StatelessWidget {
   final Widget child;
-  const FixedContainer({Key? key, required this.child}) : super(key: key);
+  const FixedContainer({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height; // Get the screen height
     return Container(
       width: 412,
-      height: 850,
+      height: screenHeight - 60,
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 206, 226, 206),
         borderRadius: BorderRadius.circular(20),
@@ -59,7 +58,7 @@ class FixedContainer extends StatelessWidget {
 
 /// Back Button Widget
 class BackButtonWidget extends StatelessWidget {
-  const BackButtonWidget({Key? key}) : super(key: key);
+  const BackButtonWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +76,7 @@ class BackButtonWidget extends StatelessWidget {
 
 /// Title Widget
 class TitleWidget extends StatelessWidget {
-  const TitleWidget({Key? key}) : super(key: key);
+  const TitleWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +94,7 @@ class TitleWidget extends StatelessWidget {
 
 /// Login Header
 class LoginHeader extends StatelessWidget {
-  const LoginHeader({Key? key}) : super(key: key);
+  const LoginHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +115,7 @@ class LoginHeader extends StatelessWidget {
 
 /// Login Form with input fields and login button
 class LoginForm extends StatelessWidget {
-  const LoginForm({Key? key}) : super(key: key);
+  const LoginForm({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -149,11 +148,11 @@ class InputField extends StatelessWidget {
   final bool obscureText;
 
   const InputField({
-    Key? key,
+    super.key,
     required this.labelText,
     required this.keyboardType,
     required this.obscureText,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +184,7 @@ class InputField extends StatelessWidget {
 
 /// Login Button Widget
 class LoginButton extends StatelessWidget {
-  const LoginButton({Key? key}) : super(key: key);
+  const LoginButton({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -245,7 +244,7 @@ class LoginButton extends StatelessWidget {
 
 /// Register Prompt Widget
 class RegisterPrompt extends StatelessWidget {
-  const RegisterPrompt({Key? key}) : super(key: key);
+  const RegisterPrompt({super.key});
 
   @override
   Widget build(BuildContext context) {

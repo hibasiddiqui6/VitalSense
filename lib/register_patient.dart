@@ -3,7 +3,7 @@ import 'dart:async'; // For delayed navigation
 import 'shirt_connection.dart'; // Import the page where you want to navigate after registration
 
 class PatientRegister extends StatefulWidget {
-  const PatientRegister({Key? key}) : super(key: key);
+  const PatientRegister({super.key});
 
   @override
   _PatientRegisterState createState() => _PatientRegisterState();
@@ -33,14 +33,14 @@ class _PatientRegisterState extends State<PatientRegister> {
       body: Center(
         child: Container(
           width: 412, // Fixed width
-          height: MediaQuery.of(context).size.height, // Full screen height
+          height: MediaQuery.of(context).size.height - 60, // Full screen height
           decoration: BoxDecoration(
             color: const Color(0xFFFBFBF4), // Sky green background color for the fixed frame size
             borderRadius: BorderRadius.circular(20), // Optional: curve the corners of the container
           ),
           child: SingleChildScrollView(
             child: Container(
-              padding: const EdgeInsets.fromLTRB(33, 25, 33, 65),
+              padding: const EdgeInsets.fromLTRB(33, 0, 33, 20),
               decoration: BoxDecoration(
                 color: const Color.fromARGB(255, 206, 226, 206),
                 borderRadius: BorderRadius.circular(20),
@@ -52,7 +52,7 @@ class _PatientRegisterState extends State<PatientRegister> {
                   children: [
                     // Back Button
                     Container(
-                      margin: const EdgeInsets.fromLTRB(10, 55, 0, 0),
+                      margin: const EdgeInsets.fromLTRB(10, 75, 0, 0),
                       child: IconButton(
                         icon: const Icon(Icons.arrow_back),
                         onPressed: () {
@@ -86,7 +86,15 @@ class _PatientRegisterState extends State<PatientRegister> {
                     _buildTextField(
                       label: 'Full Name',
                       onChanged: (value) => fullName = value,
-                      validator: (value) => value!.isEmpty ? 'Name is required' : null,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Name is required';
+                        }
+                        if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(value)) {
+                          return 'Name must contain only letters and spaces';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 20),
                     // Gender Dropdown - Custom
@@ -97,7 +105,19 @@ class _PatientRegisterState extends State<PatientRegister> {
                       label: 'Age',
                       onChanged: (value) => age = value,
                       keyboardType: TextInputType.number,
-                      validator: (value) => value!.isEmpty ? 'Age is required' : null,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Age is required';
+                        }
+                        if (!RegExp(r"^\d+$").hasMatch(value)) {
+                          return 'Age must be a number';
+                        }
+                        int ageValue = int.parse(value);
+                        if (ageValue < 0 || ageValue > 100) {
+                          return 'Age must be between 0 and 100';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 20),
                     // Email Field
@@ -105,9 +125,15 @@ class _PatientRegisterState extends State<PatientRegister> {
                       label: 'Email',
                       onChanged: (value) => email = value,
                       keyboardType: TextInputType.emailAddress,
-                      validator: (value) => value!.contains('@')
-                          ? null
-                          : 'Enter a valid email address',
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Email is required';
+                        }
+                        if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(value)) {
+                          return 'Enter a valid email address';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 20),
                     // Password Field
@@ -135,7 +161,7 @@ class _PatientRegisterState extends State<PatientRegister> {
                           ? 'Passwords do not match'
                           : null,
                     ),
-                    const SizedBox(height: 35),
+                    const SizedBox(height: 25),
                     // Register Button
                     Center(
                       child: ElevatedButton(
@@ -216,64 +242,67 @@ class _PatientRegisterState extends State<PatientRegister> {
   }
 
   // Build Gender Dropdown - Custom
-  Widget _buildGenderDropdown() {
-    return Container(
-      key: _genderKey, // Attach the key to the gender field
-      padding: const EdgeInsets.symmetric(horizontal: 15),
-      decoration: BoxDecoration(
-        color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: GestureDetector(
-        onTap: () async {
-          // Get the position of the gender input field
-          RenderBox renderBox = _genderKey.currentContext!.findRenderObject() as RenderBox;
-          Offset offset = renderBox.localToGlobal(Offset.zero); // Position of the field
+Widget _buildGenderDropdown() {
+  return Container(
+    key: _genderKey, // Attach the key to the gender field
+    padding: const EdgeInsets.symmetric(horizontal: 15),
+    decoration: BoxDecoration(
+      color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: GestureDetector(
+      onTap: () async {
+        // Get the position of the gender input field
+        RenderBox renderBox = _genderKey.currentContext!.findRenderObject() as RenderBox;
+        Offset offset = renderBox.localToGlobal(Offset.zero); // Position of the field
 
-          // Show custom dropdown menu positioned just below the gender field
-          String? selectedGender = await showMenu<String>(
-            context: context,
-            position: RelativeRect.fromLTRB(
-              offset.dx,
-              offset.dy + renderBox.size.height, // Position it right below the input field
-              offset.dx + renderBox.size.width,
-              offset.dy,
-            ),
-            items: [
-              PopupMenuItem<String>(value: 'Male', child: Text('Male')),
-              PopupMenuItem<String>(value: 'Female', child: Text('Female')),
-            ],
-          );
-          if (selectedGender != null) {
-            setState(() {
-              gender = selectedGender;
-            });
-          }
-        },
-        child: InputDecorator(
-          decoration: InputDecoration(
-            // Removed labelText here
-            border: InputBorder.none,
+        // Show custom dropdown menu positioned just below the gender field
+        String? selectedGender = await showMenu<String>(
+          context: context,
+          position: RelativeRect.fromLTRB(
+            offset.dx,
+            offset.dy + renderBox.size.height, // Position it right below the input field
+            offset.dx + renderBox.size.width,
+            offset.dy,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(gender.isEmpty ? 'Select Gender' : gender),
-              Padding(
-                padding: const EdgeInsets.only(right: 6.0), // Adjust the margin here
-                child: const Icon(Icons.arrow_drop_down),
+          items: [
+            const PopupMenuItem<String>(value: 'Male', child: Text('Male')),
+            const PopupMenuItem<String>(value: 'Female', child: Text('Female')),
+          ],
+        );
+        if (selectedGender != null) {
+          setState(() {
+            gender = selectedGender;
+          });
+        }
+      },
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              gender.isEmpty ? 'Select Gender' : gender,
+              style: TextStyle(
+                color: gender.isEmpty ? Colors.grey : Colors.black,
+                fontWeight: FontWeight.bold,
               ),
-            ],
-          ),
+            ),
+            const Icon(Icons.arrow_drop_down),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  // Build Password Visibility Toggle
+
+  // Build Password Toggle Button
   Widget _buildPasswordToggle(VoidCallback onPressed) {
     return IconButton(
-      icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),
+      icon: const Icon(Icons.remove_red_eye),
       onPressed: onPressed,
     );
   }
