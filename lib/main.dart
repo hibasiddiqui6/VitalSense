@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'welcome_page.dart'; // Import the welcome page
+import 'Modules/welcome_page.dart'; // Import the welcome page
 
 void main() {
   runApp(const VitalSenseApp());
