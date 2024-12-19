@@ -1,75 +1,45 @@
-import 'dart:convert'; // For JSON encoding and decoding
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'search_add_patient.dart';
+
+// Global list to store user details
+List<Map<String, String>> userDetailsList = [];
 
 class SpecialistRegister extends StatefulWidget {
-  const SpecialistRegister({super.key});
+  const SpecialistRegister({Key? key}) : super(key: key);
 
   @override
   _SpecialistRegisterState createState() => _SpecialistRegisterState();
 }
 
 class _SpecialistRegisterState extends State<SpecialistRegister> {
+  // Define variables for each input
   String fullName = '';
   String email = '';
   String password = '';
   String confirmPassword = '';
-  String gender = '';
-  String age = '';
+  String profession = '';
+  String specialty = '';
 
   bool obscurePassword = true;
   bool obscureConfirmPassword = true;
 
-  final _formKey = GlobalKey<FormState>();
-  final GlobalKey _genderKey = GlobalKey();
+  final _formKey = GlobalKey<FormState>(); // For form validation
 
-  // Define a function to store data persistently
-  Future<void> _saveSpecialistDetails(Map<String, String> specialistDetails) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    // Load the existing specialists list
-    List<String> specialistsList = prefs.getStringList('specialists') ?? [];
-
-    // Convert the specialist details map to a JSON string
-    String specialistJson = jsonEncode(specialistDetails);
-
-    // Add the new specialist to the list
-    specialistsList.add(specialistJson);
-
-    // Save the updated list back to SharedPreferences
-    await prefs.setStringList('specialists', specialistsList);
-  }
-
-  // Define a function to load the specialist details
-  Future<List<Map<String, String>>> _loadSpecialistDetails() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> specialistsList = prefs.getStringList('specialists') ?? [];
-    List<Map<String, String>> detailsList = [];
-
-    // Convert the JSON strings back to maps
-    for (String specialistJson in specialistsList) {
-      Map<String, String> specialist = Map<String, String>.from(jsonDecode(specialistJson));
-      detailsList.add(specialist);
-    }
-
-    return detailsList;
-  }
+  final GlobalKey _professionKey = GlobalKey(); // Key for the profession field to get its position
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
         child: Container(
-          width: 412,
-          height: MediaQuery.of(context).size.height - 60,
+          width: 412, // Fixed width
+          height: MediaQuery.of(context).size.height, // Full screen height
           decoration: BoxDecoration(
-            color: const Color(0xFFFBFBF4),
-            borderRadius: BorderRadius.circular(20),
+            color: const Color(0xFFFBFBF4), // Sky green background color for the fixed frame size
+            borderRadius: BorderRadius.circular(20), // Optional: curve the corners of the container
           ),
           child: SingleChildScrollView(
             child: Container(
-              padding: const EdgeInsets.fromLTRB(33, 0, 33, 20),
+              padding: const EdgeInsets.fromLTRB(33, 25, 33, 65),
               decoration: BoxDecoration(
                 color: const Color.fromARGB(255, 206, 226, 206),
                 borderRadius: BorderRadius.circular(20),
@@ -79,12 +49,13 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Back Button
                     Container(
-                      margin: const EdgeInsets.fromLTRB(10, 75, 0, 0),
+                      margin: const EdgeInsets.fromLTRB(10, 55, 0, 0),
                       child: IconButton(
                         icon: const Icon(Icons.arrow_back),
                         onPressed: () {
-                          Navigator.pop(context);
+                          Navigator.pop(context); // Navigate back to the previous screen
                         },
                       ),
                     ),
@@ -110,77 +81,60 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                       ),
                     ),
                     const SizedBox(height: 25),
+                    // Full Name Field
                     _buildTextField(
                       label: 'Full Name',
-                      onChanged: (value) {
-                        setState(() {
-                          fullName = value;
-                        });
-                      },
+                      onChanged: (value) => fullName = value,
                       validator: (value) => value!.isEmpty ? 'Name is required' : null,
                     ),
                     const SizedBox(height: 20),
-                    _buildGenderDropdown(),
+                    // Profession Dropdown - Custom
+                    _buildProfessionDropdown(),
                     const SizedBox(height: 20),
+                    // Specialty Field
                     _buildTextField(
-                      label: 'Age',
-                      onChanged: (value) {
-                        setState(() {
-                          age = value;
-                        });
-                      },
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value!.isEmpty) {
-                          return 'Age is required';
-                        } else if (!RegExp(r'^\d+$').hasMatch(value)) {
-                          return 'Age must be a number';
-                        } else if (int.tryParse(value)! >= 100) {
-                          return 'Age must be less than 100';
-                        }
-                        return null;
-                      },
+                      label: 'Specialty',
+                      onChanged: (value) => specialty = value,
+                      validator: (value) => value!.isEmpty ? 'Specialty is required' : null,
                     ),
                     const SizedBox(height: 20),
+                    // Email Field
                     _buildTextField(
                       label: 'Email',
-                      onChanged: (value) {
-                        setState(() {
-                          email = value;
-                        });
-                      },
+                      onChanged: (value) => email = value,
                       keyboardType: TextInputType.emailAddress,
-                      validator: (value) => value!.contains('@') ? null : 'Enter a valid email address',
+                      validator: (value) => value!.contains('@')
+                          ? null
+                          : 'Enter a valid email address',
                     ),
                     const SizedBox(height: 20),
+                    // Password Field
                     _buildTextField(
                       label: 'Password',
                       obscureText: obscurePassword,
-                      onChanged: (value) {
-                        setState(() {
-                          password = value;
-                        });
-                      },
+                      onChanged: (value) => password = value,
                       suffixIcon: _buildPasswordToggle(() {
                         setState(() => obscurePassword = !obscurePassword);
                       }),
-                      validator: (value) => value!.length < 6 ? 'Password must be at least 6 characters' : null,
+                      validator: (value) => value!.length < 6
+                          ? 'Password must be at least 6 characters'
+                          : null,
                     ),
                     const SizedBox(height: 20),
+                    // Confirm Password Field
                     _buildTextField(
                       label: 'Confirm Password',
                       obscureText: obscureConfirmPassword,
-                      onChanged: (value) {
-                        setState(() {
-                          confirmPassword = value;
-                        });
-                      },
+                      onChanged: (value) => confirmPassword = value,
                       suffixIcon: _buildPasswordToggle(() {
                         setState(() => obscureConfirmPassword = !obscureConfirmPassword);
                       }),
-                      validator: (value) => value != password ? 'Passwords do not match' : null,
+                      validator: (value) => value != password
+                          ? 'Passwords do not match'
+                          : null,
                     ),
                     const SizedBox(height: 35),
+                    // Register Button
                     Center(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
@@ -190,23 +144,18 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                           ),
                           backgroundColor: const Color(0xFF5C714C),
                         ),
-                        onPressed: () async {
+                        onPressed: () {
                           if (_formKey.currentState!.validate()) {
-                            Map<String, String> specialistDetails = {
-                              'Full Name': fullName,
-                              'Age': age,
-                              'Email': email,
-                              'Password': password,
-                              'Confirm Password': confirmPassword,
-                              'Gender': gender,
-                            };
-                            await _saveSpecialistDetails(specialistDetails);
+                            // Append user details to the global list
+                            userDetailsList.add({
+                              'fullName': fullName,
+                              'email': email,
+                              'password': password,
+                              'profession': profession,
+                              'specialty': specialty,
+                            });
                             print('Registration successful');
-                            print('Registered Details: $specialistDetails');
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => NoActivePatientsScreen()),
-                            );
+                            print('Registered Users: $userDetailsList');
                           }
                         },
                         child: const Text(
@@ -225,6 +174,7 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
     );
   }
 
+  // Build Text Field
   Widget _buildTextField({
     required String label,
     bool obscureText = false,
@@ -253,9 +203,10 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
     );
   }
 
-  Widget _buildGenderDropdown() {
+  // Build Profession Dropdown - Custom
+  Widget _buildProfessionDropdown() {
     return Container(
-      key: _genderKey,
+      key: _professionKey, // Attach the key to the profession field
       padding: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
         color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
@@ -263,10 +214,10 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
       ),
       child: GestureDetector(
         onTap: () async {
-          RenderBox renderBox = _genderKey.currentContext!.findRenderObject() as RenderBox;
+          RenderBox renderBox = _professionKey.currentContext!.findRenderObject() as RenderBox;
           Offset offset = renderBox.localToGlobal(Offset.zero);
 
-          String? selectedGender = await showMenu<String>(
+          String? selectedProfession = await showMenu<String>(
             context: context,
             position: RelativeRect.fromLTRB(
               offset.dx,
@@ -275,13 +226,14 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
               offset.dy,
             ),
             items: [
-              PopupMenuItem<String>(value: 'Male', child: Text('Male')),
-              PopupMenuItem<String>(value: 'Female', child: Text('Female')),
+              PopupMenuItem<String>(value: 'Doctor', child: Text('Doctor')),
+              PopupMenuItem<String>(value: 'Nurse', child: Text('Nurse')),
+              PopupMenuItem<String>(value: 'Technician', child: Text('Technician')),
             ],
           );
-          if (selectedGender != null) {
+          if (selectedProfession != null) {
             setState(() {
-              gender = selectedGender;
+              profession = selectedProfession;
             });
           }
         },
@@ -290,11 +242,8 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(gender.isEmpty ? 'Select Gender' : gender),
-              Padding(
-                padding: const EdgeInsets.only(right: 6.0),
-                child: const Icon(Icons.arrow_drop_down),
-              ),
+              Text(profession.isEmpty ? 'Select Profession' : profession),
+              const Icon(Icons.arrow_drop_down),
             ],
           ),
         ),
@@ -302,6 +251,7 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
     );
   }
 
+  // Build Password Visibility Toggle
   Widget _buildPasswordToggle(VoidCallback onPressed) {
     return IconButton(
       icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),
