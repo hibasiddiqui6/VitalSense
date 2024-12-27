@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'register_patient.dart'; // Import the registration page
 import 'patient_landingPage.dart'; // Import the shirt_connection.dart page
 import 'package:vitalsense/services/api_client.dart'; // Import the ApiClient for login functionality
+import 'package:google_fonts/google_fonts.dart';
 
 class PatientLogin extends StatefulWidget {
   const PatientLogin({super.key});
@@ -18,13 +19,20 @@ class _PatientLoginState extends State<PatientLogin> {
 
   // Function to handle login
   Future<void> _login() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorMessage = 'Email and password cannot be empty.';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
-    final email = _emailController.text;
-    final password = _passwordController.text;
 
     // Call the login API
     final apiClient = ApiClient();
@@ -53,41 +61,52 @@ class _PatientLoginState extends State<PatientLogin> {
     double screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.white,
       body: Center(
-        child: FlexibleContainer(
-          maxHeight: screenHeight - 60,
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(33, 30, 33, 135),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const BackButtonWidget(),
-                  const SizedBox(height: 36),
-                  const Center(child: TitleWidget()),
-                  const SizedBox(height: 65),
-                  const LoginHeader(),
-                  const SizedBox(height: 18),
-                  LoginForm(
-                    emailController: _emailController,
-                    passwordController: _passwordController,
-                  ),
-                  const SizedBox(height: 35),
-                  if (_errorMessage != null) ...[
-                    Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red, fontSize: 16),
+        child: AnimatedOpacity(
+          opacity: 1.0,
+          duration: const Duration(seconds: 10),
+          child: Container(
+            width: 412,
+            height: 800, // Fixed height for the Google Pixel 9 frame
+            decoration: BoxDecoration(
+              color: const Color.fromARGB(255, 174, 238, 123),
+              borderRadius: BorderRadius.circular(45),
+              border: Border.all(width: 5, color: Colors.black), // Border width 5
+            ),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(33, 30, 33, 135),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const BackButtonWidget(),
+                    const SizedBox(height: 36),
+                    const Center(child: TitleWidget()),
+                    const SizedBox(height: 65),
+                    const LoginHeader(),
+                    const SizedBox(height: 18),
+                    LoginForm(
+                      emailController: _emailController,
+                      passwordController: _passwordController,
                     ),
+                    const SizedBox(height: 35),
+                    if (_errorMessage != null) ...[
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red, fontSize: 16),
+                      ),
+                    ],
+                    const SizedBox(height: 35),
+                    LoginButton(
+                      isLoading: _isLoading,
+                      onPressed: _login,
+                    ),
+                    const SizedBox(height: 57),
+                    const RegisterPrompt(),
+                    const SizedBox(height: 30),
                   ],
-                  const SizedBox(height: 57),
-                  const RegisterPrompt(),
-                  const SizedBox(height: 30),
-                  LoginButton(
-                    isLoading: _isLoading,
-                    onPressed: _login,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -147,13 +166,11 @@ class TitleWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
+    return  Text(
       'VitalSense',
-      style: TextStyle(
+      style: GoogleFonts.lato(
         color: Color(0xFF373737),
         fontSize: 32,
-        fontWeight: FontWeight.w700,
-        fontFamily: 'Inter',
       ),
     );
   }
@@ -166,7 +183,7 @@ class LoginHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.only(left: 19),
+      padding: EdgeInsets.only(left: 25),
       child: Text(
         'Login as a Patient',
         style: TextStyle(
@@ -196,18 +213,24 @@ class LoginForm extends StatelessWidget {
     return Form(
       child: Column(
         children: [
-          InputField(
-            controller: emailController,
-            labelText: 'Email',
-            keyboardType: TextInputType.emailAddress,
-            obscureText: false,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: InputField(
+              controller: emailController,
+              labelText: 'Email',
+              keyboardType: TextInputType.emailAddress,
+              obscureText: false,
+            ),
           ),
           const SizedBox(height: 18),
-          InputField(
-            controller: passwordController,
-            labelText: 'Password',
-            keyboardType: TextInputType.text,
-            obscureText: true,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: InputField(
+              controller: passwordController,
+              labelText: 'Password',
+              keyboardType: TextInputType.text,
+              obscureText: true,
+            ),
           ),
         ],
       ),
@@ -235,7 +258,7 @@ class InputField extends StatelessWidget {
     return Container(
       height: 55,
       width: 312,
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
         borderRadius: BorderRadius.circular(15),
@@ -273,15 +296,15 @@ class LoginButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 11),
+      padding: const EdgeInsets.only(left: 15),
       child: Container(
-        width: 312,
+        width: 300,
         height: 50,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: const LinearGradient(
             colors: [
-              Color(0xFF5C714C),
+              Color.fromARGB(255, 191, 252, 144),
               Color(0xFFFBFBF4),
             ],
             begin: Alignment.topLeft,
@@ -353,8 +376,9 @@ class RegisterPrompt extends StatelessWidget {
             child: const Text(
               'Register',
               style: TextStyle(
-                color: Color(0xFF3E3838),
-                fontSize: 18,
+                color: Color(0xFF5764A9),
+                fontSize: 19,
+                fontWeight: FontWeight.w500,
                 fontFamily: 'Inter',
               ),
             ),
