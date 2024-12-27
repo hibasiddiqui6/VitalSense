@@ -1,19 +1,65 @@
 import 'package:flutter/material.dart';
-import 'package:vitalsense/Modules/register_specialist.dart';  // Import the registration page
-import 'search_add_patient.dart';
+import 'register_specialist.dart'; // Import the registration page
+import 'specialist_landingPage.dart'; // Import the shirt_connection.dart page
+import 'package:vitalsense/services/api_client.dart'; // Import the ApiClient for login functionality
 
-class SpecialistLogin extends StatelessWidget {
+class SpecialistLogin extends StatefulWidget {
   const SpecialistLogin({super.key});
 
   @override
+  _SpecialistLoginState createState() => _SpecialistLoginState();
+}
+
+class _SpecialistLoginState extends State<SpecialistLogin> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  // Function to handle login
+  Future<void> _login() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final email = _emailController.text;
+    final password = _passwordController.text;
+
+    // Call the login API
+    final apiClient = ApiClient();
+    final response = await apiClient.loginSpecialist(email, password);
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (response.containsKey('error')) {
+      setState(() {
+        _errorMessage = response['error'];
+      });
+    } else {
+      // Successful login
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const NoActivePatientsScreen()), // Navigate to Add Patient
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    
+    // Get the height of the screen
+    double screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Center(
-        child: FixedContainer(
+        child: FlexibleContainer(
+          maxHeight: screenHeight - 60,
           child: SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(33, 10, 33, 150),
+              padding: const EdgeInsets.fromLTRB(33, 30, 33, 135),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -23,9 +69,24 @@ class SpecialistLogin extends StatelessWidget {
                   const SizedBox(height: 65),
                   const LoginHeader(),
                   const SizedBox(height: 18),
-                  const LoginForm(),
+                  LoginForm(
+                    emailController: _emailController,
+                    passwordController: _passwordController,
+                  ),
+                  const SizedBox(height: 35),
+                  if (_errorMessage != null) ...[
+                    Text(
+                      _errorMessage!,
+                      style: const TextStyle(color: Colors.red, fontSize: 16),
+                    ),
+                  ],
                   const SizedBox(height: 57),
                   const RegisterPrompt(),
+                  const SizedBox(height: 30),
+                  LoginButton(
+                    isLoading: _isLoading,
+                    onPressed: _login,
+                  ),
                 ],
               ),
             ),
@@ -36,22 +97,28 @@ class SpecialistLogin extends StatelessWidget {
   }
 }
 
-/// FixedContainer for the background and layout constraints
-class FixedContainer extends StatelessWidget {
+/// FlexibleContainer for the background and layout constraints
+class FlexibleContainer extends StatelessWidget {
   final Widget child;
-  const FixedContainer({super.key, required this.child});
+  final double maxHeight;
+
+  const FlexibleContainer({super.key, required this.child, required this.maxHeight});
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height; // Get the screen height
-    return Container(
-      width: 412,
-      height: screenHeight - 60,
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 206, 226, 206),
-        borderRadius: BorderRadius.circular(20),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: 412, // Fixed width
+        maxHeight: maxHeight,
       ),
-      child: child,
+      child: Container(
+        width: double.infinity, // Ensures the container takes the max width
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 206, 226, 206),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: child,
+      ),
     );
   }
 }
@@ -63,7 +130,7 @@ class BackButtonWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(10, 69, 0, 0),
+      margin: const EdgeInsets.fromLTRB(10, 49, 0, 0),
       child: IconButton(
         icon: const Icon(Icons.arrow_back),
         onPressed: () {
@@ -101,7 +168,7 @@ class LoginHeader extends StatelessWidget {
     return const Padding(
       padding: EdgeInsets.only(left: 19),
       child: Text(
-        'Login as a Specialist',
+        'Login as a Healthcare Specialist',
         style: TextStyle(
           color: Color(0xFF373737),
           fontSize: 24,
@@ -113,28 +180,35 @@ class LoginHeader extends StatelessWidget {
   }
 }
 
-/// Login Form with input fields and login button
+/// Login Form with input fields
 class LoginForm extends StatelessWidget {
-  const LoginForm({super.key});
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+
+  const LoginForm({
+    super.key,
+    required this.emailController,
+    required this.passwordController,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Form(
       child: Column(
         children: [
-          const InputField(
+          InputField(
+            controller: emailController,
             labelText: 'Email',
             keyboardType: TextInputType.emailAddress,
             obscureText: false,
           ),
           const SizedBox(height: 18),
-          const InputField(
+          InputField(
+            controller: passwordController,
             labelText: 'Password',
             keyboardType: TextInputType.text,
             obscureText: true,
           ),
-          const SizedBox(height: 35),
-          const LoginButton(),
         ],
       ),
     );
@@ -143,12 +217,14 @@ class LoginForm extends StatelessWidget {
 
 /// Input Field Widget
 class InputField extends StatelessWidget {
+  final TextEditingController controller;
   final String labelText;
   final TextInputType keyboardType;
   final bool obscureText;
 
   const InputField({
     super.key,
+    required this.controller,
     required this.labelText,
     required this.keyboardType,
     required this.obscureText,
@@ -165,6 +241,7 @@ class InputField extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
       ),
       child: TextFormField(
+        controller: controller,
         decoration: InputDecoration(
           labelText: labelText,
           floatingLabelBehavior: FloatingLabelBehavior.auto,
@@ -184,7 +261,14 @@ class InputField extends StatelessWidget {
 
 /// Login Button Widget
 class LoginButton extends StatelessWidget {
-  const LoginButton({super.key});
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  const LoginButton({
+    super.key,
+    required this.isLoading,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -212,13 +296,7 @@ class LoginButton extends StatelessWidget {
           ],
         ),
         child: ElevatedButton(
-          onPressed: () {
-            // On button press, navigate to the search_add_patient.dart screen
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const NoActivePatientsScreen()),
-            );
-          },
+          onPressed: isLoading ? null : onPressed,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             elevation: 0,
@@ -227,15 +305,19 @@ class LoginButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(50),
             ),
           ),
-          child: const Text(
-            'Log in',
-            style: TextStyle(
-              color: Color(0xFF434242),
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'Inter',
-            ),
-          ),
+          child: isLoading
+              ? const CircularProgressIndicator(
+                  color: Color(0xFF434242),
+                )
+              : const Text(
+                  'Log in',
+                  style: TextStyle(
+                    color: Color(0xFF434242),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Inter',
+                  ),
+                ),
         ),
       ),
     );

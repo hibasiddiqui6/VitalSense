@@ -1,7 +1,7 @@
-import 'dart:convert'; // For JSON encoding and decoding
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'search_add_patient.dart';
+import 'dart:async'; // For delayed navigation
+import 'specialist_landingPage.dart';
+import 'package:vitalsense/services/api_client.dart';  // Import ApiClient for API interaction
 
 class SpecialistRegister extends StatefulWidget {
   const SpecialistRegister({super.key});
@@ -15,50 +15,23 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
   String email = '';
   String password = '';
   String confirmPassword = '';
-  String gender = '';
-  String age = '';
+  String profession = '';
+  String speciality = '';
 
   bool obscurePassword = true;
   bool obscureConfirmPassword = true;
 
   final _formKey = GlobalKey<FormState>();
-  final GlobalKey _genderKey = GlobalKey();
+  final GlobalKey _professionKey = GlobalKey();
+  final GlobalKey _specialityKey = GlobalKey();
 
-  // Define a function to store data persistently
-  Future<void> _saveSpecialistDetails(Map<String, String> specialistDetails) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    // Load the existing specialists list
-    List<String> specialistsList = prefs.getStringList('specialists') ?? [];
-
-    // Convert the specialist details map to a JSON string
-    String specialistJson = jsonEncode(specialistDetails);
-
-    // Add the new specialist to the list
-    specialistsList.add(specialistJson);
-
-    // Save the updated list back to SharedPreferences
-    await prefs.setStringList('specialists', specialistsList);
-  }
-
-  // Define a function to load the specialist details
-  Future<List<Map<String, String>>> _loadSpecialistDetails() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> specialistsList = prefs.getStringList('specialists') ?? [];
-    List<Map<String, String>> detailsList = [];
-
-    // Convert the JSON strings back to maps
-    for (String specialistJson in specialistsList) {
-      Map<String, String> specialist = Map<String, String>.from(jsonDecode(specialistJson));
-      detailsList.add(specialist);
-    }
-
-    return detailsList;
-  }
+  // A list to store the user details
+  List<String> specialistDetails= [];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Center(
         child: Container(
           width: 412,
@@ -120,26 +93,34 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                       validator: (value) => value!.isEmpty ? 'Name is required' : null,
                     ),
                     const SizedBox(height: 20),
-                    _buildGenderDropdown(),
-                    const SizedBox(height: 20),
-                    _buildTextField(
-                      label: 'Age',
+                    _buildDropdownField(
+                      key: _professionKey,
+                      label: 'Profession',
+                      value: profession,
+                      options: ['Doctor', 'Nurse', 'Other'],
                       onChanged: (value) {
                         setState(() {
-                          age = value;
+                          profession = value;
+                          speciality = ''; // Reset speciality when profession changes
                         });
                       },
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value!.isEmpty) {
-                          return 'Age is required';
-                        } else if (!RegExp(r'^\d+$').hasMatch(value)) {
-                          return 'Age must be a number';
-                        } else if (int.tryParse(value)! >= 100) {
-                          return 'Age must be less than 100';
-                        }
-                        return null;
+                    ),
+                    const SizedBox(height: 20),
+                    _buildDropdownField(
+                      key: _specialityKey,
+                      label: 'Speciality',
+                      value: speciality,
+                      options: profession == 'Doctor'
+                          ? ['Cardiology', 'Neurology', 'Pediatrics', 'General Physician', 'Other']
+                          : profession == 'Nurse'
+                              ? ['General Care', 'Surgical Assistance', 'Pediatrics', 'Other']
+                              : ['Other'],
+                      onChanged: (value) {
+                        setState(() {
+                          speciality = value;
+                        });
                       },
+                      enabled: profession == 'Doctor' || profession == 'Nurse',
                     ),
                     const SizedBox(height: 20),
                     _buildTextField(
@@ -192,23 +173,46 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                         ),
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
-                            Map<String, String> specialistDetails = {
-                              'Full Name': fullName,
-                              'Age': age,
-                              'Email': email,
-                              'Password': password,
-                              'Confirm Password': confirmPassword,
-                              'Gender': gender,
-                            };
-                            await _saveSpecialistDetails(specialistDetails);
-                            print('Registration successful');
-                            print('Registered Details: $specialistDetails');
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => NoActivePatientsScreen()),
+                            // Store the user input in the list
+                            specialistDetails.add(fullName);
+                            specialistDetails.add(email);
+                            specialistDetails.add(password);
+                            specialistDetails.add(profession);
+                            specialistDetails.add(speciality);
+                            
+                            // Print user details for debugging
+                            print('Specialist Details: $specialistDetails');
+
+                            // Call the API to register the specialist
+                            ApiClient apiClient = ApiClient();
+                            var response = await apiClient.registerSpecialist(
+                              fullName, email, password, profession, speciality
                             );
+
+                            if (response.containsKey('error')) {
+                              // Show error if registration fails
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Registration failed: ${response['error']}')),
+                              );
+                            } else {
+                              // Registration success
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Registration successful!')),
+                              );
+                              // Delay navigation by 3 seconds
+                              Future.delayed(const Duration(seconds: 3), () {
+                                // Navigate to the shirt_connection.dart page
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => NoActivePatientsScreen(),
+                                  ),
+                                );
+                              });
+                            }
                           }
                         },
+
                         child: const Text(
                           'Register',
                           style: TextStyle(fontSize: 18, color: Colors.white),
@@ -253,58 +257,52 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
     );
   }
 
-  Widget _buildGenderDropdown() {
-    return Container(
-      key: _genderKey,
+  Widget _buildDropdownField({
+    required GlobalKey key,
+    required String label,
+    required String value,
+    required List<String> options,
+    required Function(String) onChanged,
+    bool enabled = true,
+  }) {
+    return Container
+        (
+      key: key,
       padding: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
-        color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
+        color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(enabled ? 0.6 : 0.3),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: GestureDetector(
-        onTap: () async {
-          RenderBox renderBox = _genderKey.currentContext!.findRenderObject() as RenderBox;
-          Offset offset = renderBox.localToGlobal(Offset.zero);
-
-          String? selectedGender = await showMenu<String>(
-            context: context,
-            position: RelativeRect.fromLTRB(
-              offset.dx,
-              offset.dy + renderBox.size.height,
-              offset.dx + renderBox.size.width,
-              offset.dy,
-            ),
-            items: [
-              PopupMenuItem<String>(value: 'Male', child: Text('Male')),
-              PopupMenuItem<String>(value: 'Female', child: Text('Female')),
-            ],
-          );
-          if (selectedGender != null) {
-            setState(() {
-              gender = selectedGender;
-            });
-          }
-        },
-        child: InputDecorator(
-          decoration: InputDecoration(border: InputBorder.none),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(gender.isEmpty ? 'Select Gender' : gender),
-              Padding(
-                padding: const EdgeInsets.only(right: 6.0),
-                child: const Icon(Icons.arrow_drop_down),
-              ),
-            ],
-          ),
+      child: DropdownButtonFormField<String>(
+        value: value.isNotEmpty ? value : null,
+        decoration: InputDecoration(
+          labelText: label,
+          border: InputBorder.none,
         ),
+        items: options
+            .map((option) => DropdownMenuItem<String>(
+                  value: option,
+                  child: Text(option),
+                ))
+            .toList(),
+        onChanged: enabled
+            ? (value) {
+                onChanged(value!);
+              }
+            : null,
+        validator: (value) {
+          if (enabled && (value == null || value.isEmpty)) {
+            return 'Please select a $label';
+          }
+          return null;
+        },
       ),
     );
   }
 
   Widget _buildPasswordToggle(VoidCallback onPressed) {
     return IconButton(
-      icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),
+      icon: const Icon(Icons.visibility),
       onPressed: onPressed,
     );
   }

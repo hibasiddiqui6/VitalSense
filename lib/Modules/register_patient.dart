@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async'; // For delayed navigation
-import 'shirt_connection.dart'; // Import the page where you want to navigate after registration
+import 'patient_landingPage.dart'; // Import the page where you want to navigate after registration
 import 'package:vitalsense/services/api_client.dart';  // Import ApiClient for API interaction
 
 class PatientRegister extends StatefulWidget {
@@ -18,6 +18,7 @@ class _PatientRegisterState extends State<PatientRegister> {
   String confirmPassword = '';
   String gender = '';
   String age = '';
+  String contact = '';
 
   bool obscurePassword = true;
   bool obscureConfirmPassword = true;
@@ -26,11 +27,12 @@ class _PatientRegisterState extends State<PatientRegister> {
   final GlobalKey _genderKey = GlobalKey(); // Key for the gender field to get its position
 
   // A list to store the user details
-  List<String> userDetails = [];
+  List<String> patientDetails = [];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Center(
         child: Container(
           width: 412, // Fixed width
@@ -98,9 +100,19 @@ class _PatientRegisterState extends State<PatientRegister> {
                       },
                     ),
                     const SizedBox(height: 20),
-                    // Gender Dropdown - Custom
-                    _buildGenderDropdown(),
-                    const SizedBox(height: 20),
+                    // Gender Dropdown 
+                    _buildGenderDropdown(
+                      key: _genderKey,
+                      label: 'Gender',
+                      value: gender,
+                      options: ['Male', 'Female', 'Other'],
+                      onChanged: (value) {
+                        setState(() {
+                          gender = value;
+                        });
+                      },
+                    ),
+                    SizedBox(height: 25), 
                     // Age Field
                     _buildTextField(
                       label: 'Age',
@@ -120,6 +132,7 @@ class _PatientRegisterState extends State<PatientRegister> {
                         return null;
                       },
                     ),
+
                     const SizedBox(height: 20),
                     // Email Field
                     _buildTextField(
@@ -132,6 +145,25 @@ class _PatientRegisterState extends State<PatientRegister> {
                         }
                         if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(value)) {
                           return 'Enter a valid email address';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    // Contact Field (New)
+                    _buildTextField(
+                      label: 'Contact Number',
+                      onChanged: (value) => contact = value,
+                      keyboardType: TextInputType.phone,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Contact number is required';
+                        }
+                        if (value.length != 11) {
+                          return 'Contact number must be 11 characters';
+                        }
+                        if (!RegExp(r"^\d{11}$").hasMatch(value)) {
+                          return 'Contact number must be numeric';
                         }
                         return null;
                       },
@@ -177,19 +209,20 @@ class _PatientRegisterState extends State<PatientRegister> {
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
                             // Store the user input in the list
-                            userDetails.add(fullName);
-                            userDetails.add(email);
-                            userDetails.add(password);
-                            userDetails.add(gender);
-                            userDetails.add(age.toString());
+                            patientDetails.add(fullName);
+                            patientDetails.add(email);
+                            patientDetails.add(password);
+                            patientDetails.add(gender);
+                            patientDetails.add(age.toString());
+                            patientDetails.add(contact);
 
                             // Print user details for debugging
-                            print('User Details: $userDetails');
+                            print('Patient Details: $patientDetails');
 
                             // Call the API to register the patient
                             ApiClient apiClient = ApiClient();
                             var response = await apiClient.registerPatient(
-                              fullName, gender, int.parse(age), email, password
+                              fullName, gender, int.parse(age), email, password, contact
                             );
 
                             if (response.containsKey('error')) {
@@ -261,63 +294,48 @@ class _PatientRegisterState extends State<PatientRegister> {
     );
   }
 
-  // Build Gender Dropdown - Custom
-Widget _buildGenderDropdown() {
-  return Container(
-    key: _genderKey, // Attach the key to the gender field
-    padding: const EdgeInsets.symmetric(horizontal: 15),
-    decoration: BoxDecoration(
-      color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: GestureDetector(
-      onTap: () async {
-        // Get the position of the gender input field
-        RenderBox renderBox = _genderKey.currentContext!.findRenderObject() as RenderBox;
-        Offset offset = renderBox.localToGlobal(Offset.zero); // Position of the field
-
-        // Show custom dropdown menu positioned just below the gender field
-        String? selectedGender = await showMenu<String>(
-          context: context,
-          position: RelativeRect.fromLTRB(
-            offset.dx,
-            offset.dy + renderBox.size.height, // Position it right below the input field
-            offset.dx + renderBox.size.width,
-            offset.dy,
-          ),
-          items: [
-            const PopupMenuItem<String>(value: 'Male', child: Text('Male')),
-            const PopupMenuItem<String>(value: 'Female', child: Text('Female')),
-          ],
-        );
-        if (selectedGender != null) {
-          setState(() {
-            gender = selectedGender;
-          });
-        }
-      },
-      child: InputDecorator(
-        decoration: const InputDecoration(
+Widget _buildGenderDropdown({
+    required GlobalKey key,
+    required String label,
+    required String value,
+    required List<String> options,
+    required Function(String) onChanged,
+    bool enabled = true,
+  }) {
+    return Container
+        (
+      key: key,
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      decoration: BoxDecoration(
+        color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(enabled ? 0.6 : 0.3),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: DropdownButtonFormField<String>(
+        value: value.isNotEmpty ? value : null,
+        decoration: InputDecoration(
+          labelText: label,
           border: InputBorder.none,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              gender.isEmpty ? 'Select Gender' : gender,
-              style: TextStyle(
-                color: gender.isEmpty ? Colors.grey : Colors.black,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Icon(Icons.arrow_drop_down),
-          ],
-        ),
+        items: options
+            .map((option) => DropdownMenuItem<String>(
+                  value: option,
+                  child: Text(option),
+                ))
+            .toList(),
+        onChanged: enabled
+            ? (value) {
+                onChanged(value!);
+              }
+            : null,
+        validator: (value) {
+          if (enabled && (value == null || value.isEmpty)) {
+            return 'Select a $label';
+          }
+          return null;
+        },
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   // Build Password Toggle Button
   Widget _buildPasswordToggle(VoidCallback onPressed) {
