@@ -10,6 +10,7 @@ class WelcomePage extends StatelessWidget {
     double screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Center(
         child: SingleChildScrollView(
           child: Container(
@@ -61,7 +62,7 @@ class WelcomePage extends StatelessWidget {
                               fontFamily: 'Inter',
                               fontWeight: FontWeight.w400,
                             ),
-                            textAlign: TextAlign.center,
+                            textAlign: TextAlign.left,
                           ),
                         ],
                       ),
@@ -70,7 +71,7 @@ class WelcomePage extends StatelessWidget {
                       // Role Selection
                       Container(
                         constraints: const BoxConstraints(maxWidth: 336),
-                        margin: const EdgeInsets.symmetric(vertical: 50),
+                        margin: const EdgeInsets.symmetric(vertical: 150),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
