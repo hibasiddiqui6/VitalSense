@@ -17,6 +17,26 @@ class _PatientLoginState extends State<PatientLogin> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  @override
+  void initState() {
+    super.initState();
+    // Clear the error message when user starts editing the input fields
+    _emailController.addListener(() {
+      if (_errorMessage != null) {
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+    });
+    _passwordController.addListener(() {
+      if (_errorMessage != null) {
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+    });
+  }
+
   // Function to handle login
   Future<void> _login() async {
     final email = _emailController.text.trim();
@@ -58,7 +78,7 @@ class _PatientLoginState extends State<PatientLogin> {
   @override
   Widget build(BuildContext context) {
     // Get the height of the screen
-    double screenHeight = MediaQuery.of(context).size.height;
+    
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -67,7 +87,7 @@ class _PatientLoginState extends State<PatientLogin> {
           opacity: 1.0,
           duration: const Duration(seconds: 10),
           child: Container(
-            width: 412,
+            width: 400,
             height: 800, // Fixed height for the Google Pixel 9 frame
             decoration: BoxDecoration(
               color: const Color.fromARGB(255, 174, 238, 123),
@@ -76,7 +96,7 @@ class _PatientLoginState extends State<PatientLogin> {
             ),
             child: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(33, 30, 33, 135),
+                padding: const EdgeInsets.fromLTRB(33, 30, 33, 115),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -90,19 +110,22 @@ class _PatientLoginState extends State<PatientLogin> {
                       emailController: _emailController,
                       passwordController: _passwordController,
                     ),
-                    const SizedBox(height: 35),
+                    const SizedBox(height: 15),
                     if (_errorMessage != null) ...[
-                      Text(
-                        _errorMessage!,
-                        style: const TextStyle(color: Colors.red, fontSize: 16),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 20), // Add margin as per your need
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red, fontSize: 13),
+                        ),
                       ),
                     ],
-                    const SizedBox(height: 35),
+                    const SizedBox(height: 30),
                     LoginButton(
                       isLoading: _isLoading,
                       onPressed: _login,
                     ),
-                    const SizedBox(height: 57),
+                    const SizedBox(height: 30),
                     const RegisterPrompt(),
                     const SizedBox(height: 30),
                   ],
@@ -111,32 +134,6 @@ class _PatientLoginState extends State<PatientLogin> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// FlexibleContainer for the background and layout constraints
-class FlexibleContainer extends StatelessWidget {
-  final Widget child;
-  final double maxHeight;
-
-  const FlexibleContainer({super.key, required this.child, required this.maxHeight});
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: 412, // Fixed width
-        maxHeight: maxHeight,
-      ),
-      child: Container(
-        width: double.infinity, // Ensures the container takes the max width
-        decoration: BoxDecoration(
-          color: const Color.fromARGB(255, 206, 226, 206),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: child,
       ),
     );
   }
@@ -159,8 +156,8 @@ class BackButtonWidget extends StatelessWidget {
     );
   }
 }
-
 /// Title Widget
+
 class TitleWidget extends StatelessWidget {
   const TitleWidget({super.key});
 
@@ -176,6 +173,8 @@ class TitleWidget extends StatelessWidget {
   }
 }
 
+
+
 /// Login Header
 class LoginHeader extends StatelessWidget {
   const LoginHeader({super.key});
@@ -183,12 +182,12 @@ class LoginHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.only(left: 25),
+      padding: EdgeInsets.only(left: 20),
       child: Text(
         'Login as a Patient',
         style: TextStyle(
           color: Color(0xFF373737),
-          fontSize: 24,
+          fontSize: 22,
           fontWeight: FontWeight.w500,
           fontFamily: 'Inter',
         ),
@@ -196,6 +195,7 @@ class LoginHeader extends StatelessWidget {
     );
   }
 }
+
 
 /// Login Form with input fields
 class LoginForm extends StatelessWidget {

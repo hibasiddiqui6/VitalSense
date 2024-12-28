@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'register_specialist.dart'; // Import the registration page
 import 'specialist_landingPage.dart'; // Import the shirt_connection.dart page
 import 'package:vitalsense/services/api_client.dart'; // Import the ApiClient for login functionality
+import 'package:google_fonts/google_fonts.dart';
 
 class SpecialistLogin extends StatefulWidget {
   const SpecialistLogin({super.key});
@@ -13,18 +14,48 @@ class SpecialistLogin extends StatefulWidget {
 class _SpecialistLoginState extends State<SpecialistLogin> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  
   bool _isLoading = false;
   String? _errorMessage;
 
+
+@override
+  void initState() {
+    super.initState();
+    // Clear the error message when user starts editing the input fields
+    _emailController.addListener(() {
+      if (_errorMessage != null) {
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+    });
+    _passwordController.addListener(() {
+      if (_errorMessage != null) {
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+    });
+  }
   // Function to handle login
   Future<void> _login() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorMessage = 'Email and password cannot be empty.';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    final email = _emailController.text;
-    final password = _passwordController.text;
+    
 
     // Call the login API
     final apiClient = ApiClient();
@@ -50,16 +81,25 @@ class _SpecialistLoginState extends State<SpecialistLogin> {
   @override
   Widget build(BuildContext context) {
     // Get the height of the screen
-    double screenHeight = MediaQuery.of(context).size.height;
+    
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.white,
       body: Center(
-        child: FlexibleContainer(
-          maxHeight: screenHeight - 60,
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(33, 30, 33, 135),
+        child: Container(
+          width: 400, // Fixed width for Google Pixel 9 frame
+          height: 800, // Max height
+          decoration: BoxDecoration(
+            color: const Color.fromARGB(255, 174, 238, 123),
+            border: Border.all(
+              color: Colors.black,
+              width: 5,
+            ),
+            borderRadius: BorderRadius.circular(45),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -73,51 +113,29 @@ class _SpecialistLoginState extends State<SpecialistLogin> {
                     emailController: _emailController,
                     passwordController: _passwordController,
                   ),
-                  const SizedBox(height: 35),
+                  const SizedBox(height: 15),
                   if (_errorMessage != null) ...[
-                    Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red, fontSize: 16),
-                    ),
-                  ],
-                  const SizedBox(height: 57),
-                  const RegisterPrompt(),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 20), // Add margin as per your need
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red, fontSize: 13),
+                        ),
+                      ),
+                    ],
                   const SizedBox(height: 30),
                   LoginButton(
                     isLoading: _isLoading,
                     onPressed: _login,
                   ),
+                  const SizedBox(height: 30),
+                  const RegisterPrompt(),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// FlexibleContainer for the background and layout constraints
-class FlexibleContainer extends StatelessWidget {
-  final Widget child;
-  final double maxHeight;
-
-  const FlexibleContainer({super.key, required this.child, required this.maxHeight});
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: 412, // Fixed width
-        maxHeight: maxHeight,
-      ),
-      child: Container(
-        width: double.infinity, // Ensures the container takes the max width
-        decoration: BoxDecoration(
-          color: const Color.fromARGB(255, 206, 226, 206),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: child,
       ),
     );
   }
@@ -147,13 +165,11 @@ class TitleWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
+    return  Text(
       'VitalSense',
-      style: TextStyle(
+      style: GoogleFonts.lato(
         color: Color(0xFF373737),
         fontSize: 32,
-        fontWeight: FontWeight.w700,
-        fontFamily: 'Inter',
       ),
     );
   }
@@ -166,12 +182,12 @@ class LoginHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.only(left: 19),
+      padding: EdgeInsets.only(left: 15),
       child: Text(
         'Login as a Healthcare Specialist',
         style: TextStyle(
           color: Color(0xFF373737),
-          fontSize: 24,
+          fontSize: 22,
           fontWeight: FontWeight.w500,
           fontFamily: 'Inter',
         ),
@@ -196,18 +212,24 @@ class LoginForm extends StatelessWidget {
     return Form(
       child: Column(
         children: [
-          InputField(
-            controller: emailController,
-            labelText: 'Email',
-            keyboardType: TextInputType.emailAddress,
-            obscureText: false,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: InputField(
+              controller: emailController,
+              labelText: 'Email',
+              keyboardType: TextInputType.emailAddress,
+              obscureText: false,
+            ),
           ),
           const SizedBox(height: 18),
-          InputField(
-            controller: passwordController,
-            labelText: 'Password',
-            keyboardType: TextInputType.text,
-            obscureText: true,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: InputField(
+              controller: passwordController,
+              labelText: 'Password',
+              keyboardType: TextInputType.text,
+              obscureText: true,
+            ),
           ),
         ],
       ),
@@ -235,7 +257,7 @@ class InputField extends StatelessWidget {
     return Container(
       height: 55,
       width: 312,
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
         borderRadius: BorderRadius.circular(15),
@@ -273,15 +295,15 @@ class LoginButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 11),
+      padding: const EdgeInsets.only(left: 15),
       child: Container(
-        width: 312,
+        width: 300,
         height: 50,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: const LinearGradient(
             colors: [
-              Color(0xFF5C714C),
+              Color.fromARGB(255, 191, 252, 144),
               Color(0xFFFBFBF4),
             ],
             begin: Alignment.topLeft,

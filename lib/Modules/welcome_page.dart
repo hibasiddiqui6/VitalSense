@@ -65,7 +65,7 @@ class WelcomePage extends StatelessWidget {
                             const SizedBox(height: 10),
                             // Add margin to the SizedBox widget containing the text
                             Container(
-                              margin: const EdgeInsets.fromLTRB(18,0,0,0), // Margin added here
+                              margin: const EdgeInsets.fromLTRB(18, 0, 0, 0), // Margin added here
                               child: Text(
                                 'Your personal health companion for a healthier you!',
                                 style: TextStyle(
@@ -93,8 +93,17 @@ class WelcomePage extends StatelessWidget {
                                 onTap: () {
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const PatientLogin(),
+                                    PageRouteBuilder(
+                                      pageBuilder: (context, animation, secondaryAnimation) =>
+                                          const PatientLogin(),
+                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        );
+                                      
+                                      },
+                                      transitionDuration: const Duration(seconds: 1),
                                     ),
                                   );
                                 },
@@ -145,8 +154,16 @@ class WelcomePage extends StatelessWidget {
                                 onTap: () {
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const SpecialistLogin(),
+                                    PageRouteBuilder(
+                                      pageBuilder: (context, animation, secondaryAnimation) =>
+                                          const SpecialistLogin(),
+                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        );
+                                      },
+                                      transitionDuration: const Duration(seconds: 1),
                                     ),
                                   );
                                 },
