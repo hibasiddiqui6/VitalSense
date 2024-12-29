@@ -25,7 +25,7 @@ class SmartShirtScreen extends StatelessWidget {
     final maxHeight = MediaQuery.of(context).size.height - 60; // Get screen height
 
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 0, 0, 0), // Set background color of entire screen to white
+      backgroundColor: Colors.white, // Set background color of entire screen to white
       body: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(

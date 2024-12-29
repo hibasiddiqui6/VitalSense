@@ -32,12 +32,14 @@ class ApiClient {
       } else if (response.statusCode == 400) {
         // Bad request, e.g., validation errors
         return {'error': 'Invalid input data. Please check your details.'};
-      } else if (response.statusCode == 409) {
-        // Conflict, e.g., duplicate email or data
-        return {'error': 'A patient with this email already exists.'};
       } else if (response.statusCode == 500) {
-        // Server error
-        return {'error': 'Server error. Please try again later.'};
+        // Decode the response body to check for specific database error
+      final responseBody = json.decode(response.body);
+      if (responseBody['error'] != null && responseBody['error'].contains('Duplicate entry')) {
+        return {'error': 'A patient with this email already exists.'};
+      }
+      // Default server error message
+      return {'error': 'Server error. Please try again later.'};
       } else {
         // Unexpected status code
         return {'error': 'Unexpected error: ${response.statusCode}'};
@@ -114,8 +116,13 @@ class ApiClient {
         // Conflict, e.g., duplicate email or data
         return {'error': 'A health specialist with this email already exists.'};
       } else if (response.statusCode == 500) {
-        // Server error
-        return {'error': 'Server error. Please try again later.'};
+        // Decode the response body to check for specific database error
+      final responseBody = json.decode(response.body);
+      if (responseBody['error'] != null && responseBody['error'].contains('Duplicate entry')) {
+        return {'error': 'A Specialist with this email already exists.'};
+      }
+      // Default server error message
+      return {'error': 'Server error. Please try again later.'};
       } else {
         // Unexpected status code
         return {'error': 'Unexpected error: ${response.statusCode}'};

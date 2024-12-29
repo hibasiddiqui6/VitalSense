@@ -51,14 +51,14 @@ class _NoActivePatientsScreenState extends State<NoActivePatientsScreen> {
     double screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F3), // Light background color
+      backgroundColor: Colors.white, // Light background color
       body: Center(
         child: Container(
           width: 412, // Fixed width for the center frame
           height: screenHeight - 60, // Adjust height to screen size (subtract appbar height)
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0), // Padding inside the frame
           decoration: BoxDecoration(
-            color: Colors.white, // Background color of the frame
+            color: const Color.fromARGB(255, 206, 226, 206), // Background color of the frame
             borderRadius: BorderRadius.circular(15), // Rounded corners for the frame
             boxShadow: [
               BoxShadow(
@@ -87,7 +87,7 @@ class _NoActivePatientsScreenState extends State<NoActivePatientsScreen> {
                         height: 40,
                        
                         decoration: BoxDecoration(
-                          color: const Color(0xFFBFDCC3),
+                          color: const Color.fromARGB(255, 241, 247, 242),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
@@ -147,7 +147,7 @@ class _NoActivePatientsScreenState extends State<NoActivePatientsScreen> {
                 margin: const EdgeInsets.only(top: 20), // Add margin to the button
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFBFDCC3),
+                    backgroundColor: const Color.fromARGB(255, 241, 247, 242),
                     padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'register_patient.dart'; // Import the registration page
 import 'patient_landingPage.dart'; // Import the shirt_connection.dart page
 import 'package:vitalsense/services/api_client.dart'; // Import the ApiClient for login functionality
+import 'package:google_fonts/google_fonts.dart';
 
 class PatientLogin extends StatefulWidget {
   const PatientLogin({super.key});
@@ -16,15 +17,42 @@ class _PatientLoginState extends State<PatientLogin> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  @override
+  void initState() {
+    super.initState();
+    // Clear the error message when user starts editing the input fields
+    _emailController.addListener(() {
+      if (_errorMessage != null) {
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+    });
+    _passwordController.addListener(() {
+      if (_errorMessage != null) {
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+    });
+  }
+
   // Function to handle login
   Future<void> _login() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorMessage = 'Email and password cannot be empty.';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
-    final email = _emailController.text;
-    final password = _passwordController.text;
 
     // Call the login API
     final apiClient = ApiClient();
@@ -50,74 +78,62 @@ class _PatientLoginState extends State<PatientLogin> {
   @override
   Widget build(BuildContext context) {
     // Get the height of the screen
-    double screenHeight = MediaQuery.of(context).size.height;
+    
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.white,
       body: Center(
-        child: FlexibleContainer(
-          maxHeight: screenHeight - 60,
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(33, 30, 33, 135),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const BackButtonWidget(),
-                  const SizedBox(height: 36),
-                  const Center(child: TitleWidget()),
-                  const SizedBox(height: 65),
-                  const LoginHeader(),
-                  const SizedBox(height: 18),
-                  LoginForm(
-                    emailController: _emailController,
-                    passwordController: _passwordController,
-                  ),
-                  const SizedBox(height: 35),
-                  if (_errorMessage != null) ...[
-                    Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red, fontSize: 16),
+        child: AnimatedOpacity(
+          opacity: 1.0,
+          duration: const Duration(seconds: 10),
+          child: Container(
+            width: 400,
+            height: 800, // Fixed height for the Google Pixel 9 frame
+            decoration: BoxDecoration(
+              color: const Color.fromARGB(255, 206, 226, 206),
+              borderRadius: BorderRadius.circular(45),
+              border: Border.all(width: 5, color: Colors.black), // Border width 5
+            ),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(33, 30, 33, 115),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const BackButtonWidget(),
+                    const SizedBox(height: 36),
+                    const Center(child: TitleWidget()),
+                    const SizedBox(height: 65),
+                    const LoginHeader(),
+                    const SizedBox(height: 18),
+                    LoginForm(
+                      emailController: _emailController,
+                      passwordController: _passwordController,
                     ),
+                    const SizedBox(height: 15),
+                    if (_errorMessage != null) ...[
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 20), // Add margin as per your need
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 30),
+                    LoginButton(
+                      isLoading: _isLoading,
+                      onPressed: _login,
+                    ),
+                    const SizedBox(height: 30),
+                    const RegisterPrompt(),
+                    const SizedBox(height: 30),
                   ],
-                  const SizedBox(height: 57),
-                  const RegisterPrompt(),
-                  const SizedBox(height: 30),
-                  LoginButton(
-                    isLoading: _isLoading,
-                    onPressed: _login,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// FlexibleContainer for the background and layout constraints
-class FlexibleContainer extends StatelessWidget {
-  final Widget child;
-  final double maxHeight;
-
-  const FlexibleContainer({super.key, required this.child, required this.maxHeight});
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: 412, // Fixed width
-        maxHeight: maxHeight,
-      ),
-      child: Container(
-        width: double.infinity, // Ensures the container takes the max width
-        decoration: BoxDecoration(
-          color: const Color.fromARGB(255, 206, 226, 206),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: child,
       ),
     );
   }
@@ -140,24 +156,24 @@ class BackButtonWidget extends StatelessWidget {
     );
   }
 }
-
 /// Title Widget
+
 class TitleWidget extends StatelessWidget {
   const TitleWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
+    return  Text(
       'VitalSense',
-      style: TextStyle(
+      style: GoogleFonts.lato(
         color: Color(0xFF373737),
         fontSize: 32,
-        fontWeight: FontWeight.w700,
-        fontFamily: 'Inter',
       ),
     );
   }
 }
+
+
 
 /// Login Header
 class LoginHeader extends StatelessWidget {
@@ -166,12 +182,12 @@ class LoginHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.only(left: 19),
+      padding: EdgeInsets.only(left: 20),
       child: Text(
         'Login as a Patient',
         style: TextStyle(
           color: Color(0xFF373737),
-          fontSize: 24,
+          fontSize: 22,
           fontWeight: FontWeight.w500,
           fontFamily: 'Inter',
         ),
@@ -179,6 +195,7 @@ class LoginHeader extends StatelessWidget {
     );
   }
 }
+
 
 /// Login Form with input fields
 class LoginForm extends StatelessWidget {
@@ -196,18 +213,24 @@ class LoginForm extends StatelessWidget {
     return Form(
       child: Column(
         children: [
-          InputField(
-            controller: emailController,
-            labelText: 'Email',
-            keyboardType: TextInputType.emailAddress,
-            obscureText: false,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: InputField(
+              controller: emailController,
+              labelText: 'Email',
+              keyboardType: TextInputType.emailAddress,
+              obscureText: false,
+            ),
           ),
           const SizedBox(height: 18),
-          InputField(
-            controller: passwordController,
-            labelText: 'Password',
-            keyboardType: TextInputType.text,
-            obscureText: true,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: InputField(
+              controller: passwordController,
+              labelText: 'Password',
+              keyboardType: TextInputType.text,
+              obscureText: true,
+            ),
           ),
         ],
       ),
@@ -216,7 +239,7 @@ class LoginForm extends StatelessWidget {
 }
 
 /// Input Field Widget
-class InputField extends StatelessWidget {
+class InputField extends StatefulWidget {
   final TextEditingController controller;
   final String labelText;
   final TextInputType keyboardType;
@@ -231,19 +254,38 @@ class InputField extends StatelessWidget {
   });
 
   @override
+  State<InputField> createState() => _InputFieldState();
+}
+
+class _InputFieldState extends State<InputField> {
+  late bool _obscureText;
+
+  @override
+  void initState() {
+    super.initState();
+    _obscureText = widget.obscureText;
+  }
+
+  void _toggleVisibility() {
+    setState(() {
+      _obscureText = !_obscureText;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       height: 55,
       width: 312,
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
         borderRadius: BorderRadius.circular(15),
       ),
       child: TextFormField(
-        controller: controller,
+        controller: widget.controller,
         decoration: InputDecoration(
-          labelText: labelText,
+          labelText: widget.labelText,
           floatingLabelBehavior: FloatingLabelBehavior.auto,
           labelStyle: const TextStyle(
             color: Color(0xFF3E3838),
@@ -251,9 +293,18 @@ class InputField extends StatelessWidget {
             fontFamily: 'Inter',
           ),
           border: InputBorder.none,
+          suffixIcon: widget.labelText == 'Password'
+              ? IconButton(
+                  icon: Icon(
+                    _obscureText ? Icons.visibility_off : Icons.visibility,
+                    color: const Color(0xFF3E3838),
+                  ),
+                  onPressed: _toggleVisibility,
+                )
+              : null,
         ),
-        keyboardType: keyboardType,
-        obscureText: obscureText,
+        keyboardType: widget.keyboardType,
+        obscureText: _obscureText,
       ),
     );
   }
@@ -273,15 +324,15 @@ class LoginButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 11),
+      padding: const EdgeInsets.only(left: 15),
       child: Container(
-        width: 312,
+        width: 300,
         height: 50,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: const LinearGradient(
             colors: [
-              Color(0xFF5C714C),
+              Color.fromARGB(255, 191, 252, 144),
               Color(0xFFFBFBF4),
             ],
             begin: Alignment.topLeft,
@@ -353,8 +404,9 @@ class RegisterPrompt extends StatelessWidget {
             child: const Text(
               'Register',
               style: TextStyle(
-                color: Color(0xFF3E3838),
-                fontSize: 18,
+                color: Color(0xFF5764A9),
+                fontSize: 19,
+                fontWeight: FontWeight.w500,
                 fontFamily: 'Inter',
               ),
             ),
