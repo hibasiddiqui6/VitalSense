@@ -228,32 +228,59 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                                 // Print user details for debugging
                                 print('Specialist Details: $specialistDetails');
 
-                                // Call the API to register the patient
+                                // Call the API to register the specialist
                                 ApiClient apiClient = ApiClient();
                                 var response = await apiClient.registerSpecialist(
                                   fullName, email, password, profession, speciality
                                 );
 
                                 if (response.containsKey('error')) {
-                              // Show error if registration fails
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Registration failed: ${response['error']}')),
-                              );
-                            } else {
-                              // Registration success
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Registration successful!')),
-                              );
-                              // Delay navigation by 3 seconds
-                              Future.delayed(const Duration(seconds: 3), () {
-                                // Navigate to the shirt_connection.dart page
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => NoActivePatientsScreen(),
-                                  ),
-                                );
-                              });
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: Text('Registration Failed'),
+                                        content: Text('Error: ${response['error']}'),
+                                        actions: <Widget>[
+                                          TextButton(
+                                            child: Text('OK'),
+                                            onPressed: () {
+                                              Navigator.of(context).pop(); // Close the dialog
+                                            },
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                } else {
+                                  // Show success message in a dialog
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: Text('Registration Successful'),
+                                        content: Text('The Specialist has been registered successfully!'),
+                                        actions: <Widget>[
+                                          TextButton(
+                                            child: Text('OK'),
+                                            onPressed: () {
+                                              Navigator.of(context).pop(); // Close the dialog
+                                            },
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                  // Delay navigation by 3 seconds
+                                  Future.delayed(const Duration(seconds: 3), () {
+                                    // Navigate to the shirt_connection.dart page
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => NoActivePatientsScreen(),
+                                      ),
+                                    );
+                                  });
                             }
                           }
                         },

@@ -38,7 +38,7 @@ class _PatientLoginState extends State<PatientLogin> {
   }
 
   // Function to handle login
-  Future<void> _login() async {
+    Future<void> _login(BuildContext context) async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
@@ -54,7 +54,6 @@ class _PatientLoginState extends State<PatientLogin> {
       _errorMessage = null;
     });
 
-    // Call the login API
     final apiClient = ApiClient();
     final response = await apiClient.loginPatient(email, password);
 
@@ -66,20 +65,25 @@ class _PatientLoginState extends State<PatientLogin> {
       setState(() {
         _errorMessage = response['error'];
       });
+      _showPopup(context, "Login Failed", _errorMessage!); 
     } else {
-      // Successful login
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const SmartShirtScreen()), // Navigate to ShirtConnection
-      );
+      _showPopup(context, "Success", "Login successful!"); 
+      Future.delayed(const Duration(seconds: 3), () {
+        // Navigate to the patient landing page
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SmartShirtScreen(),
+          ),
+        );
+      });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
     // Get the height of the screen
-    
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
@@ -123,7 +127,7 @@ class _PatientLoginState extends State<PatientLogin> {
                     const SizedBox(height: 30),
                     LoginButton(
                       isLoading: _isLoading,
-                      onPressed: _login,
+                      onPressed: () => _login(context), // Pass context to _login
                     ),
                     const SizedBox(height: 30),
                     const RegisterPrompt(),
@@ -415,4 +419,24 @@ class RegisterPrompt extends StatelessWidget {
       ],
     );
   }
+}
+
+void _showPopup(BuildContext context, String title, String message) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('OK'),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+        ],
+      );
+    },
+  );
 }

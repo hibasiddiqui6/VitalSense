@@ -254,19 +254,46 @@ class _PatientRegisterState extends State<PatientRegister> {
                                 );
 
                                 if (response.containsKey('error')) {
-                                  // Show error if registration fails
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Registration failed: ${response['error']}')),
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: Text('Registration Failed'),
+                                        content: Text('Error: ${response['error']}'),
+                                        actions: <Widget>[
+                                          TextButton(
+                                            child: Text('OK'),
+                                            onPressed: () {
+                                              Navigator.of(context).pop(); // Close the dialog
+                                            },
+                                          ),
+                                        ],
+                                      );
+                                    },
                                   );
                                 } else {
-                                  // Registration success
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Registration successful!')),
+                                  // Show success message in a dialog
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: Text('Registration Successful'),
+                                        content: Text('The patient has been registered successfully!'),
+                                        actions: <Widget>[
+                                          TextButton(
+                                            child: Text('OK'),
+                                            onPressed: () {
+                                              Navigator.of(context).pop(); // Close the dialog
+                                            },
+                                          ),
+                                        ],
+                                      );
+                                    },
                                   );
                                   // Delay navigation by 3 seconds
                                   Future.delayed(const Duration(seconds: 3), () {
                                     // Navigate to the shirt_connection.dart page
-                                    Navigator.push(
+                                    Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => SmartShirtScreen(),

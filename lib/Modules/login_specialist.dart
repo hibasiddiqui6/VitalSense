@@ -39,7 +39,7 @@ class _SpecialistLoginState extends State<SpecialistLogin> {
     });
   }
   // Function to handle login
-  Future<void> _login() async {
+  Future<void> _login(BuildContext contexT) async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
@@ -55,8 +55,6 @@ class _SpecialistLoginState extends State<SpecialistLogin> {
       _errorMessage = null;
     });
 
-    
-
     // Call the login API
     final apiClient = ApiClient();
     final response = await apiClient.loginSpecialist(email, password);
@@ -69,12 +67,18 @@ class _SpecialistLoginState extends State<SpecialistLogin> {
       setState(() {
         _errorMessage = response['error'];
       });
+      _showPopup(context, "Login Failed", _errorMessage!); 
     } else {
-      // Successful login
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const NoActivePatientsScreen()), // Navigate to Add Patient
-      );
+      _showPopup(context, "Success", "Login successful!"); 
+      Future.delayed(const Duration(seconds: 3), () {
+        // Navigate to the specialist landing page
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => NoActivePatientsScreen(),
+          ),
+        );
+      });
     }
   }
 
@@ -126,7 +130,7 @@ class _SpecialistLoginState extends State<SpecialistLogin> {
                   const SizedBox(height: 30),
                   LoginButton(
                     isLoading: _isLoading,
-                    onPressed: _login,
+                    onPressed: () => _login(context), // Pass context to _login
                   ),
                   const SizedBox(height: 30),
                   const RegisterPrompt(),
@@ -413,4 +417,24 @@ class RegisterPrompt extends StatelessWidget {
       ],
     );
   }
+}
+
+void _showPopup(BuildContext context, String title, String message) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('OK'),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+        ],
+      );
+    },
+  );
 }
