@@ -86,7 +86,7 @@ class _PatientRegisterState extends State<PatientRegister> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 35),
                   // Form widget containing other fields
                   Form(
                     key: _formKey,
@@ -107,7 +107,7 @@ class _PatientRegisterState extends State<PatientRegister> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 30),
+                        const SizedBox(height: 35),
                         // Gender Dropdown
                         _buildGenderDropdown(
                           label: 'Gender',
@@ -119,7 +119,7 @@ class _PatientRegisterState extends State<PatientRegister> {
                             });
                           },
                         ),
-                        const SizedBox(height: 30),
+                        const SizedBox(height: 35),
                         // Age Field
                         _buildTextField(
                           label: 'Age',
@@ -281,30 +281,37 @@ class _PatientRegisterState extends State<PatientRegister> {
     String? Function(String?)? validator,
   }) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(15, 0, 0, 5), // Added margin for spacing between input boxes
-      height: 48,
-      width: 300, // Set width for consistency
+     height: 55,
+      width: 312,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
         borderRadius: BorderRadius.circular(20),
       ),
       child: TextFormField(
         obscureText: obscureText,
-        onChanged: onChanged,
+        onChanged: (value) {
+          onChanged(value);
+          // Trigger form validation to hide the error when typing starts
+          _formKey.currentState?.validate();
+        },
         keyboardType: keyboardType,
         validator: validator,
         style: const TextStyle(fontSize: 16),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(fontSize: 16, color: Colors.black),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: const BorderSide(width: 4, color: Colors.black),
-          ),
+          contentPadding: const EdgeInsets.fromLTRB(20, 10, 0, 5),
+          floatingLabelBehavior: FloatingLabelBehavior.auto,
+          
+          border: InputBorder.none,
           suffixIcon: suffixIcon,
+          
+           
         ),
+        
       ),
+      
     );
   }
 
@@ -322,9 +329,9 @@ class _PatientRegisterState extends State<PatientRegister> {
     required ValueChanged<String?> onChanged,
   }) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(15, 0, 0, 5),
-      height: 48,
-      width: 300,
+      height: 55,
+      width: 312,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
         borderRadius: BorderRadius.circular(20),
@@ -337,10 +344,8 @@ class _PatientRegisterState extends State<PatientRegister> {
         onChanged: onChanged,
         decoration: InputDecoration(
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: const BorderSide(width: 10, color: Colors.black),
-          ),
+          
+          
         ),
         items: options.map((String option) {
           return DropdownMenuItem<String>(
