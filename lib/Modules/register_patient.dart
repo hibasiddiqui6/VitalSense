@@ -254,6 +254,9 @@ class _PatientRegisterState extends State<PatientRegister> {
                                 );
 
                                 if (response.containsKey('error')) {
+                                  setState(() {
+                                  _isLoading = false; // Re-enable button after failed response
+                                });
                                   showDialog(
                                     context: context,
                                     builder: (BuildContext context) {

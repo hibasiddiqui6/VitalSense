@@ -235,6 +235,9 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                                 );
 
                                 if (response.containsKey('error')) {
+                                  setState(() {
+                                  _isLoading = false; // Re-enable button after failed response
+                                });
                                   showDialog(
                                     context: context,
                                     builder: (BuildContext context) {
