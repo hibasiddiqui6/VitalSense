@@ -81,10 +81,10 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                   Container(
                     margin: const EdgeInsets.fromLTRB(20, 25, 0, 0), // You can adjust the margin as needed
                     child: const Text(
-                      'Register as a Specialist', // Changed to "Specialist"
+                      'Register as a Healthcare Specialist', // Changed to "Specialist"
                       style: TextStyle(
                         color: Color(0xFF373737),
-                        fontSize: 24,
+                        fontSize: 19,
                         fontWeight: FontWeight.w500,
                         fontFamily: 'Inter',
                       ),
@@ -111,7 +111,7 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 35),
+                        const SizedBox(height: 20),
                         // Profession Dropdown
                         _buildDropdownField(
                       key: _professionKey,
@@ -160,7 +160,7 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                           },
                         ),
                         
-                        const SizedBox(height: 35),
+                        const SizedBox(height: 20),
                         // Password Field
                         _buildTextField(
                           label: 'Password',
@@ -185,7 +185,7 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 35),
+                        const SizedBox(height: 20),
                         // Confirm Password Field
                         _buildTextField(
                           label: 'Confirm Password',
@@ -214,78 +214,80 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                                 ? null
                                 :() async {
                               if (_formKey.currentState!.validate()) {
-                                setState(() {
-                                  _isLoading = true;
-                                });
-
-                                // Store the user input in the list
-                                specialistDetails.add(fullName);
-                                specialistDetails.add(email);
-                                specialistDetails.add(password);
-                                specialistDetails.add(profession);
-                                specialistDetails.add(speciality);
-                               
-                                // Print user details for debugging
-                                print('Specialist Details: $specialistDetails');
-
-                                // Call the API to register the specialist
-                                ApiClient apiClient = ApiClient();
-                                var response = await apiClient.registerSpecialist(
-                                  fullName, email, password, profession, speciality
-                                );
-
-                                if (response.containsKey('error')) {
                                   setState(() {
-                                  _isLoading = false; // Re-enable button after failed response
-                                });
-                                  showDialog(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      return AlertDialog(
-                                        title: Text('Registration Failed'),
-                                        content: Text('Error: ${response['error']}'),
-                                        actions: <Widget>[
-                                          TextButton(
-                                            child: Text('OK'),
-                                            onPressed: () {
-                                              Navigator.of(context).pop(); // Close the dialog
-                                            },
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                } else {
-                                  // Show success message in a dialog
-                                  showDialog(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      return AlertDialog(
-                                        title: Text('Registration Successful'),
-                                        content: Text('The Specialist has been registered successfully!'),
-                                        actions: <Widget>[
-                                          TextButton(
-                                            child: Text('OK'),
-                                            onPressed: () {
-                                              Navigator.of(context).pop(); // Close the dialog
-                                            },
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                  // Delay navigation by 3 seconds
-                                  Future.delayed(const Duration(seconds: 3), () {
-                                    // Navigate to the shirt_connection.dart page
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => NoActivePatientsScreen(),
-                                      ),
-                                    );
+                                    _isLoading = true;
                                   });
-                            }
-                          }
+
+                                  // Collect user details
+                                specialistDetails = [
+                                    fullName,
+                                    email,
+                                    password,
+                                    profession,
+                                    speciality,
+                                  ];
+
+                                  try {
+                                    // Make API call
+                                    ApiClient apiClient = ApiClient();
+                                    var response = await apiClient.registerSpecialist(
+                                      fullName, email, password, profession, speciality, 
+                                    );
+
+                                    // Handle response
+                                    if (response.containsKey('error')) {
+                                      setState(() {
+                                        _isLoading = false;
+                                      });
+                                      showDialog(
+                                        context: context,
+                                        builder: (BuildContext context) {
+                                          return AlertDialog(
+                                            title: const Text('Registration Failed'),
+                                            content: Text('Error: ${response['error']}'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.of(context).pop(),
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                    } else {
+                                      // Success logic
+                                      showDialog(
+                                        context: context,
+                                        builder: (BuildContext context) {
+                                          return AlertDialog(
+                                            title: const Text('Registration Successful'),
+                                            content: const Text('The specialist has been registered successfully!'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.of(context).pop(),
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+
+                                      // Navigate after success
+                                      Future.delayed(const Duration(seconds: 3), () {
+                                        Navigator.pushReplacement(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => NoActivePatientsScreen()),
+                                        );
+                                      });
+                                    }
+                                  } catch (e) {
+                                    // Handle exceptions
+                                    setState(() {
+                                      _isLoading = false;
+                                    });
+                                    print('Error: $e');
+                                  }
+                                }
                         },
                         child: _isLoading
                                 ? const CircularProgressIndicator(
@@ -309,48 +311,37 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
     );
   }
 
-  Widget _buildTextField({
-    required String label,
-    bool obscureText = false,
-    Widget? suffixIcon,
-    required Function(String) onChanged,
-    TextInputType keyboardType = TextInputType.text,
-    String? Function(String?)? validator,
-  }) {
-    return Container(
-      height: 55,
-      width: 312,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: TextFormField(
-        obscureText: obscureText,
-        onChanged: (value) {
-          onChanged(value);
-          // Trigger form validation to hide the error when typing starts
-          _formKey.currentState?.validate();
-        },
-        keyboardType: keyboardType,
-        validator: validator,
-        style: const TextStyle(fontSize: 16),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(fontSize: 16, color: Colors.black),
-          contentPadding: const EdgeInsets.fromLTRB(15, 8, 0, 5),
-          floatingLabelBehavior: FloatingLabelBehavior.auto,
-          
-          border: InputBorder.none,
-          suffixIcon: suffixIcon,
-          
-           
+ Widget _buildTextField({
+      required String label,
+      bool obscureText = false,
+      Widget? suffixIcon,
+      required Function(String) onChanged,
+      TextInputType keyboardType = TextInputType.text,
+      String? Function(String?)? validator,
+    }) {
+      return Container(
+        height: 55,
+        width: 312,
+        padding: const EdgeInsets.symmetric(horizontal: 5),
+        decoration: BoxDecoration(
+          color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
+          borderRadius: BorderRadius.circular(20),
         ),
-        
-      ),
-      
-    );
-  }
+        child: TextFormField(
+          obscureText: obscureText,
+          onChanged: onChanged, // Only update state, no validation
+          keyboardType: keyboardType,
+          validator: validator, // Validation will occur on form submission
+          style: const TextStyle(fontSize: 16),
+          decoration: InputDecoration(
+            contentPadding: EdgeInsets.fromLTRB(15, 10, 0, 0),
+            border: InputBorder.none,
+            hintText: label,
+            suffixIcon: suffixIcon,
+          ),
+        ),
+      );
+    }
 
   Widget _buildPasswordToggle(VoidCallback onPressed) {
     return IconButton(
@@ -383,8 +374,8 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(fontSize: 16, color: Colors.black),
-          contentPadding: const EdgeInsets.fromLTRB(15, 5, 0, 5),
-          floatingLabelBehavior: FloatingLabelBehavior.auto,
+          contentPadding: const EdgeInsets.fromLTRB(0, 5, 0, 5),
+          
           border: InputBorder.none,
         ),
         items: options

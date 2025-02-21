@@ -327,9 +327,9 @@ class LoginButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 15),
+      padding: const EdgeInsets.only(left: 45),
       child: Container(
-        width: 300,
+        width: 250,
         height: 50,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),

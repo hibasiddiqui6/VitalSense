@@ -1,9 +1,30 @@
+import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiClient {
-  static const String _baseUrl = 'http://localhost:5000'; // Use localhost as it's the same machine
-
+  // static const String _baseUrl = 'http://localhost:5000'; // Use localhost as it's the same machine
+  static final String _baseUrl = Platform.isAndroid
+    // ? 'http://192.168.100.57:5000' // // Real device uses PC's IP
+    ? 'http://10.0.2.2:5000' // Use 10.0.2.2 for Android Emulator
+    : 'http://localhost:5000'; // Use localhost for Chrome
+    
+  // Function to receive sensor data
+  Future<Map<String, dynamic>> getSensorData() async {
+    final url = Uri.parse('$_baseUrl/get_sensor');
+    
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        return {'error': 'Failed to fetch sensor data'};
+      }
+    } catch (e) {
+      return {'error': 'An error occurred: $e'};
+    }
+  }
+  
   // Function to register a patient
   Future<Map<String, dynamic>> registerPatient(String fullName, String gender, int age, String email, String password, String contact) async {
     final url = Uri.parse('$_baseUrl/register/patient');
@@ -167,4 +188,5 @@ class ApiClient {
       return {'error': 'An error occurred: $e'};
     }
   }
+
 }

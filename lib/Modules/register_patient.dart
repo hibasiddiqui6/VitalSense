@@ -228,84 +228,83 @@ class _PatientRegisterState extends State<PatientRegister> {
                               backgroundColor: const Color(0xFF5C714C),
                             ),
                             // Function to handle form submission and patient registration
-                            onPressed: _isLoading 
-                                ? null
-                                :() async {
-                              if (_formKey.currentState!.validate()) {
-                                setState(() {
-                                  _isLoading = true;
-                                });
-
-                                // Store the user input in the list
-                                patientDetails.add(fullName);
-                                patientDetails.add(email);
-                                patientDetails.add(password);
-                                patientDetails.add(gender);
-                                patientDetails.add(age.toString());
-                                patientDetails.add(contact);
-
-                                // Print user details for debugging
-                                print('Patient Details: $patientDetails');
-
-                                // Call the API to register the patient
-                                ApiClient apiClient = ApiClient();
-                                var response = await apiClient.registerPatient(
-                                  fullName, gender, int.parse(age), email, password, contact
-                                );
-
-                                if (response.containsKey('error')) {
+                            onPressed: _isLoading
+                            ? null
+                            : () async {
+                                if (_formKey.currentState!.validate()) {
                                   setState(() {
-                                  _isLoading = false; // Re-enable button after failed response
-                                });
-                                  showDialog(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      return AlertDialog(
-                                        title: Text('Registration Failed'),
-                                        content: Text('Error: ${response['error']}'),
-                                        actions: <Widget>[
-                                          TextButton(
-                                            child: Text('OK'),
-                                            onPressed: () {
-                                              Navigator.of(context).pop(); // Close the dialog
-                                            },
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                } else {
-                                  // Show success message in a dialog
-                                  showDialog(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      return AlertDialog(
-                                        title: Text('Registration Successful'),
-                                        content: Text('The patient has been registered successfully!'),
-                                        actions: <Widget>[
-                                          TextButton(
-                                            child: Text('OK'),
-                                            onPressed: () {
-                                              Navigator.of(context).pop(); // Close the dialog
-                                            },
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                  // Delay navigation by 3 seconds
-                                  Future.delayed(const Duration(seconds: 3), () {
-                                    // Navigate to the shirt_connection.dart page
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => SmartShirtScreen(),
-                                      ),
-                                    );
+                                    _isLoading = true;
                                   });
+
+                                  // Collect user details
+                                  patientDetails = [
+                                    fullName,
+                                    email,
+                                    password,
+                                    gender,
+                                    age,
+                                    contact,
+                                  ];
+
+                                  try {
+                                    // Make API call
+                                    ApiClient apiClient = ApiClient();
+                                    var response = await apiClient.registerPatient(
+                                      fullName, gender, int.parse(age), email, password, contact
+                                    );
+
+                                    // Handle response
+                                    if (response.containsKey('error')) {
+                                        setState(() {
+                                        _isLoading = false;
+                                      });
+                                      showDialog(
+                                        context: context,
+                                        builder: (BuildContext context) {
+                                          return AlertDialog(
+                                            title: const Text('Registration Failed'),
+                                            content: Text('Error: ${response['error']}'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.of(context).pop(),
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                    } else {
+                                      // Success logic
+                                      showDialog(
+                                        context: context,
+                                        builder: (BuildContext context) {
+                                          return AlertDialog(
+                                            title: const Text('Registration Successful'),
+                                            content: const Text('The patient has been registered successfully!'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.of(context).pop(),
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+
+                                      // Navigate after success
+                                      Future.delayed(const Duration(seconds: 3), () {
+                                        Navigator.pushReplacement(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => SmartShirtScreen()),
+                                        );
+                                      });
+                                    }
+                                  } catch (e) {                                    
+                                    print('Error: $e');
+                                  }
                                 }
-                              }
-                            },
+                              },
+
                             child: _isLoading
                                 ? const CircularProgressIndicator(
                                   color: Color(0xFF434242),
@@ -327,49 +326,36 @@ class _PatientRegisterState extends State<PatientRegister> {
       ),
     );
   }
-
-  Widget _buildTextField({
-    required String label,
-    bool obscureText = false,
-    Widget? suffixIcon,
-    required Function(String) onChanged,
-    TextInputType keyboardType = TextInputType.text,
-    String? Function(String?)? validator,
-  }) {
-    return Container(
-     height: 55,
-      width: 312,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: TextFormField(
-        obscureText: obscureText,
-        onChanged: (value) {
-          onChanged(value);
-          // Trigger form validation to hide the error when typing starts
-          _formKey.currentState?.validate();
-        },
-        keyboardType: keyboardType,
-        validator: validator,
-        style: const TextStyle(fontSize: 16),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(fontSize: 16, color: Colors.black),
-          contentPadding: const EdgeInsets.fromLTRB(20, 10, 0, 5),
-          floatingLabelBehavior: FloatingLabelBehavior.auto,
-          
-          border: InputBorder.none,
-          suffixIcon: suffixIcon,
-          
-           
+    Widget _buildTextField({
+      required String label,
+      bool obscureText = false,
+      Widget? suffixIcon,
+      required Function(String) onChanged,
+      TextInputType keyboardType = TextInputType.text,
+      String? Function(String?)? validator,
+    }) {
+      return Container(
+        height: 55,
+        width: 312,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
+          borderRadius: BorderRadius.circular(20),
         ),
-        
-      ),
-      
-    );
-  }
+        child: TextFormField(
+          obscureText: obscureText,
+          onChanged: onChanged, // Only update state, no validation
+          keyboardType: keyboardType,
+          validator: validator, // Validation will occur on form submission
+          style: const TextStyle(fontSize: 16),
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            hintText: label,
+            suffixIcon: suffixIcon,
+          ),
+        ),
+      );
+    }
 
   Widget _buildPasswordToggle(VoidCallback onPressed) {
     return IconButton(
@@ -403,7 +389,7 @@ Widget _buildDropdownField({
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(fontSize: 16, color: Colors.black),
-          contentPadding: const EdgeInsets.fromLTRB(15, 5, 0, 5),
+          contentPadding: const EdgeInsets.fromLTRB(5, 5, 0, 0),
           floatingLabelBehavior: FloatingLabelBehavior.auto,
           border: InputBorder.none,
         ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'wifi_credential.dart'; // Import the file containing WifiCredentialScreen
+import 'wifi_screen.dart'; // Import the file containing WifiCredentialScreen
 import 'welcome_page.dart';
 
 void main() {
@@ -129,11 +129,9 @@ class SmartShirtScreen extends StatelessWidget {
                             ElevatedButton.icon(
                               onPressed: () {
                                 Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const ConnectWifiScreen(),
-                                  ),
-                                );
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const ConnectWifiScreen()),
+                                  );
                               },
                               icon: const Icon(Icons.add),
                               label: const Text('Connect Shirt'),

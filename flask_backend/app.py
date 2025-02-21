@@ -6,6 +6,9 @@ from db_utils import fetch_data, modify_data  # Import database utility function
 app = Flask(__name__)
 CORS(app)
 
+# Store received sensor data (temporary storage for testing)
+sensor_data = {}
+
 #Register a Patient
 @app.route('/register/patient', methods=['POST'])
 def register_patient():
@@ -133,6 +136,25 @@ def login_specialist():
             return jsonify({"message": "Invalid email or password"}), 401
     except Exception as e:
         return jsonify({"error": "An error occurred, please try again later."}), 500
+
+@app.route('/sensor', methods=['POST'])
+def receive_sensor_data():
+    global sensor_data
+    try:
+        data = request.json
+        sensor_data = {
+            "ecg": data.get("ecg", 0),
+            "respiration": data.get("respiration", 0),
+            "temperature": data.get("temperature", 0)
+        }
+        print(f"Received Data: {sensor_data}")
+        return jsonify({"status": "success", "data": sensor_data}), 200
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {e}"}), 500
+
+@app.route('/get_sensor', methods=['GET'])
+def get_sensor_data():
+    return jsonify(sensor_data)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
