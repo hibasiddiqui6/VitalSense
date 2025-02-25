@@ -5,7 +5,7 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
 }
 
 class ConnectWifiScreen extends StatelessWidget {
-  const ConnectWifiScreen({Key? key}) : super(key: key);
+  const ConnectWifiScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +74,7 @@ class ConnectWifiScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 30),
                     // Wifi SSID TextField with fixed width
-                    Container(
+                    SizedBox(
                       width: 350, // Adjust the width for the input box
                       child: TextField(
                         decoration: InputDecoration(
@@ -90,7 +90,7 @@ class ConnectWifiScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     // Password TextField with fixed width
-                    Container(
+                    SizedBox(
                       width: 350, // Adjust the width for the input box
                       child: TextField(
                         obscureText: true,
