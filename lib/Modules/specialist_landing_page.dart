@@ -72,10 +72,10 @@ class _NoActivePatientsScreenState extends State<NoActivePatientsScreen> {
                     padding: EdgeInsets.zero,
                     children: <Widget>[
                       const DrawerHeader(
-                        child: Text('Vital Sense'),
                         decoration: BoxDecoration(
                           color: Color.fromARGB(255, 206, 226, 206),
                         ),
+                        child: Text('Vital Sense'),
                       ),
                       // Add other menu items here if needed
                       ListTile(

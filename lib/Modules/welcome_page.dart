@@ -8,7 +8,6 @@ class WelcomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
       backgroundColor: Colors.white,

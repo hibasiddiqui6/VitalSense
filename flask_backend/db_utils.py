@@ -36,6 +36,24 @@ def fetch_data(query, params=None):
         if db:
             db.close()
 
+def fetch_all_data(query, params=None):
+    db = None
+    cursor = None
+    try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute(query, params or ())
+        results = cursor.fetchall()  # Fetch all matching records
+        return results  # Return a list of results
+    except Error as e:
+        print(f"Error executing SELECT query: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
+
 # Function to execute INSERT, UPDATE, DELETE queries
 def modify_data(query, params=None):
     db = None
