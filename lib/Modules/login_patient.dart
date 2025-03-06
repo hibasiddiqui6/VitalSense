@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'register_patient.dart'; // Import the registration page
 import 'patient_landing_page.dart'; // Import the shirt_connection.dart page
+import 'sensor_screen.dart';
+import 'all_vitals.dart';
 import 'package:vitalsense/services/api_client.dart'; // Import the ApiClient for login functionality
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PatientLogin extends StatefulWidget {
   const PatientLogin({super.key});
@@ -68,8 +71,38 @@ class _PatientLoginState extends State<PatientLogin> {
       _showPopup(context, "Login Failed", _errorMessage!); 
     } else {
       _showPopup(context, "Success", "Login successful!"); 
-      Future.delayed(const Duration(seconds: 3), () {
-        // Navigate to the patient landing page
+      // 🔹 Fetch Patient ID
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? patientId = prefs.getString("patient_id");
+
+      if (patientId != null) {
+        print("Patient ID: $patientId. Checking for registered SmartShirt...");
+
+        // 🔹 Check if a SmartShirt is registered for this patient
+        final smartShirtResponse = await apiClient.getSmartShirts(patientId);
+
+        if (smartShirtResponse.containsKey("smartshirts") &&
+            smartShirtResponse["smartshirts"].isNotEmpty) {
+          print("SmartShirt found! Navigating to SensorDataScreen...");
+
+          Future.delayed(const Duration(seconds: 2), () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DashboardScreen(),
+              ),
+            );
+          });
+          return;
+        } else {
+          print("⚠ No SmartShirt found. Proceeding to SmartShirt connection screen...");
+        }
+      } else {
+        print("Patient ID not found after login.");
+      }
+
+      // Navigate to SmartShirt connection page if no SmartShirt is found
+      Future.delayed(const Duration(seconds: 2), () {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(

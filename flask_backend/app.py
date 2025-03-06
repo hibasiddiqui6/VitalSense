@@ -1,8 +1,8 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import bcrypt  # For secure password hashing
-from db_utils import fetch_data, fetch_all_data, modify_data  # Import database utility functions
-import time
+from db_utils import fetch_data, fetch_all_data, modify_data, get_db_connection  # Import database utility functions
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -143,28 +143,83 @@ def receive_sensor_data():
     global sensor_data
     try:
         data = request.json
+        ecg = data.get("ecg", None)
+        respiration = data.get("respiration", None)
+        temperature = data.get("temperature", None)
+
+        # **Find Patient ID and SmartShirt ID for this session**
+        sql_query = """
+        SELECT smartshirt.patientID, smartshirt.smartshirtID 
+        FROM smartshirt 
+        JOIN patients ON smartshirt.patientID = patients.PatientID 
+        LIMIT 1
+        """
+        result = fetch_data(sql_query)
+
+        if not result:
+            return jsonify({"error": "No SmartShirt is linked to a patient."}), 404
+
+        patient_id = result["patientID"]
+        smartshirt_id = result["smartshirtID"]
+
+        # **Format timestamp with milliseconds**
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  
+
+        # **Store latest data in memory for real-time access**
         sensor_data = {
-            "ecg": data.get("ecg", 0),
-            "respiration": data.get("respiration", 0),
-            "temperature": data.get("temperature", 0),
-            "timestamp": time.time()
+            "ecg": ecg,
+            "respiration": respiration,
+            "temperature": temperature,
+            "timestamp": timestamp
         }
-        print(f"Received Data: {sensor_data}")
+
+        print(f"✅ Received Data for Patient {patient_id}: {sensor_data}")
+
+        # **Save Data into `health_vitals` Table**
+        sql_insert = """
+        INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientID, smartshirtID) 
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        modify_data(sql_insert, (timestamp, ecg, respiration, temperature, patient_id, smartshirt_id))
+
         return jsonify({"status": "success", "data": sensor_data}), 200
+
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
 @app.route('/get_sensor', methods=['GET'])
 def get_sensor_data():
-    if not sensor_data:
-        return jsonify({"error": "No sensor data"}), 500
+    try:
+        patient_id = request.args.get("patient_id")
+        print(f"🟢 Received patient_id: {patient_id}")  # Debugging output
 
-    # **Check if the data is older than 10 seconds**
-    current_time = time.time()
-    if current_time - sensor_data["timestamp"] > 10:
-        return jsonify({"error": "No recent sensor data"}), 500
+        if not patient_id:
+            return jsonify({"error": "Patient ID is required"}), 400
 
-    return jsonify(sensor_data)
+        # **Fetch latest sensor data from `health_vitals` for the given patient**
+        sql_query = """
+        SELECT timestamp, ecg, respiration_rate, temperature 
+        FROM health_vitals 
+        WHERE patientID = %s 
+        ORDER BY timestamp DESC 
+        LIMIT 1
+        """
+        latest_data = fetch_data(sql_query, (patient_id,))
+
+        if not latest_data:
+            return jsonify({"error": "No sensor data found for this patient"}), 404
+        
+        # **Check if the record is older than 10 seconds**
+        current_time = datetime.now()
+        record_time = latest_data['timestamp']
+
+        if (current_time - record_time).total_seconds() > 10:
+            return jsonify({"error": "Sensor data is outdated"}), 408  # HTTP 408: Request Timeout
+
+        return jsonify(latest_data), 200
+
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {e}"}), 500
 
 @app.route('/get_patient_id', methods=['GET'])
 def get_patient_id():
@@ -192,8 +247,6 @@ def get_patient_id():
 
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
-
-# ---------------------------- SMARTSHIRT REGISTRATION -----------------------------------
 
 @app.route('/register_mac', methods=['POST'])
 def register_mac():
@@ -240,7 +293,6 @@ def check_smartshirt():
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
-
 @app.route('/get_smartshirts', methods=['GET'])
 def get_smartshirts():
     try:
@@ -274,6 +326,148 @@ def receive_mac_from_esp():
 
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
+
+@app.route('/get_patient_profile', methods=['GET'])
+def get_patient_profile():
+    try:
+        patient_id = request.args.get("patient_id")
+
+        if not patient_id:
+            return jsonify({"error": "Patient ID is required"}), 400
+
+        print(f"🟢 Fetching profile for Patient ID: {patient_id}")
+
+        # **SQL Query to fetch FullName, Gender, and Age**
+        sql_query = """
+        SELECT u.FullName, u.Email, p.Gender, p.Age, p.Weight, p.Contact, p.PatientID
+        FROM patients p
+        JOIN users u ON p.UserID = u.UserID
+        WHERE p.patientID = %s
+        """
+        
+        user_profile = fetch_data(sql_query, (patient_id,))
+
+        if not user_profile:
+            return jsonify({"error": "No user profile found"}), 404
+
+        return jsonify(user_profile), 200
+
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {e}"}), 500
+    
+@app.route('/update_patient_profile', methods=['POST'])
+def update_patient_profile():
+    try:
+        data = request.json
+        patient_id = data.get("patient_id")
+        full_name = data.get("full_name")
+        gender = data.get("gender")
+        age = data.get("age")
+        email = data.get("email")
+        contact = data.get("contact")
+
+        if not patient_id:
+            return jsonify({"error": "Patient ID is required"}), 400
+
+        # **Update `users` table (Full Name & Email)**
+        update_user_query = """
+        UPDATE users 
+        SET FullName = %s, Email = %s 
+        WHERE UserID = (SELECT UserID FROM patients WHERE patientID = %s)
+        """
+        modify_data(update_user_query, (full_name, email, patient_id))
+
+        # **Update `patients` table (Gender, Age, Contact)**
+        update_patient_query = """
+        UPDATE patients 
+        SET Gender = %s, Age = %s, Contact = %s 
+        WHERE patientID = %s
+        """
+        modify_data(update_patient_query, (gender, age, contact, patient_id))
+
+        return jsonify({"message": "Profile updated successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {e}"}), 500
+
+@app.route('/get_trusted_contacts', methods=['GET'])
+def get_trusted_contacts():
+    try:
+        patient_id = request.args.get("patient_id")
+        if not patient_id:
+            return jsonify({"error": "Patient ID is required"}), 400
+
+        print(f"🟢 Fetching trusted contacts for Patient ID: {patient_id}")
+
+        sql_query = """
+        SELECT ContactID, ContactName, ContactNumber
+        FROM trusted_contacts
+        WHERE PatientID = %s
+        """
+        contacts = fetch_all_data(sql_query, (patient_id,))
+
+        if not contacts:
+            print("⚠ No contacts found in the database.")
+            return jsonify([]), 200  # Return an empty list instead of 404
+
+        return jsonify(contacts), 200  # Always return a list
+
+    except Exception as e:
+        print(f"❌ Error fetching contacts: {e}")
+        return jsonify({"error": "An error occurred"}), 500
+
+@app.route('/add_trusted_contact', methods=['POST'])
+def add_trusted_contact():
+    try:
+        data = request.json
+        patient_id = data.get("patient_id")
+        contact_name = data.get("contact_name")
+        contact_number = data.get("contact_number")
+
+        if not (patient_id and contact_name and contact_number):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        query = "INSERT INTO trusted_contacts (PatientID, ContactName, ContactNumber) VALUES (%s, %s, %s)"
+        modify_data(query, (patient_id, contact_name, contact_number))
+
+        return jsonify({"message": "Contact added successfully"}), 201
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {e}"}), 500
+
+@app.route('/update_trusted_contact', methods=['POST'])
+def update_trusted_contact():
+    try:
+        data = request.json
+        contact_id = data.get("contact_id")
+        contact_name = data.get("contact_name")
+        contact_number = data.get("contact_number")
+
+        if not (contact_id and contact_name and contact_number):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        query = "UPDATE trusted_contacts SET ContactName = %s, ContactNumber = %s WHERE ContactID = %s"
+        modify_data(query, (contact_name, contact_number, contact_id))
+
+        return jsonify({"message": "Contact updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {e}"}), 500
+
+@app.route('/delete_trusted_contact', methods=['POST'])
+def delete_trusted_contact():
+    try:
+        data = request.json
+        contact_id = data.get("contact_id")
+
+        if not contact_id:
+            return jsonify({"error": "Contact ID is required"}), 400
+
+        query = "DELETE FROM trusted_contacts WHERE ContactID = %s"
+        modify_data(query, (contact_id,))
+
+        return jsonify({"message": "Contact deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {e}"}), 500
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False) 

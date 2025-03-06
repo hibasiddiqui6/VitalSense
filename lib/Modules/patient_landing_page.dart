@@ -101,17 +101,13 @@ class _SmartShirtScreenState extends State<SmartShirtScreen> {
           title: const Text("ESP32 Connection Help"),
           content: const Text(
               "1️⃣ Open Wi-Fi settings.\n"
-              "2️⃣ Connect to **ESP32_Setup**.\n"
+              "2️⃣ Connect to 'ESP32_Setup'.\n"
               "3️⃣ When redirected, select your home Wi-Fi and enter the password.\n"
               "4️⃣ After setup, return to the app."),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text("OK"),
-            ),
-            TextButton(
-              onPressed: openWiFiSettings,
-              child: const Text("Open Wi-Fi Settings"),
             ),
           ],
         );
@@ -142,7 +138,7 @@ class _SmartShirtScreenState extends State<SmartShirtScreen> {
                       padding: EdgeInsets.zero,
                       children: <Widget>[
                         const DrawerHeader(
-                          decoration: BoxDecoration(color: Color.fromARGB(255, 206, 226, 206)),
+                          decoration: BoxDecoration(color: Color.fromARGB(255, 239, 238, 229)),
                           child: Text('Vital Sense'),
                         ),
                         ListTile(
@@ -166,7 +162,7 @@ class _SmartShirtScreenState extends State<SmartShirtScreen> {
                   height: 800,
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
                   decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 206, 226, 206),
+                    color: const Color.fromARGB(255, 239, 238, 229),
                     borderRadius: BorderRadius.circular(45),
                     boxShadow: [
                       BoxShadow(blurRadius: 10, offset: const Offset(0, 4)),

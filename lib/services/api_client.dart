@@ -16,10 +16,22 @@ class ApiClient {
 
   /// **Fetch Sensor Data**
   Future<Map<String, dynamic>> getSensorData() async {
-    final url = Uri.parse('$baseUrl/get_sensor');
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
+
+    if (patientId == null) {
+      print("❌ Patient ID not found in storage.");
+      return {'error': 'Patient ID not found in storage'};
+    }
+
+    final url = Uri.http('192.168.0.188:5000', '/get_sensor', {'patient_id': patientId});
 
     try {
       final response = await http.get(url).timeout(const Duration(seconds: 3));
+
+      print("🟢 API Response Code: ${response.statusCode}");
+      print("🟢 API Response Body: ${response.body}");
 
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -27,9 +39,10 @@ class ApiClient {
         return {'error': 'Failed to fetch sensor data (HTTP ${response.statusCode})'};
       }
     } catch (e) {
+      print("❌ Error in getSensorData(): $e");
       return {'error': 'Server unreachable. Check your connection.'};
     }
-  }
+}
 
   static Future<void> fetchAndSavePatientId(String email) async { 
     try {
@@ -45,7 +58,7 @@ class ApiClient {
                 if (patientId.isNotEmpty) {
                     SharedPreferences prefs = await SharedPreferences.getInstance();
                     await prefs.setString("patient_id", patientId);
-                    print("✅ Patient ID saved: $patientId");
+                    print("Patient ID saved: $patientId");
                 } else {
                     print("⚠ No patient ID found in response.");
                 }
@@ -59,7 +72,6 @@ class ApiClient {
         print("⚠ Error fetching patient ID: $e");
     }
   }
-
 
   Future<Map<String, dynamic>> registerPatient(
       String fullName, String gender, int age, String email, String password, String contact) async {
@@ -262,6 +274,158 @@ class ApiClient {
     } catch (e) {
       return {'error': 'Failed to fetch SmartShirts: $e'};
     }
+  }
+
+  /// **Fetch User Profile**
+  Future<Map<String, dynamic>> getPatientProfile() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
+
+    if (patientId == null) {
+      print("❌ Patient ID not found in storage.");
+      return {'error': 'Patient ID not found in storage'};
+    }
+
+    final url = Uri.parse("$baseUrl/get_patient_profile?patient_id=$patientId");
+
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 3));
+
+      print("🟢 API Response Code: ${response.statusCode}");
+      print("🟢 API Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        return {'error': 'Failed to fetch user profile (HTTP ${response.statusCode})'};
+      }
+    } catch (e) {
+      print("❌ Error in getPatientProfile(): $e");
+      return {'error': 'Server unreachable. Check your connection.'};
+    }
+  }
+
+  /// **Update User Profile API**
+  Future<Map<String, dynamic>> updatePatientProfile(Map<String, String> updatedData) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? patientId = prefs.getString("patient_id");
+
+      if (patientId == null) {
+        return {"error": "Patient ID not found in storage"};
+      }
+
+      final url = Uri.parse("$baseUrl/update_patient_profile");
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "patient_id": patientId,
+          "full_name": updatedData["FullName"],
+          "gender": updatedData["Gender"],
+          "age": updatedData["Age"],
+          "email": updatedData["Email"],
+          "contact": updatedData["Contact"],
+        }),
+      );
+
+      print("🟢 API Response Code: ${response.statusCode}");
+      print("🟢 API Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        return {"error": "Failed to update profile (HTTP ${response.statusCode})"};
+      }
+    } catch (e) {
+      print("❌ Error in updatePatientProfile(): $e");
+      return {"error": "Server unreachable. Check your connection."};
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTrustedContacts() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
+
+    if (patientId == null) {
+      print("⚠ Patient ID is missing!");
+      return [];
+    }
+
+    final url = Uri.parse("$baseUrl/get_trusted_contacts?patient_id=$patientId");
+    
+    try {
+      final response = await http.get(url);
+
+      print("🟢 API Response Code: ${response.statusCode}");
+      print("🟢 API Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final dynamic data = json.decode(response.body);
+
+        // Ensure the response is always treated as a List
+        if (data is Map<String, dynamic>) {
+          return [data]; // Convert single object to a list
+        } else if (data is List) {
+          return data.cast<Map<String, dynamic>>();
+        } else {
+          print("⚠ Unexpected response format: $data");
+          return [];
+        }
+      } else {
+        print("⚠ Failed to fetch contacts. HTTP ${response.statusCode}");
+        return [];
+      }
+    } catch (e) {
+      print("❌ Error fetching trusted contacts: $e");
+      return [];
+    }
+  }
+
+  Future<bool> addTrustedContact(String name, String number) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
+
+    if (patientId == null) return false;
+
+    final url = Uri.parse("$baseUrl/add_trusted_contact");
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "patient_id": patientId,
+        "contact_name": name,
+        "contact_number": number,
+      }),
+    );
+
+    return response.statusCode == 201;
+  }
+
+  Future<bool> updateTrustedContact(int contactId, String name, String number) async {
+    final url = Uri.parse("$baseUrl/update_trusted_contact");
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "contact_id": contactId,
+        "contact_name": name,
+        "contact_number": number,
+      }),
+    );
+
+    return response.statusCode == 200;
+  }
+
+  Future<bool> deleteTrustedContact(int contactId) async {
+    final url = Uri.parse("$baseUrl/delete_trusted_contact");
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"contact_id": contactId}),
+    );
+
+    return response.statusCode == 200;
   }
 
 }
