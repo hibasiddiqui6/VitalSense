@@ -41,7 +41,7 @@ class _PatientLoginState extends State<PatientLogin> {
   }
 
   // Function to handle login
-    Future<void> _login(BuildContext context) async {
+  Future<void> _login(BuildContext context) async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
@@ -68,9 +68,9 @@ class _PatientLoginState extends State<PatientLogin> {
       setState(() {
         _errorMessage = response['error'];
       });
-      _showPopup(context, "Login Failed", _errorMessage!); 
+      _showPopup(context, "Login Failed", _errorMessage!);
     } else {
-      _showPopup(context, "Success", "Login successful!"); 
+      _showPopup(context, "Success", "Login successful!");
       // 🔹 Fetch Patient ID
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? patientId = prefs.getString("patient_id");
@@ -95,7 +95,8 @@ class _PatientLoginState extends State<PatientLogin> {
           });
           return;
         } else {
-          print("⚠ No SmartShirt found. Proceeding to SmartShirt connection screen...");
+          print(
+              "⚠ No SmartShirt found. Proceeding to SmartShirt connection screen...");
         }
       } else {
         print("Patient ID not found after login.");
@@ -113,60 +114,59 @@ class _PatientLoginState extends State<PatientLogin> {
     }
   }
 
-
+  @override
   @override
   Widget build(BuildContext context) {
-    // Get the height of the screen
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
-      backgroundColor: Colors.white,
       body: Center(
         child: AnimatedOpacity(
           opacity: 1.0,
-          duration: const Duration(seconds: 10),
+          duration: const Duration(seconds: 1),
           child: Container(
-            width: 400,
-            height: 800, // Fixed height for the Google Pixel 9 frame
+            width: screenWidth, // Adjust width dynamically
+            height: screenHeight, // Adjust height dynamically
             decoration: BoxDecoration(
               color: const Color.fromARGB(255, 206, 226, 206),
-              borderRadius: BorderRadius.circular(45),
-              border: Border.all(width: 5, color: Colors.black), // Border width 5
             ),
             child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(33, 30, 33, 115),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const BackButtonWidget(),
-                    const SizedBox(height: 36),
-                    const Center(child: TitleWidget()),
-                    const SizedBox(height: 65),
-                    const LoginHeader(),
-                    const SizedBox(height: 18),
-                    LoginForm(
-                      emailController: _emailController,
-                      passwordController: _passwordController,
-                    ),
-                    const SizedBox(height: 15),
-                    if (_errorMessage != null) ...[
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 20), // Add margin as per your need
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(color: Colors.red, fontSize: 13),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const BackButtonWidget(),
+                  SizedBox(height: screenHeight * 0.04),
+                  const Center(child: TitleWidget()),
+                  SizedBox(height: screenHeight * 0.07),
+                  const LoginHeader(),
+                  SizedBox(height: screenHeight * 0.02),
+                  LoginForm(
+                    emailController: _emailController,
+                    passwordController: _passwordController,
+                  ),
+                  SizedBox(height: screenHeight * 0.02),
+                  if (_errorMessage != null) ...[
+                    Container(
+                      margin:
+                          EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: screenWidth * 0.035, // Responsive font size
                         ),
                       ),
-                    ],
-                    const SizedBox(height: 30),
-                    LoginButton(
-                      isLoading: _isLoading,
-                      onPressed: () => _login(context), // Pass context to _login
                     ),
-                    const SizedBox(height: 30),
-                    const RegisterPrompt(),
-                    const SizedBox(height: 30),
                   ],
-                ),
+                  SizedBox(height: screenHeight * 0.04),
+                  LoginButton(
+                    isLoading: _isLoading,
+                    onPressed: () => _login(context),
+                  ),
+                  SizedBox(height: screenHeight * 0.04),
+                  const RegisterPrompt(),
+                ],
               ),
             ),
           ),
@@ -182,10 +182,19 @@ class BackButtonWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Container(
-      margin: const EdgeInsets.fromLTRB(10, 49, 0, 0),
+      margin: EdgeInsets.only(
+        left: screenWidth * 0.03, // 3% of screen width for left margin
+        top: screenHeight * 0.06, // 6% of screen height for top margin
+      ),
       child: IconButton(
-        icon: const Icon(Icons.arrow_back),
+        icon: Icon(
+          Icons.arrow_back,
+          size: screenWidth * 0.07, // Responsive icon size
+        ), // Slightly larger icon for better visibility
         onPressed: () {
           Navigator.pop(context);
         },
@@ -193,6 +202,7 @@ class BackButtonWidget extends StatelessWidget {
     );
   }
 }
+
 /// Title Widget
 
 class TitleWidget extends StatelessWidget {
@@ -200,17 +210,19 @@ class TitleWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return  Text(
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Text(
       'VitalSense',
       style: GoogleFonts.lato(
-        color: Color(0xFF373737),
-        fontSize: 32,
+        color: const Color(0xFF373737),
+        fontSize: screenWidth * 0.08, // Adjust font size based on screen width
+        fontWeight: FontWeight.bold, // Added bold for better visibility
       ),
+      textAlign: TextAlign.center, // Center align for better UI
     );
   }
 }
-
-
 
 /// Login Header
 class LoginHeader extends StatelessWidget {
@@ -218,13 +230,17 @@ class LoginHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(left: 20),
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Padding(
+      padding: EdgeInsets.only(
+          left: screenWidth * 0.05), // Scales padding dynamically
       child: Text(
         'Login as a Patient',
         style: TextStyle(
-          color: Color(0xFF373737),
-          fontSize: 22,
+          color: const Color(0xFF373737),
+          fontSize:
+              screenWidth * 0.06, // Adjust font size based on screen width
           fontWeight: FontWeight.w500,
           fontFamily: 'Inter',
         ),
@@ -232,7 +248,6 @@ class LoginHeader extends StatelessWidget {
     );
   }
 }
-
 
 /// Login Form with input fields
 class LoginForm extends StatelessWidget {
@@ -247,11 +262,15 @@ class LoginForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Form(
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.05,
+            ), // Responsive padding
             child: InputField(
               controller: emailController,
               labelText: 'Email',
@@ -259,9 +278,9 @@ class LoginForm extends StatelessWidget {
               obscureText: false,
             ),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: screenWidth * 0.04), // Responsive spacing
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
             child: InputField(
               controller: passwordController,
               labelText: 'Password',
@@ -311,37 +330,65 @@ class _InputFieldState extends State<InputField> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Container(
-      height: 55,
-      width: 312,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      // Adaptive padding
       decoration: BoxDecoration(
         color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
         borderRadius: BorderRadius.circular(15),
       ),
-      child: TextFormField(
-        controller: widget.controller,
-        decoration: InputDecoration(
-          labelText: widget.labelText,
-          floatingLabelBehavior: FloatingLabelBehavior.auto,
-          labelStyle: const TextStyle(
-            color: Color(0xFF3E3838),
-            fontSize: 17,
+      child: SizedBox(
+        height: screenWidth * 0.14, // Responsive height
+        width: screenWidth * 0.85, // Responsive width
+        child: TextFormField(
+          controller: widget.controller,
+          style: TextStyle(
+            fontSize:
+                screenWidth * 0.035, // Responsive font size for input text
+            color: Colors.black, // Text color
             fontFamily: 'Inter',
           ),
-          border: InputBorder.none,
-          suffixIcon: widget.labelText == 'Password'
-              ? IconButton(
-                  icon: Icon(
-                    _obscureText ? Icons.visibility_off : Icons.visibility,
-                    color: const Color(0xFF3E3838),
-                  ),
-                  onPressed: _toggleVisibility,
-                )
-              : null,
+          decoration: InputDecoration(
+            labelText: widget.labelText,
+            floatingLabelBehavior:
+                FloatingLabelBehavior.auto, // Enables floating label
+            labelStyle: TextStyle(
+              color: const Color(0xFF3E3838),
+              fontSize: screenWidth * 0.045, // Responsive font size
+              fontFamily: 'Inter',
+            ),
+            contentPadding: EdgeInsets.symmetric(
+              vertical: screenWidth * 0.05, // Adjust vertical padding
+              horizontal: screenWidth * 0.04, // Adjust horizontal padding
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                  color: Colors.blue, width: 2), // Focused border color
+              borderRadius: BorderRadius.circular(15),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                  color: Colors.grey, width: 1), // Default border color
+              borderRadius: BorderRadius.circular(15),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            suffixIcon: widget.labelText == 'Password'
+                ? IconButton(
+                    icon: Icon(
+                      _obscureText ? Icons.visibility_off : Icons.visibility,
+                      color: const Color(0xFF3E3838),
+                      size: screenWidth * 0.06,
+                    ),
+                    onPressed: _toggleVisibility,
+                  )
+                : null,
+          ),
+          keyboardType: widget.keyboardType,
+          obscureText: widget.labelText == 'Password' ? _obscureText : false,
         ),
-        keyboardType: widget.keyboardType,
-        obscureText: _obscureText,
       ),
     );
   }
@@ -360,11 +407,13 @@ class LoginButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 35),
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Center(
+      // Ensures the button is always centered
       child: Container(
-        width: 250,
-        height: 50,
+        width: screenWidth * 0.65, // 65% of screen width
+        height: screenWidth * 0.13, // Scales height based on width
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: const LinearGradient(
@@ -390,18 +439,19 @@ class LoginButton extends StatelessWidget {
             elevation: 0,
             shadowColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(50),
+              borderRadius: BorderRadius.circular(20),
             ),
           ),
           child: isLoading
               ? const CircularProgressIndicator(
                   color: Color(0xFF434242),
                 )
-              : const Text(
+              : Text(
                   'Log in',
                   style: TextStyle(
-                    color: Color(0xFF434242),
-                    fontSize: 22,
+                    color: const Color(0xFF434242),
+                    fontSize:
+                        screenWidth * 0.055, // Adjust font size dynamically
                     fontWeight: FontWeight.w600,
                     fontFamily: 'Inter',
                   ),
@@ -416,35 +466,42 @@ class LoginButton extends StatelessWidget {
 class RegisterPrompt extends StatelessWidget {
   const RegisterPrompt({super.key});
 
-  @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Column(
       children: [
-        const Center(
-          child: Text(
-            "Don't have an account?",
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 19,
-              fontFamily: 'Inter',
+        Center(
+          child: FittedBox(
+            child: Text(
+              "Don't have an account?",
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: screenWidth * 0.045, // Responsive font size
+                fontFamily: 'Inter',
+              ),
             ),
           ),
         ),
+        const SizedBox(height: 5), // Responsive spacing
         Center(
           child: GestureDetector(
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const PatientRegister()),
+                MaterialPageRoute(
+                    builder: (context) => const PatientRegister()),
               );
             },
-            child: const Text(
-              'Register',
-              style: TextStyle(
-                color: Color(0xFF5764A9),
-                fontSize: 19,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'Inter',
+            child: FittedBox(
+              child: Text(
+                'Register',
+                style: TextStyle(
+                  color: const Color(0xFF5764A9),
+                  fontSize: screenWidth * 0.045, // Responsive font size
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Inter',
+                ),
               ),
             ),
           ),
