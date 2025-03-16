@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'register_patient.dart'; // Import the registration page
-import 'patient_landingPage.dart'; // Import the shirt_connection.dart page
+import 'patient_wifi_setup.dart'; // Import the shirt_connection.dart page
+import 'patient_dashboard.dart';
 import 'package:vitalsense/services/api_client.dart'; // Import the ApiClient for login functionality
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PatientLogin extends StatefulWidget {
   const PatientLogin({super.key});
@@ -16,17 +19,43 @@ class _PatientLoginState extends State<PatientLogin> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  @override
+  void initState() {
+    super.initState();
+    // Clear the error message when user starts editing the input fields
+    _emailController.addListener(() {
+      if (_errorMessage != null) {
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+    });
+    _passwordController.addListener(() {
+      if (_errorMessage != null) {
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+    });
+  }
+
   // Function to handle login
-  Future<void> _login() async {
+  Future<void> _login(BuildContext context) async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorMessage = 'Email and password cannot be empty.';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    final email = _emailController.text;
-    final password = _passwordController.text;
-
-    // Call the login API
     final apiClient = ApiClient();
     final response = await apiClient.loginPatient(email, password);
 
@@ -38,86 +67,109 @@ class _PatientLoginState extends State<PatientLogin> {
       setState(() {
         _errorMessage = response['error'];
       });
+      _showPopup(context, "Login Failed", _errorMessage!);
     } else {
-      // Successful login
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const SmartShirtScreen()), // Navigate to ShirtConnection
-      );
+      _showPopup(context, "Success", "Login successful!");
+      // 🔹 Fetch Patient ID
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? patientId = prefs.getString("patient_id");
+
+      if (patientId != null) {
+        print("Patient ID: $patientId. Checking for registered SmartShirt...");
+
+        // 🔹 Check if a SmartShirt is registered for this patient
+        final smartShirtResponse = await apiClient.getSmartShirts(patientId);
+
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+
+        if (smartShirtResponse.containsKey("smartshirts") &&
+            smartShirtResponse["smartshirts"].isNotEmpty) {
+          print("SmartShirt found! Navigating to SensorDataScreen...");
+
+          await prefs.setBool('smartshirt_registered', true);
+
+          Future.delayed(const Duration(seconds: 2), () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PatientDashboard(),
+              ),
+            );
+          });
+          return;
+        } else {
+          print("⚠ No SmartShirt found. Proceeding to SmartShirt connection screen...");
+          await prefs.setBool('smartshirt_registered', false); 
+
+          Future.delayed(const Duration(seconds: 2), () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => PatientWifiSetup()),
+            );
+          });
+        }
+      } else {
+        print("Patient ID not found after login.");
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Get the height of the screen
-    double screenHeight = MediaQuery.of(context).size.height;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: Colors.black,
       body: Center(
-        child: FlexibleContainer(
-          maxHeight: screenHeight - 60,
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(33, 30, 33, 135),
+        child: AnimatedOpacity(
+          opacity: 1.0,
+          duration: const Duration(seconds: 1),
+          child: Container(
+            width: screenWidth, // Adjust width dynamically
+            height: screenHeight, // Adjust height dynamically
+            decoration: BoxDecoration(
+              color: const Color.fromARGB(255, 206, 226, 206),
+            ),
+            child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const BackButtonWidget(),
-                  const SizedBox(height: 36),
+                  SizedBox(height: screenHeight * 0.04),
                   const Center(child: TitleWidget()),
-                  const SizedBox(height: 65),
+                  SizedBox(height: screenHeight * 0.07),
                   const LoginHeader(),
-                  const SizedBox(height: 18),
+                  SizedBox(height: screenHeight * 0.02),
                   LoginForm(
                     emailController: _emailController,
                     passwordController: _passwordController,
                   ),
-                  const SizedBox(height: 35),
+                  SizedBox(height: screenHeight * 0.02),
                   if (_errorMessage != null) ...[
-                    Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red, fontSize: 16),
+                    Container(
+                      margin:
+                          EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: screenWidth * 0.035, // Responsive font size
+                        ),
+                      ),
                     ),
                   ],
-                  const SizedBox(height: 57),
-                  const RegisterPrompt(),
-                  const SizedBox(height: 30),
+                  SizedBox(height: screenHeight * 0.04),
                   LoginButton(
                     isLoading: _isLoading,
-                    onPressed: _login,
+                    onPressed: () => _login(context),
                   ),
+                  SizedBox(height: screenHeight * 0.04),
+                  const RegisterPrompt(),
                 ],
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// FlexibleContainer for the background and layout constraints
-class FlexibleContainer extends StatelessWidget {
-  final Widget child;
-  final double maxHeight;
-
-  const FlexibleContainer({super.key, required this.child, required this.maxHeight});
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: 412, // Fixed width
-        maxHeight: maxHeight,
-      ),
-      child: Container(
-        width: double.infinity, // Ensures the container takes the max width
-        decoration: BoxDecoration(
-          color: const Color.fromARGB(255, 206, 226, 206),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: child,
       ),
     );
   }
@@ -129,10 +181,19 @@ class BackButtonWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Container(
-      margin: const EdgeInsets.fromLTRB(10, 49, 0, 0),
+      margin: EdgeInsets.only(
+        left: screenWidth * 0.03, // 3% of screen width for left margin
+        top: screenHeight * 0.06, // 6% of screen height for top margin
+      ),
       child: IconButton(
-        icon: const Icon(Icons.arrow_back),
+        icon: Icon(
+          Icons.arrow_back,
+          size: screenWidth * 0.07, // Responsive icon size
+        ), // Slightly larger icon for better visibility
         onPressed: () {
           Navigator.pop(context);
         },
@@ -142,19 +203,22 @@ class BackButtonWidget extends StatelessWidget {
 }
 
 /// Title Widget
+
 class TitleWidget extends StatelessWidget {
   const TitleWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Text(
       'VitalSense',
-      style: TextStyle(
-        color: Color(0xFF373737),
-        fontSize: 32,
-        fontWeight: FontWeight.w700,
-        fontFamily: 'Inter',
+      style: GoogleFonts.lato(
+        color: const Color(0xFF373737),
+        fontSize: screenWidth * 0.08, // Adjust font size based on screen width
+        fontWeight: FontWeight.bold, // Added bold for better visibility
       ),
+      textAlign: TextAlign.center, // Center align for better UI
     );
   }
 }
@@ -165,13 +229,17 @@ class LoginHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(left: 19),
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Padding(
+      padding: EdgeInsets.only(
+          left: screenWidth * 0.05), // Scales padding dynamically
       child: Text(
         'Login as a Patient',
         style: TextStyle(
-          color: Color(0xFF373737),
-          fontSize: 24,
+          color: const Color(0xFF373737),
+          fontSize:
+              screenWidth * 0.06, // Adjust font size based on screen width
           fontWeight: FontWeight.w500,
           fontFamily: 'Inter',
         ),
@@ -193,21 +261,31 @@ class LoginForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Form(
       child: Column(
         children: [
-          InputField(
-            controller: emailController,
-            labelText: 'Email',
-            keyboardType: TextInputType.emailAddress,
-            obscureText: false,
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.05,
+            ), // Responsive padding
+            child: InputField(
+              controller: emailController,
+              labelText: 'Email',
+              keyboardType: TextInputType.emailAddress,
+              obscureText: false,
+            ),
           ),
-          const SizedBox(height: 18),
-          InputField(
-            controller: passwordController,
-            labelText: 'Password',
-            keyboardType: TextInputType.text,
-            obscureText: true,
+          SizedBox(height: screenWidth * 0.04), // Responsive spacing
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
+            child: InputField(
+              controller: passwordController,
+              labelText: 'Password',
+              keyboardType: TextInputType.text,
+              obscureText: true,
+            ),
           ),
         ],
       ),
@@ -216,7 +294,7 @@ class LoginForm extends StatelessWidget {
 }
 
 /// Input Field Widget
-class InputField extends StatelessWidget {
+class InputField extends StatefulWidget {
   final TextEditingController controller;
   final String labelText;
   final TextInputType keyboardType;
@@ -231,29 +309,85 @@ class InputField extends StatelessWidget {
   });
 
   @override
+  State<InputField> createState() => _InputFieldState();
+}
+
+class _InputFieldState extends State<InputField> {
+  late bool _obscureText;
+
+  @override
+  void initState() {
+    super.initState();
+    _obscureText = widget.obscureText;
+  }
+
+  void _toggleVisibility() {
+    setState(() {
+      _obscureText = !_obscureText;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Container(
-      height: 55,
-      width: 312,
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      // Adaptive padding
       decoration: BoxDecoration(
         color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
         borderRadius: BorderRadius.circular(15),
       ),
-      child: TextFormField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: labelText,
-          floatingLabelBehavior: FloatingLabelBehavior.auto,
-          labelStyle: const TextStyle(
-            color: Color(0xFF3E3838),
-            fontSize: 17,
+      child: SizedBox(
+        height: screenWidth * 0.14, // Responsive height
+        width: screenWidth * 0.85, // Responsive width
+        child: TextFormField(
+          controller: widget.controller,
+          style: TextStyle(
+            fontSize:
+                screenWidth * 0.035, // Responsive font size for input text
+            color: Colors.black, // Text color
             fontFamily: 'Inter',
           ),
-          border: InputBorder.none,
+          decoration: InputDecoration(
+            labelText: widget.labelText,
+            floatingLabelBehavior:
+                FloatingLabelBehavior.auto, // Enables floating label
+            labelStyle: TextStyle(
+              color: const Color(0xFF3E3838),
+              fontSize: screenWidth * 0.045, // Responsive font size
+              fontFamily: 'Inter',
+            ),
+            contentPadding: EdgeInsets.symmetric(
+              vertical: screenWidth * 0.05, // Adjust vertical padding
+              horizontal: screenWidth * 0.04, // Adjust horizontal padding
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                  color: Colors.blue, width: 2), // Focused border color
+              borderRadius: BorderRadius.circular(15),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderSide: const BorderSide(
+                  color: Colors.grey, width: 1), // Default border color
+              borderRadius: BorderRadius.circular(15),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            suffixIcon: widget.labelText == 'Password'
+                ? IconButton(
+                    icon: Icon(
+                      _obscureText ? Icons.visibility_off : Icons.visibility,
+                      color: const Color(0xFF3E3838),
+                      size: screenWidth * 0.06,
+                    ),
+                    onPressed: _toggleVisibility,
+                  )
+                : null,
+          ),
+          keyboardType: widget.keyboardType,
+          obscureText: widget.labelText == 'Password' ? _obscureText : false,
         ),
-        keyboardType: keyboardType,
-        obscureText: obscureText,
       ),
     );
   }
@@ -272,16 +406,18 @@ class LoginButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 11),
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Center(
+      // Ensures the button is always centered
       child: Container(
-        width: 312,
-        height: 50,
+        width: screenWidth * 0.65, // 65% of screen width
+        height: screenWidth * 0.13, // Scales height based on width
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: const LinearGradient(
             colors: [
-              Color(0xFF5C714C),
+              Color.fromARGB(255, 151, 185, 125),
               Color(0xFFFBFBF4),
             ],
             begin: Alignment.topLeft,
@@ -302,18 +438,19 @@ class LoginButton extends StatelessWidget {
             elevation: 0,
             shadowColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(50),
+              borderRadius: BorderRadius.circular(20),
             ),
           ),
           child: isLoading
               ? const CircularProgressIndicator(
                   color: Color(0xFF434242),
                 )
-              : const Text(
+              : Text(
                   'Log in',
                   style: TextStyle(
-                    color: Color(0xFF434242),
-                    fontSize: 22,
+                    color: const Color(0xFF434242),
+                    fontSize:
+                        screenWidth * 0.055, // Adjust font size dynamically
                     fontWeight: FontWeight.w600,
                     fontFamily: 'Inter',
                   ),
@@ -328,34 +465,42 @@ class LoginButton extends StatelessWidget {
 class RegisterPrompt extends StatelessWidget {
   const RegisterPrompt({super.key});
 
-  @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Column(
       children: [
-        const Center(
-          child: Text(
-            "Don't have an account?",
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 19,
-              fontFamily: 'Inter',
+        Center(
+          child: FittedBox(
+            child: Text(
+              "Don't have an account?",
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: screenWidth * 0.045, // Responsive font size
+                fontFamily: 'Inter',
+              ),
             ),
           ),
         ),
+        const SizedBox(height: 5), // Responsive spacing
         Center(
           child: GestureDetector(
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const PatientRegister()),
+                MaterialPageRoute(
+                    builder: (context) => const PatientRegister()),
               );
             },
-            child: const Text(
-              'Register',
-              style: TextStyle(
-                color: Color(0xFF3E3838),
-                fontSize: 18,
-                fontFamily: 'Inter',
+            child: FittedBox(
+              child: Text(
+                'Register',
+                style: TextStyle(
+                  color: const Color(0xFF5764A9),
+                  fontSize: screenWidth * 0.045, // Responsive font size
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Inter',
+                ),
               ),
             ),
           ),
@@ -363,4 +508,24 @@ class RegisterPrompt extends StatelessWidget {
       ],
     );
   }
+}
+
+void _showPopup(BuildContext context, String title, String message) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('OK'),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+        ],
+      );
+    },
+  );
 }
