@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'register_specialist.dart'; // Import the registration page
-import 'specialist_landing_page.dart'; // Import the shirt_connection.dart page
+import 'specialist_dashboard.dart'; // Import the shirt_connection.dart page
 import 'package:vitalsense/services/api_client.dart'; // Import the ApiClient for login functionality
 import 'package:google_fonts/google_fonts.dart';
 
@@ -75,7 +75,7 @@ class _SpecialistLoginState extends State<SpecialistLogin> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => NoActivePatientsScreen(),
+            builder: (context) => SpecialistDashboard(),
           ),
         );
       });

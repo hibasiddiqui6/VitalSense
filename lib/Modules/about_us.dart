@@ -1,16 +1,36 @@
 import 'package:flutter/material.dart';
-import 'all_vitals.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../widgets/patient_drawer.dart';
+import '../widgets/specialist_drawer.dart'; // Importing specialist drawer
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: AboutUsPage(),
-  ));
+class AboutUs extends StatefulWidget {
+  const AboutUs({super.key});
+
+  @override
+  _AboutUsState createState() => _AboutUsState();
 }
 
-class AboutUsPage extends StatelessWidget {
-  const AboutUsPage({super.key});
+class _AboutUsState extends State<AboutUs> {
+  String fullName = "Loading...";
+  String email = "example@example.com";
+  String role = "-"; // Default to patient, will be loaded
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserDetails();
+  }
+
+  /// Load user details for drawer and role
+  Future<void> _loadUserDetails() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      fullName = prefs.getString("full_name") ?? "Unknown User";
+      email = prefs.getString("email") ?? "example@example.com";
+      role = prefs.getString("role") ?? "-"; // Load role
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,15 +39,19 @@ class AboutUsPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => DashboardScreen()),
-                  );
-          },
-        ),
+        iconTheme: const IconThemeData(color: Colors.black), // Hamburger color
+      ),
+      drawer: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.8,
+        child: role == 'specialist'
+            ? SpecialistDrawer(
+                fullName: fullName,
+                email: email,
+              )
+            : PatientDrawer(
+                fullName: fullName,
+                email: email,
+              ),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

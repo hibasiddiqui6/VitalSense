@@ -3,8 +3,15 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_client.dart'; // API for fetching ECG data
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ECGScreen extends StatefulWidget {
+  final String? gender;
+  final String? age;
+  final String? weight;
+
+  const ECGScreen({super.key, this.gender, this.age, this.weight});
+
   @override
   _ECGScreenState createState() => _ECGScreenState();
 }
@@ -16,21 +23,40 @@ class _ECGScreenState extends State<ECGScreen> {
   Timer? ecgTimer;
   double minY = 0, maxY = 4095; // Default range for 12-bit ADC
   int baseTime = 0; // Base time for X-axis labels
-  String gender = "N/A";
-  String age = "N/A";
-  String weight = "N/A";
+
+  // Patient details
+  String gender = "-";
+  String age = "-";
+  String weight = "-";
 
   @override
   void initState() {
     super.initState();
     startECGStreaming();
-    // **Fetch user details**
-    fetchUserProfile();
+    _loadUserDetailsOrUseParams(); // Load dynamic patient details
   }
 
-  /// **Fetch real-time ECG data every 100ms**
+  /// Load gender, age, weight from params or SharedPreferences
+  Future<void> _loadUserDetailsOrUseParams() async {
+    if (widget.gender != null && widget.age != null && widget.weight != null) {
+      setState(() {
+        gender = widget.gender!;
+        age = widget.age!;
+        weight = widget.weight!;
+      });
+    } else {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      setState(() {
+        gender = prefs.getString("gender") ?? "-";
+        age = prefs.getString("age") ?? "-";
+        weight = prefs.getString("weight") ?? "-";
+      });
+    }
+  }
+
+  /// **Fetch real-time ECG data every 2ms**
   void startECGStreaming() {
-    ecgTimer = Timer.periodic(Duration(milliseconds: 2), (timer) async {
+    ecgTimer = Timer.periodic(const Duration(milliseconds: 2), (timer) async {
       try {
         var response = await apiClient.getSensorData(); // Fetch ECG data
 
@@ -41,12 +67,8 @@ class _ECGScreenState extends State<ECGScreen> {
             if (ecgData.length > 100) ecgData.removeAt(0); // Keep last 100 points
             ecgData.add(FlSpot(time, rawADC));
             time += 0.1; // Increment time
-
-            // **Update baseTime dynamically to keep X-axis labels increasing**
-            baseTime = time.toInt() - (time.toInt() % 12);
-
-            // **Auto-Scale Y-Axis Dynamically**
-            _updateYAxisRange();
+            baseTime = time.toInt() - (time.toInt() % 12); // Dynamic X-axis base
+            _updateYAxisRange(); // Auto-scale Y-axis
           });
         }
       } catch (e) {
@@ -55,14 +77,14 @@ class _ECGScreenState extends State<ECGScreen> {
     });
   }
 
-  /// **Auto-Adjust Y-Axis based on real-time data**
+  /// Auto-Adjust Y-Axis based on incoming data
   void _updateYAxisRange() {
     if (ecgData.isNotEmpty) {
       double minVal = ecgData.map((e) => e.y).reduce((a, b) => a < b ? a : b);
       double maxVal = ecgData.map((e) => e.y).reduce((a, b) => a > b ? a : b);
 
       setState(() {
-        minY = minVal - 100; // Add buffer
+        minY = minVal - 100;
         maxY = maxVal + 100;
       });
     }
@@ -70,30 +92,8 @@ class _ECGScreenState extends State<ECGScreen> {
 
   @override
   void dispose() {
-    ecgTimer?.cancel(); // Stop the timer when disposed
+    ecgTimer?.cancel(); // Stop timer on dispose
     super.dispose();
-  }
-
-  /// **Fetch user profile data**
-  Future<void> fetchUserProfile() async {
-    try {
-      final data = await ApiClient().getPatientProfile();
-
-      if (data.containsKey("error")) {
-        print("⚠ Error fetching user profile: ${data['error']}");
-        return;
-      }
-
-      if (mounted) {
-        setState(() {
-          gender = data["Gender"] ?? "N/A";
-          age = data["Age"]?.toString() ?? "N/A";
-          weight = data["Weight"]?.toString() ?? "N/A";
-        });
-      }
-    } catch (e) {
-      print("Failed to fetch user profile: $e");
-    }
   }
 
     /// **Generate ECG Chart Data (Fix X-axis Overlapping)**

@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../services/api_client.dart';
-import 'welcome_page.dart';
 import 'ecg.dart';
 import 'temperature.dart';
 import 'respiration.dart';
-import 'patient_profile.dart';
-import 'settings.dart';
-import 'trusted_contacts.dart';
-import 'about_us.dart';
+import '../widgets/patient_drawer.dart'; 
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -22,25 +18,26 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: DashboardScreen(),
+      home: PatientDashboard(),
     );
   }
 }
 
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+class PatientDashboard extends StatefulWidget {
+  const PatientDashboard({super.key});
 
   @override
-  _DashboardScreenState createState() => _DashboardScreenState();
+  _PatientDashboardState createState() => _PatientDashboardState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
-  String respiration = "N/A";
-  String temperature = "N/A";
+class _PatientDashboardState extends State<PatientDashboard> {
+  String respiration = "-";
+  String temperature = "-";
   String fullName = "...";
-  String gender = "N/A";
-  String age = "N/A";
-  String weight = "N/A";
+  String email = "...";
+  String gender = "-";
+  String age = "-";
+  String weight = "-";
   bool isFetching = true;
   bool showNoReadings = false;
   bool showReconnecting = false;
@@ -112,10 +109,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       if (mounted) {
         setState(() {
-          fullName = data["FullName"] ?? "Unknown User";
-          gender = data["Gender"] ?? "N/A";
-          age = data["Age"]?.toString() ?? "N/A";
-          weight = data["Weight"]?.toString() ?? "N/A";
+          fullName = data["fullname"] ?? "Unknown User";
+          gender = data["gender"] ?? "-";
+          age = data["age"]?.toString() ?? "-";
+          weight = data["weight"]?.toString() ?? "-";
         });
         // **Save to SharedPreferences for Drawer Use**
         SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -129,20 +126,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
   
-  /// **Load Full Name from SharedPreferences**
+  /// **Load Details from SharedPreferences**
   Future<void> _loadUserDetails() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       fullName = prefs.getString("full_name") ?? "Unknown User";
     });
     setState(() {
-      gender = prefs.getString("gender") ?? "N/A";
+      gender = prefs.getString("gender") ?? "-";
     });
     setState(() {
-      age = prefs.getString("age") ?? "N/A";
+      age = prefs.getString("age") ?? "-";
     });
     setState(() {
-      weight = prefs.getString("weight") ?? "N/A";
+      weight = prefs.getString("weight") ?? "-";
+    });
+    setState(() {
+      email = prefs.getString("email") ?? "-";
     });
   }
 
@@ -193,7 +193,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
-      drawer: AppDrawer(),
+      drawer: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.8,
+        child: PatientDrawer(
+          fullName: fullName, // fetched and stored in State
+          email: email,       // fetched and stored in State
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -205,20 +211,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-
-            // Gender, Age, Weight Cards
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildInfoCard(gender, 'Gender', const Color.fromARGB(255, 218, 151, 167)),
-                const SizedBox(width: 7),
-                _buildInfoCard(age, 'Age', const Color.fromARGB(255, 218, 189, 151)),
-                const SizedBox(width: 7),
-                _buildInfoCard(weight, 'Weight', const Color(0xFF9CCC65)), // Keep weight static for now
-              ],
-            ),
-
-            const SizedBox(height: 15),
 
             // Show persistent message if no valid readings are available
             if (showNoReadings || finalMessageShown) 
@@ -244,6 +236,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                 ],
               ),
+            const SizedBox(height: 15),
+
+            // Gender, Age, Weight Cards
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildInfoCard(gender, 'Gender', const Color.fromARGB(255, 218, 151, 167)),
+                const SizedBox(width: 7),
+                _buildInfoCard(age, 'Age', const Color.fromARGB(255, 218, 189, 151)),
+                const SizedBox(width: 7),
+                _buildInfoCard(weight, 'Weight', const Color(0xFF9CCC65)), // Keep weight static for now
+              ],
+            ),
+
             const SizedBox(height: 15),
 
             // ECG Section
@@ -334,6 +340,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  Widget _buildInfoCard2(
+    String value, String label, Color color, VoidCallback onPressed) {
+  return Padding(
+    padding: const EdgeInsets.all(8.0), // Adds padding around each card
+    child: Container(
+      width: 172,
+      height: 180,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            color.withOpacity(0.5),
+            color.withOpacity(0.0)
+          ], // Gradient effect
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8.0,
+            offset: Offset(3, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87),
+          ),
+          SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+                fontSize: 28, fontWeight: FontWeight.w300, color: Colors.black),
+          ),
+          SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: onPressed, // Calls the provided callback function
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  const Color.fromARGB(255, 176, 85, 85), // Matches your UI
+              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 0),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(50),
+              ),
+            ),
+            child: Text("Details", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
   Widget _buildECGCard(BuildContext context) {
     return Container(
@@ -468,108 +534,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-// Drawer Widget
-class AppDrawer extends StatefulWidget {
-  @override
-  _AppDrawerState createState() => _AppDrawerState();
-}
-
-class _AppDrawerState extends State<AppDrawer> {
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              color: Color.fromARGB(255, 193, 219, 188),
-            ),
-            child: Text(
-              'VitalSense', 
-              style: TextStyle(color: Colors.white, fontSize: 24),
-            ),
-          ),
-          _buildDrawerItem(Icons.dashboard, 'Dashboard', context,),
-          _buildDrawerItem(Icons.person, 'My Profile', context,),
-          _buildDrawerItem(Icons.contacts, 'Trusted Contacts', context),
-          _buildDrawerItem(Icons.trending_up, 'Trends and History', context),
-          _buildDrawerItem(Icons.file_present, 'Reports', context),
-          _buildDrawerItem(Icons.settings, 'Settings', context),
-          _buildDrawerItem(Icons.info, 'About', context),
-
-          const Divider(), // Adds a separator
-
-          // Logout Button
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.redAccent),
-            title: const Text(
-              'Logout',
-              style: TextStyle(color: Colors.redAccent),
-            ),
-            onTap: () {
-              _handleLogout(context);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerItem(IconData icon, String title, BuildContext context) {
-  return ListTile(
-    leading: Icon(icon),
-    title: Text(title),
-    onTap: () {
-      Navigator.pop(context); // Close the drawer
-
-      // Navigate 
-      if (title == 'Dashboard') {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => DashboardScreen()),
-        );
-      }
-      if (title == 'My Profile') {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => PatientProfileScreen()),
-        );
-      }
-      if (title == 'Settings') {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => SettingsScreen()),
-        );
-      }
-      if (title == 'Trusted Contacts') {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => TrustedContactsScreen()),
-        );
-      }
-      if (title == 'About') {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => AboutUsPage()),
-        );
-      }
-    },
-  );
-}
-
-  /// **Handle Logout Function**
-  void _handleLogout(BuildContext context) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.clear(); 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const WelcomePage()),
-      (route) => false,
-    );
-  }
-}
-
 // **Fixed ECGLinePainter**
 class ECGLinePainter extends CustomPainter {
   @override
@@ -612,64 +576,4 @@ class ECGLinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
-}
-
-Widget _buildInfoCard2(
-    String value, String label, Color color, VoidCallback onPressed) {
-  return Padding(
-    padding: const EdgeInsets.all(8.0), // Adds padding around each card
-    child: Container(
-      width: 172,
-      height: 180,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            color.withOpacity(0.5),
-            color.withOpacity(0.0)
-          ], // Gradient effect
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8.0,
-            offset: Offset(3, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87),
-          ),
-          SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-                fontSize: 28, fontWeight: FontWeight.w300, color: Colors.black),
-          ),
-          SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: onPressed, // Calls the provided callback function
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  const Color.fromARGB(255, 176, 85, 85), // Matches your UI
-              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(50),
-              ),
-            ),
-            child: Text("Details", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    ),
-  );
 }

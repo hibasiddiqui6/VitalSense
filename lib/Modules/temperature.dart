@@ -1,47 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_client.dart'; // Import API client
-import 'all_vitals.dart'; // For navigation back to main
 import 'dart:async'; // Import Timer
 import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const TemperaturePage());
-}
-
 class TemperaturePage extends StatefulWidget {
-  const TemperaturePage({super.key});
+  final String? gender;
+  final String? age;
+  final String? weight;
+
+  const TemperaturePage({
+    Key? key,
+    this.gender,
+    this.age,
+    this.weight,
+  }) : super(key: key);
 
   @override
   _TemperaturePageState createState() => _TemperaturePageState();
 }
 
 class _TemperaturePageState extends State<TemperaturePage> {
-  String temperature = "Loading..."; // Default state
+  String temperature = "Loading...";
   bool isFetching = true;
   bool showError = false;
-  Timer? dataFetchTimer; // Timer for periodic fetching
-  String gender = "N/A";
-  String age = "N/A";
-  String weight = "N/A";
+  Timer? dataFetchTimer;
+  String gender = "-";
+  String age = "-";
+  String weight = "-";
 
   @override
   void initState() {
     super.initState();
-    
-    // Fetch data initially
     fetchTemperature();
 
-    // Start periodic data fetching every second
+    // Start periodic fetching every second
     dataFetchTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       fetchTemperature();
     });
-    // **Fetch user details**
-    fetchUserProfile();
-    _loadUserDetails();
+
+    // Load gender, age, weight (sharedPrefs or passed params)
+    _loadUserDetailsOrUseParams();
   }
 
-  /// **Fetch latest temperature data**
+  /// Fetch latest temperature
   Future<void> fetchTemperature() async {
     try {
       final data = await ApiClient().getSensorData();
@@ -49,13 +51,13 @@ class _TemperaturePageState extends State<TemperaturePage> {
       if (data.containsKey("error")) {
         setState(() {
           showError = true;
-          temperature = "N/A";
+          temperature = "-";
         });
         return;
       }
 
       setState(() {
-        temperature = "${data['temperature']} °F"; // ✅ Fetch from database
+        temperature = "${data['temperature']} °F";
         isFetching = false;
         showError = false;
       });
@@ -68,50 +70,26 @@ class _TemperaturePageState extends State<TemperaturePage> {
     }
   }
 
-  /// **Fetch user profile data**
-  Future<void> fetchUserProfile() async {
-    try {
-      final data = await ApiClient().getPatientProfile();
-
-      if (data.containsKey("error")) {
-        print("⚠ Error fetching user profile: ${data['error']}");
-        return;
-      }
-
-      if (mounted) {
-        setState(() {
-          gender = data["Gender"] ?? "N/A";
-          age = data["Age"]?.toString() ?? "N/A";
-          weight = data["Weight"]?.toString() ?? "N/A";
-        });
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString("gender", gender);
-        await prefs.setString("age", age);
-        await prefs.setString("weight", weight);
-      }
-    } catch (e) {
-      print("Failed to fetch user profile: $e");
+  /// Load gender, age, weight from params or SharedPreferences
+  Future<void> _loadUserDetailsOrUseParams() async {
+    if (widget.gender != null && widget.age != null && widget.weight != null) {
+      setState(() {
+        gender = widget.gender!;
+        age = widget.age!;
+        weight = widget.weight!;
+      });
+    } else {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      setState(() {
+        gender = prefs.getString("gender") ?? "-";
+        age = prefs.getString("age") ?? "-";
+        weight = prefs.getString("weight") ?? "-";
+      });
     }
-  }
-
-  Future<void> _loadUserDetails() async {
-    SharedPreferences gprefs = await SharedPreferences.getInstance();
-    setState(() {
-      gender = gprefs.getString("gender") ?? "N/A";
-    });
-    SharedPreferences aprefs = await SharedPreferences.getInstance();
-    setState(() {
-      age = aprefs.getString("age") ?? "N/A";
-    });
-    SharedPreferences wprefs = await SharedPreferences.getInstance();
-    setState(() {
-      weight = wprefs.getString("weight") ?? "N/A";
-    });
   }
 
   @override
   void dispose() {
-    // Cancel the timer to prevent memory leaks
     dataFetchTimer?.cancel();
     super.dispose();
   }
@@ -134,14 +112,11 @@ class _TemperaturePageState extends State<TemperaturePage> {
                     Row(
                       children: [
                         GestureDetector(
-                          onTap: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (context) => const MyApp()),
-                            );
-                          },
-                          child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
-                        ),
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
+                            child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
+                          ),
                         const SizedBox(width: 8),
                         Text(
                           "TEMPERATURE",

@@ -1,27 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/api_client.dart'; // Import API Client
-import 'all_vitals.dart'; // Navigation back to the main dashboard
+import '../services/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const RespirationPage());
-}
-
 class RespirationPage extends StatefulWidget {
-  const RespirationPage({super.key});
+  final String? gender;
+  final String? age;
+  final String? weight;
+
+  const RespirationPage({
+    Key? key,
+    this.gender, // optional param
+    this.age,    // optional param
+    this.weight, // optional param
+  }) : super(key: key);
 
   @override
   _RespirationPageState createState() => _RespirationPageState();
 }
 
 class _RespirationPageState extends State<RespirationPage> {
-  String respirationRate = "Loading..."; // Default state
+  String respirationRate = "Loading...";
   bool isFetching = true;
   bool showError = false;
-  String gender = "N/A";
-  String age = "N/A";
-  String weight = "N/A";
+  String gender = "-";
+  String age = "-";
+  String weight = "-";
+
+  @override
+  void initState() {
+    super.initState();
+    fetchRespirationRate();
+    _loadUserDetailsOrUseParams(); // Load from shared preferences or use passed params
+  }
 
   /// **Fetch latest respiration rate**
   Future<void> fetchRespirationRate() async {
@@ -31,13 +42,13 @@ class _RespirationPageState extends State<RespirationPage> {
       if (data.containsKey("error")) {
         setState(() {
           showError = true;
-          respirationRate = "N/A";
+          respirationRate = "-";
         });
         return;
       }
 
       setState(() {
-        respirationRate = "${data['respiration_rate']} BPM"; // ✅ Fetch from DB
+        respirationRate = "${data['respiration_rate']} BPM";
         isFetching = false;
         showError = false;
       });
@@ -50,54 +61,24 @@ class _RespirationPageState extends State<RespirationPage> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    fetchRespirationRate(); // Fetch on screen load
-    // **Fetch user details**
-    fetchUserProfile();
-    _loadUserDetails();
-  }
-
-  /// **Fetch user profile data**
-  Future<void> fetchUserProfile() async {
-    try {
-      final data = await ApiClient().getPatientProfile();
-
-      if (data.containsKey("error")) {
-        print("⚠ Error fetching user profile: ${data['error']}");
-        return;
-      }
-
-      if (mounted) {
-        setState(() {
-          gender = data["Gender"] ?? "N/A";
-          age = data["Age"]?.toString() ?? "N/A";
-          weight = data["Weight"]?.toString() ?? "N/A";
-        });
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString("gender", gender);
-        await prefs.setString("age", age);
-        await prefs.setString("weight", weight);
-      }
-    } catch (e) {
-      print("Failed to fetch user profile: $e");
+  /// Load gender, age, weight
+  Future<void> _loadUserDetailsOrUseParams() async {
+    if (widget.gender != null && widget.age != null && widget.weight != null) {
+      // ✅ Case: Viewing from Specialist Insights - use passed parameters
+      setState(() {
+        gender = widget.gender!;
+        age = widget.age!;
+        weight = widget.weight!;
+      });
+    } else {
+      // ✅ Case: Patient Dashboard - load from SharedPreferences
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      setState(() {
+        gender = prefs.getString("gender") ?? "-";
+        age = prefs.getString("age") ?? "-";
+        weight = prefs.getString("weight") ?? "-";
+      });
     }
-  }
-
-   Future<void> _loadUserDetails() async {
-    SharedPreferences gprefs = await SharedPreferences.getInstance();
-    setState(() {
-      gender = gprefs.getString("gender") ?? "N/A";
-    });
-    SharedPreferences aprefs = await SharedPreferences.getInstance();
-    setState(() {
-      age = aprefs.getString("age") ?? "N/A";
-    });
-    SharedPreferences wprefs = await SharedPreferences.getInstance();
-    setState(() {
-      weight = wprefs.getString("weight") ?? "N/A";
-    });
   }
 
   @override
@@ -114,14 +95,11 @@ class _RespirationPageState extends State<RespirationPage> {
               Row(
                 children: [
                   GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => const MyApp()),
-                      );
-                    },
-                    child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
-                  ),
+                      onTap: () {
+                        Navigator.pop(context);
+                      },
+                      child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
+                    ),
                   const SizedBox(width: 8),
                   Container(
                     margin: const EdgeInsets.only(left: 15),

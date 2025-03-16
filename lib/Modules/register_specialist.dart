@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'dart:async'; // For delayed navigation
-import 'specialist_landing_page.dart'; // Import the page where you want to navigate after registration
+import 'specialist_dashboard.dart'; // Import the page where you want to navigate after registration
 import 'package:vitalsense/services/api_client.dart';  // Import ApiClient for API interaction
 import 'package:google_fonts/google_fonts.dart';
 
@@ -276,7 +276,7 @@ class _SpecialistRegisterState extends State<SpecialistRegister> {
                                       Future.delayed(const Duration(seconds: 3), () {
                                         Navigator.pushReplacement(
                                           context,
-                                          MaterialPageRoute(builder: (context) => NoActivePatientsScreen()),
+                                          MaterialPageRoute(builder: (context) => SpecialistDashboard()),
                                         );
                                       });
                                     }

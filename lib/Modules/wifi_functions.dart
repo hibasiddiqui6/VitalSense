@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:wifi_iot/wifi_iot.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
-import 'sensor_screen.dart';
+import 'patient_dashboard.dart';
 import '../services/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -109,7 +109,7 @@ void proceedToProvisioning(BuildContext context) async {
             if (context.mounted) {
                 Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (context) => SensorDataScreen()),
+                    MaterialPageRoute(builder: (context) => PatientDashboard()),
                 );
             }
         }
@@ -179,7 +179,7 @@ Future<void> registerSmartShirt(BuildContext context) async {
         if (context.mounted) {
             Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => SensorDataScreen()),
+                MaterialPageRoute(builder: (context) => PatientDashboard()),
             );
         }
         return;
@@ -201,7 +201,7 @@ Future<void> registerSmartShirt(BuildContext context) async {
         if (context.mounted) {
             Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => SensorDataScreen()),
+                MaterialPageRoute(builder: (context) => PatientDashboard()),
             );
         }
     } else {
