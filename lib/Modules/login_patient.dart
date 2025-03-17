@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'register_patient.dart'; // Import the registration page
 import 'patient_landing_page.dart'; // Import the shirt_connection.dart page
-import 'sensor_screen.dart';
+
 import 'all_vitals.dart';
 import 'package:vitalsense/services/api_client.dart'; // Import the ApiClient for login functionality
 import 'package:google_fonts/google_fonts.dart';
@@ -114,7 +114,6 @@ class _PatientLoginState extends State<PatientLogin> {
     }
   }
 
-  @override
   @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;

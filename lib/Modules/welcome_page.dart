@@ -22,75 +22,72 @@ class WelcomePage extends StatelessWidget {
           Center(
             child: SingleChildScrollView(
               child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: MediaQuery.of(context).size.width * 0.08,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Welcome to VitalSense',
-                      style: GoogleFonts.lato(
-                        fontSize: MediaQuery.of(context).size.width * 0.07,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Your personal health companion for a healthier you!',
-                      style: TextStyle(
-                        color: const Color(0xFF343434),
-                        fontSize: MediaQuery.of(context).size.width * 0.04,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 50),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        return constraints.maxWidth > 600
-                            ? Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Expanded(
-                                    child: _roleSelectionBox(
-                                      context,
-                                      'Patient',
-                                      const PatientLogin(),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: MediaQuery.of(context).size.width * 0.08,
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      double screenWidth = MediaQuery.of(context).size.width;
+                      bool isLargeScreen = screenWidth > 700;
+
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Welcome to VitalSense',
+                                  style: GoogleFonts.lato(
+                                    fontSize: screenWidth * 0.07,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Your personal health companion for a healthier you!',
+                                  style: TextStyle(
+                                    color: const Color(0xFF343434),
+                                    fontSize: screenWidth * 0.04,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 50),
+                                Row(
+                                  mainAxisAlignment: isLargeScreen
+                                      ? MainAxisAlignment.spaceBetween
+                                      : MainAxisAlignment.center,
+                                  children: [
+                                    Expanded(
+                                      child: _roleSelectionBox(
+                                        context,
+                                        'Patient',
+                                        const PatientLogin(),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 20),
-                                  Expanded(
-                                    child: _roleSelectionBox(
-                                      context,
-                                      'Health Specialist',
-                                      const SpecialistLogin(),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: _roleSelectionBox(
+                                        context,
+                                        'Health Specialist',
+                                        const SpecialistLogin(),
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              )
-                            : Column(
-                                children: [
-                                  _roleSelectionBox(
-                                    context,
-                                    'Patient',
-                                    const PatientLogin(),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  _roleSelectionBox(
-                                    context,
-                                    'Health Specialist',
-                                    const SpecialistLogin(),
-                                  ),
-                                ],
-                              );
-                      },
-                    ),
-                  ],
-                ),
-              ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  )),
             ),
           ),
         ],
@@ -119,7 +116,7 @@ class WelcomePage extends StatelessWidget {
       child: Container(
         width: double.infinity, // Makes sure it takes full available space
         padding: EdgeInsets.symmetric(
-          vertical: MediaQuery.of(context).size.width * 0.06,
+          vertical: MediaQuery.of(context).size.width * 0.09,
         ),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.6),
@@ -138,7 +135,7 @@ class WelcomePage extends StatelessWidget {
               'Continue as',
               style: TextStyle(
                 color: const Color(0xFF343434),
-                fontSize: MediaQuery.of(context).size.width * 0.05,
+                fontSize: MediaQuery.of(context).size.width * 0.04,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w400,
               ),
@@ -148,7 +145,7 @@ class WelcomePage extends StatelessWidget {
               role,
               style: TextStyle(
                 color: Colors.black,
-                fontSize: MediaQuery.of(context).size.width * 0.05,
+                fontSize: MediaQuery.of(context).size.width * 0.04,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.bold,
               ),
