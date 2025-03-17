@@ -334,7 +334,7 @@ class _InputFieldState extends State<InputField> {
     return Container(
       // Adaptive padding
       decoration: BoxDecoration(
-        color: const Color.fromRGBO(247, 253, 245, 1).withOpacity(0.6),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(15),
       ),
       child: SizedBox(
@@ -363,7 +363,7 @@ class _InputFieldState extends State<InputField> {
             ),
             focusedBorder: OutlineInputBorder(
               borderSide: const BorderSide(
-                  color: Colors.blue, width: 2), // Focused border color
+                  color: const Color.fromARGB(255, 44, 59, 48), width: 2), // Focused border color
               borderRadius: BorderRadius.circular(15),
             ),
             enabledBorder: OutlineInputBorder(

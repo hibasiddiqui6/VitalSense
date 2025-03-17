@@ -94,16 +94,17 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> registerPatient(
-      String fullName, String gender, int age, String email, String password, String contact) async {
+      String fullName, String gender, int age, String email, String password, String contact, double weight) async {
 
       final url = Uri.parse('${ApiClient.baseUrl}/register/patient');
       final data = {
           'fullname': fullName,
           'gender': gender,
           'age': age,
-          'email': email,
+          'email': email.toLowerCase(),
           'password': password,
-          'contact': contact
+          'contact': contact,
+          'weight': weight
       };
 
       try {
@@ -117,21 +118,24 @@ class ApiClient {
               print("Patient registered successfully! Fetching patient ID...");
 
               SharedPreferences prefs = await SharedPreferences.getInstance();
-              await prefs.setString("email", email);
+              await prefs.setString("email", email.toLowerCase());
               // 🔹 Ensure DB commit before fetching patient ID
               await Future.delayed(const Duration(seconds: 1));
-              await fetchAndSavePatientId(email);
+              await fetchAndSavePatientId(email.toLowerCase());
 
               return json.decode(response.body);
           } else if (response.statusCode == 400) {
               return {'error': 'Invalid input data. Please check your details.'};
           } else if (response.statusCode == 500) {
-              final responseBody = json.decode(response.body);
-              if (responseBody['error'] != null && responseBody['error'].contains('Duplicate entry')) {
-                  return {'error': 'A patient with this email already exists.'};
-              }
-              final errorResponse = json.decode(response.body);
-              return {'error': errorResponse['error'] ?? 'Server error. Please try again later.'};
+            final responseBody = json.decode(response.body);
+            final errorMessage = responseBody['error'] ?? 'Server error. Please try again later.';
+
+            // Check for PostgreSQL duplicate error patterns
+            if (errorMessage.contains('duplicate key value') || errorMessage.contains('unique constraint')) {
+                return {'error': 'A patient with this email already exists.'};
+            }
+
+            return {'error': errorMessage}; // Generic fallback
 
           } else {
               return {'error': 'Unexpected error: ${response.statusCode}'}; 
@@ -144,7 +148,7 @@ class ApiClient {
   /// Login a Patient
   Future<Map<String, dynamic>> loginPatient(String email, String password) async {
       final url = Uri.parse('$baseUrl/login/patient');
-      final data = {'email': email, 'password': password};
+      final data = {'email': email.toLowerCase(), 'password': password};
 
       try {
           final response = await http.post(
@@ -157,11 +161,11 @@ class ApiClient {
               final responseData = json.decode(response.body);
               
               SharedPreferences prefs = await SharedPreferences.getInstance();
-              await prefs.setString("email", email);
+              await prefs.setString("email", email.toLowerCase());
 
               // Fetch and Save patient_id
               await Future.delayed(const Duration(seconds: 1));
-              await fetchAndSavePatientId(email);
+              await fetchAndSavePatientId(email.toLowerCase());
 
               return responseData;
           } else if (response.statusCode == 401) {
@@ -216,7 +220,7 @@ class ApiClient {
 
     final data = {
       'fullname': fullName,
-      'email': email,
+      'email': email.toLowerCase(),
       'password': password,
       'profession': profession,
       'speciality': speciality
@@ -231,10 +235,10 @@ class ApiClient {
 
       if (response.statusCode == 201) {
         SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString("email", email);
+        await prefs.setString("email", email.toLowerCase());
         // 🔹 Ensure DB commit before fetching specialist ID
         await Future.delayed(const Duration(seconds: 1));
-        await fetchAndSaveSpecialistId(email);
+        await fetchAndSaveSpecialistId(email.toLowerCase());
 
         return json.decode(response.body);
       } else if (response.statusCode == 400) {
@@ -242,12 +246,15 @@ class ApiClient {
       } else if (response.statusCode == 409) {
         return {'error': 'A health specialist with this email already exists.'};
       } else if (response.statusCode == 500) {
-        final responseBody = json.decode(response.body);
-        if (responseBody['error'] != null && responseBody['error'].contains('Duplicate entry')) {
-          return {'error': 'A Specialist with this email already exists.'};
-        }
-        final errorResponse = json.decode(response.body);
-        return {'error': errorResponse['error'] ?? 'Server error. Please try again later.'};
+          final responseBody = json.decode(response.body);
+          final errorMessage = responseBody['error'] ?? 'Server error. Please try again later.';
+
+          // Check for PostgreSQL duplicate error patterns
+          if (errorMessage.contains('duplicate key value') || errorMessage.contains('unique constraint')) {
+              return {'error': 'A patient with this email already exists.'};
+          }
+
+          return {'error': errorMessage}; // Generic fallback
       } else {
         return {'error': 'Unexpected error: ${response.statusCode}'};
       }
@@ -260,7 +267,7 @@ class ApiClient {
   Future<Map<String, dynamic>> loginSpecialist(String email, String password) async {
     final url = Uri.parse('$baseUrl/login/specialist');
 
-    final data = {'email': email, 'password': password};
+    final data = {'email': email.toLowerCase(), 'password': password};
 
     try {
       final response = await http.post(
@@ -271,11 +278,11 @@ class ApiClient {
 
       if (response.statusCode == 200) {
         SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString("email", email);
+        await prefs.setString("email", email.toLowerCase());
 
         // Fetch and Save specialist_id
         await Future.delayed(const Duration(seconds: 1));
-        await fetchAndSaveSpecialistId(email);
+        await fetchAndSaveSpecialistId(email.toLowerCase());
 
         return json.decode(response.body);
       } else if (response.statusCode == 401) {
@@ -420,11 +427,12 @@ class ApiClient {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "patient_id": patientId,
-          "full_name": updatedData["fullname"],
+          "full_name": updatedData["full_name"],
           "gender": updatedData["gender"],
           "age": updatedData["age"],
           "email": updatedData["email"],
           "contact": updatedData["contact"],
+          "weight": updatedData["weight"],
         }),
       );
 

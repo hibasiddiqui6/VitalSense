@@ -8,6 +8,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/api_client.dart';
 
 class PatientWifiSetup extends StatefulWidget {
   const PatientWifiSetup({super.key});
@@ -27,6 +28,31 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
     requestPermissions();
     _loadUserDetails();
     checkESP32Status();
+    fetchUserProfile();
+  }
+
+   /// Fetch user profile data
+  Future<void> fetchUserProfile() async {
+    try {
+      final data = await ApiClient().getPatientProfile();
+
+      if (data.containsKey("error")) {
+        print("⚠ Error fetching user profile: ${data['error']}");
+        return;
+      }
+
+      if (mounted) {
+        setState(() {
+          fullName = data["fullname"] ?? "Unknown User";
+          email = data["email"] ?? "-";
+        });
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString("full_name", fullName);
+        await prefs.setString("email", email);
+      }
+    } catch (e) {
+      print("Failed to fetch user profile: $e");
+    }
   }
 
   /// Load user details for Drawer
@@ -104,97 +130,94 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: PatientDrawer(fullName: fullName, email: email), // ✅ Integrating Drawer
-      backgroundColor: Colors.transparent,
-      body: Center(
+  return Scaffold(
+    drawer: PatientDrawer(fullName: fullName, email: email), // Correct drawer attached
+    backgroundColor: Colors.transparent,
+    body: Center(
+      child: Container(
+        width: 400,
+        height: 800,
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(45),
+          border: Border.all(color: Colors.black, width: 5),
+        ),
         child: Container(
           width: 400,
           height: 800,
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
           decoration: BoxDecoration(
-            color: Colors.transparent,
+            color: const Color.fromARGB(255, 223, 231, 221),
             borderRadius: BorderRadius.circular(45),
-            border: Border.all(color: Colors.black, width: 5),
+            boxShadow: [BoxShadow(blurRadius: 10, offset: Offset(0, 4))],
           ),
-          child: Builder(
-            builder: (context) => Scaffold(
-              backgroundColor: Colors.transparent,
-              body: Container(
-                width: 400,
-                height: 800,
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-                decoration: BoxDecoration(
-                  color: const Color.fromARGB(255, 193, 219, 188),
-                  borderRadius: BorderRadius.circular(45),
-                  boxShadow: [BoxShadow(blurRadius: 10, offset: Offset(0, 4))],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    /// Menu Button
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.menu, color: Colors.black54),
-                          onPressed: () => Scaffold.of(context).openDrawer(),
-                        ),
-                      ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              /// Menu Button
+              Row(
+                children: [
+                  Builder( // Needed to get proper context to open Drawer
+                    builder: (context) => IconButton(
+                      icon: const Icon(Icons.menu, color: Colors.black54),
+                      onPressed: () => Scaffold.of(context).openDrawer(),
                     ),
-                    const SizedBox(height: 40),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 40),
 
-                    /// Main Wi-Fi Setup Text & Buttons
-                    Padding(
-                      padding: const EdgeInsets.only(top: 100),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'ESP32 Not Connected',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
-                          ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            '🔹 Go to Wi-Fi settings, connect to *ESP32_Setup*, and return.',
-                            style: TextStyle(fontSize: 16, color: Colors.black54),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 30),
+              /// Main Wi-Fi Setup Text & Buttons
+              Padding(
+                padding: const EdgeInsets.only(top: 100),
+                child: Column(
+                  children: [
+                    const Text(
+                      'ESP32 Not Connected',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      '🔹 Go to Wi-Fi settings, connect to *ESP32_Setup*, and return.',
+                      style: TextStyle(fontSize: 16, color: Colors.black54),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 30),
 
-                          /// Open Wi-Fi Button
-                          ElevatedButton.icon(
-                            onPressed: openWiFiSettings,
-                            icon: const Icon(Icons.settings),
-                            label: const Text('Open Wi-Fi Settings'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color.fromARGB(255, 241, 201, 141),
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
+                    /// Open Wi-Fi Button
+                    ElevatedButton.icon(
+                      onPressed: openWiFiSettings,
+                      icon: const Icon(Icons.settings),
+                      label: const Text('Open Wi-Fi Settings'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(255, 241, 201, 141),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
 
-                          /// Need Help Button
-                          ElevatedButton.icon(
-                            onPressed: () => showSetupInstructions(context),
-                            icon: const Icon(Icons.help_outline),
-                            label: const Text('Need Help?'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue.shade200,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            ),
-                          ),
-                        ],
+                    /// Need Help Button
+                    ElevatedButton.icon(
+                      onPressed: () => showSetupInstructions(context),
+                      icon: const Icon(Icons.help_outline),
+                      label: const Text('Need Help?'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade200,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
