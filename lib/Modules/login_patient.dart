@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'register_patient.dart'; // Import the registration page
 import 'patient_wifi_setup.dart'; // Import the shirt_connection.dart page
 import 'patient_dashboard.dart';
+import 'patient_landingPage.dart';
 import 'package:vitalsense/services/api_client.dart'; // Import the ApiClient for login functionality
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -80,13 +81,9 @@ class _PatientLoginState extends State<PatientLogin> {
         // 🔹 Check if a SmartShirt is registered for this patient
         final smartShirtResponse = await apiClient.getSmartShirts(patientId);
 
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-
         if (smartShirtResponse.containsKey("smartshirts") &&
             smartShirtResponse["smartshirts"].isNotEmpty) {
           print("SmartShirt found! Navigating to SensorDataScreen...");
-
-          await prefs.setBool('smartshirt_registered', true);
 
           Future.delayed(const Duration(seconds: 2), () {
             Navigator.pushReplacement(
@@ -98,19 +95,22 @@ class _PatientLoginState extends State<PatientLogin> {
           });
           return;
         } else {
-          print("⚠ No SmartShirt found. Proceeding to SmartShirt connection screen...");
-          await prefs.setBool('smartshirt_registered', false); 
-
-          Future.delayed(const Duration(seconds: 2), () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => PatientWifiSetup()),
-            );
-          });
+          print(
+              "⚠ No SmartShirt found. Proceeding to SmartShirt connection screen...");
         }
       } else {
         print("Patient ID not found after login.");
       }
+
+      // Navigate to SmartShirt connection page if no SmartShirt is found
+      Future.delayed(const Duration(seconds: 2), () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SmartShirtScreen(),
+          ),
+        );
+      });
     }
   }
 

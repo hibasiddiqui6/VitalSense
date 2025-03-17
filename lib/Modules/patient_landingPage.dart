@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'wifi_credential.dart'; // Import the file containing WifiCredentialScreen
+import 'patient_wifi_setup.dart'; // Import the file containing WifiCredentialScreen
 
 void main() {
   runApp(const MyApp());
@@ -22,10 +22,12 @@ class SmartShirtScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxHeight = MediaQuery.of(context).size.height - 60; // Get screen height
+    final maxHeight =
+        MediaQuery.of(context).size.height - 60; // Get screen height
 
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 0, 0, 0), // Set background color of entire screen to white
+      backgroundColor: const Color.fromARGB(
+          255, 0, 0, 0), // Set background color of entire screen to white
       body: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(
@@ -38,10 +40,12 @@ class SmartShirtScreen extends StatelessWidget {
               Container(
                 width: double.infinity, // Full width of the container
                 decoration: BoxDecoration(
-                  color: const Color.fromARGB(255, 206, 226, 206), // SkyBlue color for the frame
+                  color: const Color.fromARGB(
+                      255, 206, 226, 206), // SkyBlue color for the frame
                   borderRadius: BorderRadius.circular(20),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -68,16 +72,18 @@ class SmartShirtScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const ConnectWifiScreen(),
+                            builder: (context) => const PatientWifiSetup(),
                           ),
                         );
                       },
                       icon: const Icon(Icons.add),
                       label: const Text('Connect Shirt'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade200, // Light green button
+                        backgroundColor:
+                            Colors.green.shade200, // Light green button
                         foregroundColor: Colors.black, // Text color
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
                         ),
