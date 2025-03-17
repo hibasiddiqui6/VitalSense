@@ -79,22 +79,19 @@ class TitleWidget extends StatelessWidget {
 }
 
 class RegisterPatientTitle extends StatelessWidget {
-  const RegisterPatientTitle({Key? key}) : super(key: key);
+  const RegisterPatientTitle({super.key});
 
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
 
-    return Container(
-      // Adjustable margin
-      child: Text(
-        'Register as a Patient',
-        style: TextStyle(
-          color: const Color(0xFF373737),
-          fontSize: screenWidth * 0.06, // Responsive font size
-          fontWeight: FontWeight.w500,
-          fontFamily: 'Inter',
-        ),
+    return Text(
+      'Register as a Patient',
+      style: TextStyle(
+        color: const Color(0xFF373737),
+        fontSize: screenWidth * 0.06, // Responsive font size
+        fontWeight: FontWeight.w500,
+        fontFamily: 'Inter',
       ),
     );
   }
@@ -127,6 +124,8 @@ class BackButtonWidget extends StatelessWidget {
 }
 
 class RegistrationForm extends StatefulWidget {
+  const RegistrationForm({super.key});
+
   @override
   _RegistrationFormState createState() => _RegistrationFormState();
 }
@@ -161,17 +160,19 @@ class _RegistrationFormState extends State<RegistrationForm> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Full Name',
             onChanged: (value) => fullName = value,
             validator: (value) {
               if (value == null || value.isEmpty) return 'Name is required';
-              if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(value))
+              if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(value)) {
                 return 'Name must contain only letters and spaces';
+              }
               return null;
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildDropdownField(
             key: _genderKey,
             label: 'Gender',
@@ -183,34 +184,37 @@ class _RegistrationFormState extends State<RegistrationForm> {
               });
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Email',
             onChanged: (value) => email = value,
             keyboardType: TextInputType.emailAddress,
             validator: (value) {
               if (value == null || value.isEmpty) return 'Email is required';
-              if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(value))
+              if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(value)) {
                 return 'Enter a valid email address';
+              }
               return null;
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Age',
             onChanged: (value) => age = value,
             keyboardType: TextInputType.number,
             validator: (value) {
               if (value == null || value.isEmpty) return 'Age is required';
-              if (!RegExp(r"^\d+$").hasMatch(value))
+              if (!RegExp(r"^\d+$").hasMatch(value)) {
                 return 'Age must be a number';
+              }
               int ageValue = int.parse(value);
-              if (ageValue < 0 || ageValue > 120)
+              if (ageValue < 0 || ageValue > 120) {
                 return 'Age must be between 0 and 120';
+              }
               return null;
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Weight (kg)',
             onChanged: (value) => weight = value, // Keep as string, parse later
@@ -227,21 +231,23 @@ class _RegistrationFormState extends State<RegistrationForm> {
               return null;
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Contact Number',
             onChanged: (value) => contact = value,
             keyboardType: TextInputType.phone,
             validator: (value) {
-              if (value == null || value.isEmpty)
+              if (value == null || value.isEmpty) {
                 return 'Contact number is required';
+              }
               if (value.length != 11) return 'Contact number must be 11 digits';
-              if (!RegExp(r"^\d{11}$").hasMatch(value))
+              if (!RegExp(r"^\d{11}$").hasMatch(value)) {
                 return 'Contact number must be numeric';
+              }
               return null;
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Password',
             obscureText: obscurePassword,
@@ -252,15 +258,17 @@ class _RegistrationFormState extends State<RegistrationForm> {
             validator: (value) {
               if (value == null || value.isEmpty) return 'Password is required';
               if (value.length < 8) return 'Password must be at least 8 characters long';
-              if (!RegExp(r'[A-Z]').hasMatch(value))
+              if (!RegExp(r'[A-Z]').hasMatch(value)) {
                 return 'Password must contain at least one uppercase letter';
-              if (!RegExp(r'[0-9]').hasMatch(value))
+              }
+              if (!RegExp(r'[0-9]').hasMatch(value)) {
                 return 'Password must contain at least one number';
+              }
               return null;
             },
           ),
 
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Confirm Password',
             obscureText: obscureConfirmPassword,
@@ -401,7 +409,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
                         'Register',
                         style: TextStyle(
                           fontSize: 20,
-                          color: const Color(0xFF434242), // Adjusted for contrast with light gradient
+                          color: Color(0xFF434242), // Adjusted for contrast with light gradient
                         ),
                       ),
               ),

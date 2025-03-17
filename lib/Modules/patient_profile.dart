@@ -4,6 +4,8 @@ import '../services/api_client.dart';
 import '../widgets/patient_drawer.dart';
 
 class PatientProfileScreen extends StatefulWidget {
+  const PatientProfileScreen({super.key});
+
   @override
   _PatientProfileScreenState createState() => _PatientProfileScreenState();
 }

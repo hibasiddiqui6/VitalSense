@@ -4,6 +4,8 @@ import '../widgets/specialist_drawer.dart'; // Importing specialist drawer
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SpecialistSettings extends StatefulWidget {
+  const SpecialistSettings({super.key});
+
   @override
   _SpecialistSettingsState createState() => _SpecialistSettingsState();
 }
@@ -103,7 +105,7 @@ class SettingTile extends StatelessWidget {
   final bool? switchValue;
   final Function(bool)? onChanged;
 
-  const SettingTile({
+  const SettingTile({super.key, 
     required this.title,
     this.hasSwitch = false,
     this.switchValue,

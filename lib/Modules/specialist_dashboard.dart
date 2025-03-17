@@ -292,7 +292,7 @@ Widget _buildMainContent(BuildContext context) {
         const CircularProgressIndicator()
       else if (filteredPatients.isEmpty)
         const Text("No patients found.", style: TextStyle(color: Colors.grey)),
-      ...filteredPatients.take(3).map((p) => PatientCard(patientName: p['fullname'], patientId: p['patientid'])).toList(),
+      ...filteredPatients.take(3).map((p) => PatientCard(patientName: p['fullname'], patientId: p['patientid'])),
       if (filteredPatients.length > 3)
         TextButton(
           onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyPatientsScreen())),
@@ -318,7 +318,7 @@ Widget _buildMainContent(BuildContext context) {
             : Column(
                 children: [
                   const Text("Search Results:", style: TextStyle(fontWeight: FontWeight.bold)),
-                  ...filteredPatients.map((p) => PatientCard(patientName: p['fullname'], patientId: p['patientid'])).toList(),
+                  ...filteredPatients.map((p) => PatientCard(patientName: p['fullname'], patientId: p['patientid'])),
                 ],
               ),
       ),

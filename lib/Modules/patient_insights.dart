@@ -16,8 +16,8 @@ class PatientInsightsScreen extends StatefulWidget {
 }
 
 class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
-  String SfullName = "...";
-  String PfullName = "...";
+  String sFullName = "...";
+  String pFullName = "...";
   String email = "...";
   String respiration = "-";
   String temperature = "-";
@@ -54,7 +54,7 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
         }
 
         setState(() {
-          PfullName = data['fullname'] ?? "Unknown";
+          pFullName = data['fullname'] ?? "Unknown";
           respiration = data['respiration_rate'] != null ? "${data['respiration_rate']} BPM" : "-";
           temperature = data['temperature'] != null ? "${data['temperature']} °F" : "-";
           gender = data['gender'] ?? "-";
@@ -82,11 +82,11 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
       if (mounted) {
         setState(() {
           email = data["email"] ?? "-";
-          SfullName = data["fullname"] ?? "-";
+          sFullName = data["fullname"] ?? "-";
         });
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString("email", email);
-        await prefs.setString("full_name", SfullName);
+        await prefs.setString("full_name", sFullName);
       }
     } catch (e) {
       print("Failed to fetch user profile: $e");
@@ -97,7 +97,7 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
   Future<void> _loadUserDetails() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      SfullName = prefs.getString("full_name") ?? "-";
+      sFullName = prefs.getString("full_name") ?? "-";
     });
     setState(() {
       email = prefs.getString("email") ?? "-";
@@ -124,7 +124,7 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Title and Online status
-            Text('Patient Insights: $PfullName', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text('Patient Insights: $pFullName', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -409,15 +409,6 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
     );
   }
 
-  /// Placeholder for offline
-  Widget _buildPlaceholderCard(String message) {
-    return Container(
-      height: 160,
-      width: double.infinity,
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-      child: Center(child: Text(message, style: const TextStyle(fontSize: 16, color: Colors.grey))),
-    );
-  }
 
   // Health Performance Card Widget
   Widget _buildHealthPerformanceCard() {

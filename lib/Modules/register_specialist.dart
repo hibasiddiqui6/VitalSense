@@ -79,22 +79,19 @@ class TitleWidget extends StatelessWidget {
 }
 
 class RegisterSpecialistTitle extends StatelessWidget {
-  const RegisterSpecialistTitle({Key? key}) : super(key: key);
+  const RegisterSpecialistTitle({super.key});
 
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
 
-    return Container(
-      // Adjustable margin
-      child: Text(
-        'Register as a Specialist',
-        style: TextStyle(
-          color: const Color(0xFF373737),
-          fontSize: screenWidth * 0.06, // Responsive font size
-          fontWeight: FontWeight.w500,
-          fontFamily: 'Inter',
-        ),
+    return Text(
+      'Register as a Specialist',
+      style: TextStyle(
+        color: const Color(0xFF373737),
+        fontSize: screenWidth * 0.06, // Responsive font size
+        fontWeight: FontWeight.w500,
+        fontFamily: 'Inter',
       ),
     );
   }
@@ -127,6 +124,8 @@ class BackButtonWidget extends StatelessWidget {
 }
 
 class RegistrationForm extends StatefulWidget {
+  const RegistrationForm({super.key});
+
   @override
   _RegistrationFormState createState() => _RegistrationFormState();
 }
@@ -165,8 +164,9 @@ class _RegistrationFormState extends State<RegistrationForm> {
             onChanged: (value) => fullName = value,
             validator: (value) {
               if (value == null || value.isEmpty) return 'Name is required';
-              if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(value))
+              if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(value)) {
                 return 'Name must contain only letters and spaces';
+              }
               return null;
             },
           ),
@@ -218,8 +218,9 @@ class _RegistrationFormState extends State<RegistrationForm> {
             keyboardType: TextInputType.emailAddress,
             validator: (value) {
               if (value == null || value.isEmpty) return 'Email is required';
-              if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(value))
+              if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(value)) {
                 return 'Enter a valid email address';
+              }
               return null;
             },
           ),
@@ -234,10 +235,12 @@ class _RegistrationFormState extends State<RegistrationForm> {
             validator: (value) {
               if (value == null || value.isEmpty) return 'Password is required';
               if (value.length < 8) return 'Password must be at least 8 characters long';
-              if (!RegExp(r'[A-Z]').hasMatch(value))
+              if (!RegExp(r'[A-Z]').hasMatch(value)) {
                 return 'Password must contain at least one uppercase letter';
-              if (!RegExp(r'[0-9]').hasMatch(value))
+              }
+              if (!RegExp(r'[0-9]').hasMatch(value)) {
                 return 'Password must contain at least one number';
+              }
               return null;
             },
           ),
@@ -384,7 +387,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
                         'Register',
                         style: TextStyle(
                           fontSize: 20,
-                          color: const Color(0xFF434242), // Adjusted for contrast with light gradient
+                          color: Color(0xFF434242), // Adjusted for contrast with light gradient
                         ),
                       ),
               ),

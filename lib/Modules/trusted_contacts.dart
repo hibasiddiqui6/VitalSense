@@ -4,6 +4,8 @@ import '../services/api_client.dart';
 import '../widgets/patient_drawer.dart';
 
 class TrustedContactsScreen extends StatefulWidget {
+  const TrustedContactsScreen({super.key});
+
   @override
   _TrustedContactsScreenState createState() => _TrustedContactsScreenState();
 }
