@@ -15,6 +15,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
   String age = "Loading...";
   String email = "Loading...";
   String contact = "Loading...";
+  String weight = "Loading...";
   bool isSaving = false; // 👈 Add loading state
 
   @override
@@ -42,6 +43,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
           age = data["age"]?.toString() ?? "-";
           email = data["email"] ?? "-";
           contact = data["contact"] ?? "-";
+          weight = data["weight"] ?? "-";
         });
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString("full_name", fullName);
@@ -50,6 +52,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
         await prefs.setString("patient_id", patientId);
         await prefs.setString("email", email);
         await prefs.setString("contact", contact);
+        await prefs.setString("weight", weight);
       }
     } catch (e) {
       print("Failed to fetch user profile: $e");
@@ -66,6 +69,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
       patientId = prefs.getString("patient_id") ?? "-";
       contact = prefs.getString("contact") ?? "-";
       email = prefs.getString("email") ?? "-";
+      weight = prefs.getString("weight") ?? "-";
     });
   }
 
@@ -76,6 +80,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
     TextEditingController ageController = TextEditingController(text: age);
     TextEditingController emailController = TextEditingController(text: email);
     TextEditingController contactController = TextEditingController(text: contact);
+    TextEditingController weightController = TextEditingController(text: weight);
 
     showDialog(
       context: context,
@@ -90,6 +95,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                 _buildTextField("Age", ageController),
                 _buildTextField("Email", emailController),
                 _buildTextField("Contact", contactController),
+                _buildTextField("Weight", weightController),
               ],
             ),
           ),
@@ -104,6 +110,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                   ageController.text,
                   emailController.text,
                   contactController.text,
+                  double.parse(weightController.text)
                 );
               },
               child: Text("Save"),
@@ -115,15 +122,16 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
   }
 
   /// Save Updated Profile with loading indicator
-  Future<void> _saveProfile(String name, String gender, String age, String email, String contact) async {
+  Future<void> _saveProfile(String name, String gender, String age, String email, String contact, double weight) async {
     setState(() => isSaving = true); // Show loading
     try {
       final response = await ApiClient().updatePatientProfile({
-        "FullName": name,
-        "Gender": gender,
-        "Age": age,
-        "Email": email,
-        "Contact": contact,
+        "full_name": name,   
+        "gender": gender,    
+        "age": age,          
+        "email": email,      
+        "contact": contact,  
+        "weight": weight.toString(), 
       });
 
       if (response.containsKey("error")) {
@@ -138,6 +146,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
         prefs.setString("age", age);
         prefs.setString("email", email);
         prefs.setString("contact", contact);
+        prefs.setString("weight", weight.toString());
 
         setState(() {
           fullName = name;
@@ -145,6 +154,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
           this.age = age;
           this.email = email;
           this.contact = contact;
+          this.weight = weight.toString();
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -199,8 +209,8 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                   CircleAvatar(
                     radius: 60,
                     backgroundColor: Colors.grey[300],
-                    child: Icon(Icons.person, size: 80, color: Colors.white),
-                  ),
+                    backgroundImage: _getAvatarImage(gender), // Set custom image
+                    ),
                   const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -236,6 +246,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                         _buildInfoRow('Age', age),
                         _buildInfoRow('Email', email),
                         _buildInfoRow('Contact', contact),
+                        _buildInfoRow('Weight', weight),
                       ],
                     ),
                   ),
@@ -254,6 +265,18 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
       ),
     );
   }
+
+ ImageProvider _getAvatarImage(String gender) {
+  gender = gender.toLowerCase().trim(); // Normalize input
+
+  if (gender == "male") {
+    return AssetImage("assets/male_avatar.png"); // Male Avatar
+  } else if (gender == "female") {
+    return AssetImage("assets/female_avatar.png"); // Female Avatar
+  } else {
+    return AssetImage("assets/default_avatar.png"); // Default Avatar
+  }
+}
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(

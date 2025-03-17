@@ -190,7 +190,6 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
                     ],
                   ),
                 ),
-                SizedBox(height: 10),
 
                 // List or Loading or Empty
                 Expanded(
@@ -202,7 +201,6 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.contacts_outlined, size: 50, color: Colors.grey[400]),
-                                  const SizedBox(height: 10),
                                   const Text(
                                     "No trusted contacts added.",
                                     style: TextStyle(fontSize: 16, color: Colors.grey),

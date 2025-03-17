@@ -73,6 +73,9 @@ flutter:
     - assets/background.png
     - assets/uit.png
     - assets/engineering.png
+    - assets/default_avatar.png
+    - assets/female_avatar.png
+    - assets/male_avatar.png
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
