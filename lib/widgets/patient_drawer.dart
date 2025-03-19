@@ -15,7 +15,7 @@ class PatientDrawer extends StatefulWidget {
   final String fullName;
   final String email;
 
-  const PatientDrawer({Key? key, required this.fullName, required this.email}) : super(key: key);
+  const PatientDrawer({super.key, required this.fullName, required this.email});
 
   @override
   State<PatientDrawer> createState() => _PatientDrawerState();

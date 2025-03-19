@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async'; // For delayed navigation
 import 'patient_wifi_setup.dart'; // Import the page where you want to navigate after registration
-import 'package:vitalsense/services/api_client.dart';  // Import ApiClient for API interaction
+import 'package:vitalsense/services/api_client.dart'; // Import ApiClient for API interaction
 import 'package:google_fonts/google_fonts.dart';
 
 class PatientRegister extends StatefulWidget {
@@ -79,22 +79,19 @@ class TitleWidget extends StatelessWidget {
 }
 
 class RegisterPatientTitle extends StatelessWidget {
-  const RegisterPatientTitle({Key? key}) : super(key: key);
+  const RegisterPatientTitle({super.key});
 
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
 
-    return Container(
-      // Adjustable margin
-      child: Text(
-        'Register as a Patient',
-        style: TextStyle(
-          color: const Color(0xFF373737),
-          fontSize: screenWidth * 0.06, // Responsive font size
-          fontWeight: FontWeight.w500,
-          fontFamily: 'Inter',
-        ),
+    return Text(
+      'Register as a Patient',
+      style: TextStyle(
+        color: const Color(0xFF373737),
+        fontSize: screenWidth * 0.06, // Responsive font size
+        fontWeight: FontWeight.w500,
+        fontFamily: 'Inter',
       ),
     );
   }
@@ -127,6 +124,8 @@ class BackButtonWidget extends StatelessWidget {
 }
 
 class RegistrationForm extends StatefulWidget {
+  const RegistrationForm({super.key});
+
   @override
   _RegistrationFormState createState() => _RegistrationFormState();
 }
@@ -161,17 +160,19 @@ class _RegistrationFormState extends State<RegistrationForm> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Full Name',
             onChanged: (value) => fullName = value,
             validator: (value) {
               if (value == null || value.isEmpty) return 'Name is required';
-              if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(value))
+              if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(value)) {
                 return 'Name must contain only letters and spaces';
+              }
               return null;
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildDropdownField(
             key: _genderKey,
             label: 'Gender',
@@ -183,34 +184,38 @@ class _RegistrationFormState extends State<RegistrationForm> {
               });
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Email',
             onChanged: (value) => email = value,
             keyboardType: TextInputType.emailAddress,
             validator: (value) {
               if (value == null || value.isEmpty) return 'Email is required';
-              if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(value))
+              if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$")
+                  .hasMatch(value)) {
                 return 'Enter a valid email address';
+              }
               return null;
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Age',
             onChanged: (value) => age = value,
             keyboardType: TextInputType.number,
             validator: (value) {
               if (value == null || value.isEmpty) return 'Age is required';
-              if (!RegExp(r"^\d+$").hasMatch(value))
+              if (!RegExp(r"^\d+$").hasMatch(value)) {
                 return 'Age must be a number';
+              }
               int ageValue = int.parse(value);
-              if (ageValue < 0 || ageValue > 120)
+              if (ageValue < 0 || ageValue > 120) {
                 return 'Age must be between 0 and 120';
+              }
               return null;
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Weight (kg)',
             onChanged: (value) => weight = value, // Keep as string, parse later
@@ -227,21 +232,23 @@ class _RegistrationFormState extends State<RegistrationForm> {
               return null;
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Contact Number',
             onChanged: (value) => contact = value,
             keyboardType: TextInputType.phone,
             validator: (value) {
-              if (value == null || value.isEmpty)
+              if (value == null || value.isEmpty) {
                 return 'Contact number is required';
+              }
               if (value.length != 11) return 'Contact number must be 11 digits';
-              if (!RegExp(r"^\d{11}$").hasMatch(value))
+              if (!RegExp(r"^\d{11}$").hasMatch(value)) {
                 return 'Contact number must be numeric';
+              }
               return null;
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Password',
             obscureText: obscurePassword,
@@ -251,16 +258,19 @@ class _RegistrationFormState extends State<RegistrationForm> {
             }),
             validator: (value) {
               if (value == null || value.isEmpty) return 'Password is required';
-              if (value.length < 8) return 'Password must be at least 8 characters long';
-              if (!RegExp(r'[A-Z]').hasMatch(value))
+              if (value.length < 8)
+                return 'Password must be at least 8 characters long';
+              if (!RegExp(r'[A-Z]').hasMatch(value)) {
                 return 'Password must contain at least one uppercase letter';
-              if (!RegExp(r'[0-9]').hasMatch(value))
+              }
+              if (!RegExp(r'[0-9]').hasMatch(value)) {
                 return 'Password must contain at least one number';
+              }
               return null;
             },
           ),
 
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Confirm Password',
             obscureText: obscureConfirmPassword,
@@ -275,6 +285,8 @@ class _RegistrationFormState extends State<RegistrationForm> {
           // Register Button
           Center(
             child: Container(
+              width: screenWidth * 0.65, // 65% of screen width
+              height: screenWidth * 0.13,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [
@@ -295,15 +307,13 @@ class _RegistrationFormState extends State<RegistrationForm> {
               ),
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: screenWidth * 0.2,
-                    vertical: 15,
-                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
-                  backgroundColor: Colors.transparent, // Transparent to show gradient
-                  shadowColor: Colors.transparent, // Optional: remove button shadow
+                  backgroundColor:
+                      Colors.transparent, // Transparent to show gradient
+                  shadowColor:
+                      Colors.transparent, // Optional: remove button shadow
                 ),
                 // Function to handle form submission and patient registration
                 onPressed: _isLoading
@@ -347,10 +357,12 @@ class _RegistrationFormState extends State<RegistrationForm> {
                                 builder: (BuildContext context) {
                                   return AlertDialog(
                                     title: const Text('Registration Failed'),
-                                    content: Text('Error: ${response['error']}'),
+                                    content:
+                                        Text('Error: ${response['error']}'),
                                     actions: [
                                       TextButton(
-                                        onPressed: () => Navigator.of(context).pop(),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(),
                                         child: const Text('OK'),
                                       ),
                                     ],
@@ -363,12 +375,14 @@ class _RegistrationFormState extends State<RegistrationForm> {
                                 context: context,
                                 builder: (BuildContext context) {
                                   return AlertDialog(
-                                    title: const Text('Registration Successful'),
+                                    title:
+                                        const Text('Registration Successful'),
                                     content: const Text(
                                         'The patient has been registered successfully!'),
                                     actions: [
                                       TextButton(
-                                        onPressed: () => Navigator.of(context).pop(),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(),
                                         child: const Text('OK'),
                                       ),
                                     ],
@@ -388,7 +402,8 @@ class _RegistrationFormState extends State<RegistrationForm> {
                           } catch (e) {
                             print('Error: $e');
                             setState(() {
-                              _isLoading = false; // Ensure loading stops on error
+                              _isLoading =
+                                  false; // Ensure loading stops on error
                             });
                           }
                         }
@@ -397,11 +412,12 @@ class _RegistrationFormState extends State<RegistrationForm> {
                     ? const CircularProgressIndicator(
                         color: Color(0xFF434242),
                       )
-                    : const Text(
+                    : Text(
                         'Register',
                         style: TextStyle(
-                          fontSize: 20,
-                          color: const Color(0xFF434242), // Adjusted for contrast with light gradient
+                          fontSize: screenWidth * 0.055,
+                          color: Color(
+                              0xFF434242), // Adjusted for contrast with light gradient
                         ),
                       ),
               ),
@@ -441,19 +457,35 @@ class _RegistrationFormState extends State<RegistrationForm> {
         obscureText: obscureText,
         keyboardType: keyboardType,
         onChanged: onChanged,
+        style: TextStyle(
+          fontSize:
+              MediaQuery.of(context).size.width * 0.045, // Responsive font size
+        ),
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: TextStyle(
+            fontSize: MediaQuery.of(context).size.width *
+                0.04, // Responsive label font size
+          ),
           suffixIcon: suffixIcon,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
           ),
+          contentPadding: EdgeInsets.symmetric(
+            vertical: MediaQuery.of(context).size.height *
+                0.14, // Adjust height dynamically
+            horizontal: 16, // Keep horizontal padding fixed
+          ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide(color: Colors.grey, width: 1), // Default border color
+            borderSide: BorderSide(
+                color: Colors.grey, width: 1), // Default border color
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide(color: const Color.fromARGB(255, 44, 59, 48), width: 2), // Active/focused border color
+            borderSide: BorderSide(
+                color: const Color.fromARGB(255, 44, 59, 48),
+                width: 2), // Active/focused border color
           ),
         ),
         validator: validator,
@@ -475,7 +507,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
       height: MediaQuery.of(context).size.width * 0.12, // Responsive height
       width: MediaQuery.of(context).size.width *
           0.85, // Takes full width of the parent container// Ensures full responsiveness
-      padding: EdgeInsets.symmetric(horizontal: 0), // Adds spacing
+      // Adds spacing
       decoration: BoxDecoration(
         color: Colors.white, // White background
         borderRadius: BorderRadius.circular(15), // Rounded corners
@@ -490,11 +522,35 @@ class _RegistrationFormState extends State<RegistrationForm> {
       ),
       child: DropdownButtonFormField<String>(
         value: value.isNotEmpty ? value : null,
+        style: TextStyle(
+          fontSize:
+              MediaQuery.of(context).size.width * 0.045, // Responsive font size
+        ),
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: TextStyle(
+            fontSize: MediaQuery.of(context).size.width *
+                0.04, // Responsive label font size
+          ),
           suffixIcon: suffixIcon,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
+          ),
+          contentPadding: EdgeInsets.symmetric(
+            vertical: MediaQuery.of(context).size.height *
+                0.06, // Adjust height dynamically
+            horizontal: 16, // Keep horizontal padding fixed
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(
+                color: Colors.grey, width: 1), // Default border color
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(
+                color: const Color.fromARGB(255, 44, 59, 48),
+                width: 2), // Active/focused border color
           ),
         ),
         items: options

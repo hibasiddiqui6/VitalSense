@@ -4,6 +4,8 @@ import '../widgets/patient_drawer.dart'; // Importing the drawer
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PatientSettings extends StatefulWidget {
+  const PatientSettings({super.key});
+
   @override
   _PatientSettingsState createState() => _PatientSettingsState();
 }
@@ -127,7 +129,7 @@ class SettingTile extends StatelessWidget {
   final bool? switchValue;
   final Function(bool)? onChanged;
 
-  const SettingTile({
+  const SettingTile({super.key, 
     required this.title,
     this.hasSwitch = false,
     this.switchValue,

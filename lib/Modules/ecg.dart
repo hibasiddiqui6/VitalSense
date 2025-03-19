@@ -1,4 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
@@ -60,7 +61,7 @@ class _ECGScreenState extends State<ECGScreen> {
       try {
         var response = await apiClient.getSensorData(); // Fetch ECG data
 
-        if (response != null && response.containsKey("ecg")) {
+        if (response.containsKey("ecg")) {
           double rawADC = double.tryParse(response["ecg"].toString()) ?? 0;
 
           setState(() {
@@ -72,7 +73,9 @@ class _ECGScreenState extends State<ECGScreen> {
           });
         }
       } catch (e) {
-        print("Error fetching ECG data: $e");
+        if (kDebugMode) {
+          print("Error fetching ECG data: $e");
+        }
       }
     });
   }

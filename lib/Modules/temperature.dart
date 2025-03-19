@@ -10,11 +10,11 @@ class TemperaturePage extends StatefulWidget {
   final String? weight;
 
   const TemperaturePage({
-    Key? key,
+    super.key,
     this.gender,
     this.age,
     this.weight,
-  }) : super(key: key);
+  });
 
   @override
   _TemperaturePageState createState() => _TemperaturePageState();
