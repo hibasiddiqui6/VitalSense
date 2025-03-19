@@ -170,7 +170,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
               return null;
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.04),
           _buildDropdownField(
             key: _professionKey,
             label: 'Profession',
@@ -183,7 +183,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
               });
             },
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.04),
           _buildDropdownField(
             key: _specialityKey,
             label: 'Speciality',
@@ -211,14 +211,15 @@ class _RegistrationFormState extends State<RegistrationForm> {
             },
             enabled: profession == 'Doctor' || profession == 'Nurse',
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.02),
           _buildTextField(
             label: 'Email',
             onChanged: (value) => email = value,
             keyboardType: TextInputType.emailAddress,
             validator: (value) {
               if (value == null || value.isEmpty) return 'Email is required';
-              if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(value)) {
+              if (!RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$")
+                  .hasMatch(value)) {
                 return 'Enter a valid email address';
               }
               return null;
@@ -234,7 +235,8 @@ class _RegistrationFormState extends State<RegistrationForm> {
             }),
             validator: (value) {
               if (value == null || value.isEmpty) return 'Password is required';
-              if (value.length < 8) return 'Password must be at least 8 characters long';
+              if (value.length < 8)
+                return 'Password must be at least 8 characters long';
               if (!RegExp(r'[A-Z]').hasMatch(value)) {
                 return 'Password must contain at least one uppercase letter';
               }
@@ -260,6 +262,8 @@ class _RegistrationFormState extends State<RegistrationForm> {
           // Register Button
           Center(
             child: Container(
+              width: screenWidth * 0.65, // 65% of screen width
+              height: screenWidth * 0.13,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [
@@ -280,114 +284,117 @@ class _RegistrationFormState extends State<RegistrationForm> {
               ),
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: screenWidth * 0.2,
-                    vertical: 15,
-                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
-                  backgroundColor: Colors.transparent, // Transparent to show gradient
-                  shadowColor: Colors.transparent, // Optional: remove button shadow
+
+                  backgroundColor:
+                      Colors.transparent, // Transparent to show gradient
+                  shadowColor:
+                      Colors.transparent, // Optional: remove button shadow
                 ),
-              // Function to handle form submission and patient registration
-              onPressed: _isLoading
-                  ? null
-                  : () async {
-                      if (_formKey.currentState!.validate()) {
-                        setState(() {
-                          _isLoading = true;
-                        });
+                // Function to handle form submission and patient registration
+                onPressed: _isLoading
+                    ? null
+                    : () async {
+                        if (_formKey.currentState!.validate()) {
+                          setState(() {
+                            _isLoading = true;
+                          });
 
-                        // Collect user details
-                        specialistDetails = [
-                          fullName,
-                          email,
-                          password,
-                          profession,
-                          speciality,
-                        ];
-
-                        try {
-                          // Make API call
-                          ApiClient apiClient = ApiClient();
-                          var response = await apiClient.registerSpecialist(
+                          // Collect user details
+                          specialistDetails = [
                             fullName,
                             email,
                             password,
                             profession,
                             speciality,
-                          );
+                          ];
 
-                          // Handle response
-                          if (response.containsKey('error')) {
-                            setState(() {
-                              _isLoading = false;
-                            });
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  title: const Text('Registration Failed'),
-                                  content: Text('Error: ${response['error']}'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(),
-                                      child: const Text('OK'),
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                          } else {
-                            // Success logic
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  title: const Text('Registration Successful'),
-                                  content: const Text(
-                                      'The specialist has been registered successfully!'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(),
-                                      child: const Text('OK'),
-                                    ),
-                                  ],
-                                );
-                              },
+                          try {
+                            // Make API call
+                            ApiClient apiClient = ApiClient();
+                            var response = await apiClient.registerSpecialist(
+                              fullName,
+                              email,
+                              password,
+                              profession,
+                              speciality,
                             );
 
-                            // Navigate after success
-                            Future.delayed(const Duration(seconds: 3), () {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        SpecialistDashboard()),
+                            // Handle response
+                            if (response.containsKey('error')) {
+                              setState(() {
+                                _isLoading = false;
+                              });
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    title: const Text('Registration Failed'),
+                                    content:
+                                        Text('Error: ${response['error']}'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(),
+                                        child: const Text('OK'),
+                                      ),
+                                    ],
+                                  );
+                                },
                               );
+                            } else {
+                              // Success logic
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    title:
+                                        const Text('Registration Successful'),
+                                    content: const Text(
+                                        'The specialist has been registered successfully!'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(),
+                                        child: const Text('OK'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+
+                              // Navigate after success
+                              Future.delayed(const Duration(seconds: 3), () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          SpecialistDashboard()),
+                                );
+                              });
+                            }
+                          } catch (e) {
+                            print('Error: $e');
+                            setState(() {
+                              _isLoading =
+                                  false; // Ensure loading stops on error
                             });
                           }
-                        } catch (e) {
-                          print('Error: $e');
-                          setState(() {
-                              _isLoading = false; // Ensure loading stops on error
-                            });
                         }
-                      }
-                    },
+                      },
 
-              child: _isLoading
+                child: _isLoading
                     ? const CircularProgressIndicator(
                         color: Color(0xFF434242),
                       )
-                    : const Text(
+                    : Text(
                         'Register',
                         style: TextStyle(
-                          fontSize: 20,
-                          color: Color(0xFF434242), // Adjusted for contrast with light gradient
+                          fontSize: screenWidth * 0.055,
+                          color: Color(
+                              0xFF434242), // Adjusted for contrast with light gradient
                         ),
                       ),
               ),
@@ -427,19 +434,35 @@ class _RegistrationFormState extends State<RegistrationForm> {
         obscureText: obscureText,
         keyboardType: keyboardType,
         onChanged: onChanged,
+        style: TextStyle(
+          fontSize:
+              MediaQuery.of(context).size.width * 0.045, // Responsive font size
+        ),
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: TextStyle(
+            fontSize: MediaQuery.of(context).size.width *
+                0.04, // Responsive label font size
+          ),
           suffixIcon: suffixIcon,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
           ),
+          contentPadding: EdgeInsets.symmetric(
+            vertical: MediaQuery.of(context).size.height *
+                0.14, // Adjust height dynamically
+            horizontal: 16, // Keep horizontal padding fixed
+          ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide(color: Colors.grey, width: 1), // Default border color
+            borderSide: BorderSide(
+                color: Colors.grey, width: 1), // Default border color
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide(color: const Color.fromARGB(255, 44, 59, 48), width: 2), // Active/focused border color
+            borderSide: BorderSide(
+                color: const Color.fromARGB(255, 44, 59, 48),
+                width: 2), // Active/focused border color
           ),
         ),
         validator: validator,
@@ -461,7 +484,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
       height: MediaQuery.of(context).size.width * 0.12, // Responsive height
       width: MediaQuery.of(context).size.width *
           0.85, // Takes full width of the parent container// Ensures full responsiveness
-      padding: EdgeInsets.symmetric(horizontal: 0), // Adds spacing
+      // Adds spacing
       decoration: BoxDecoration(
         color: Colors.white, // White background
         borderRadius: BorderRadius.circular(15), // Rounded corners
@@ -476,19 +499,35 @@ class _RegistrationFormState extends State<RegistrationForm> {
       ),
       child: DropdownButtonFormField<String>(
         value: value.isNotEmpty ? value : null,
+        style: TextStyle(
+          fontSize:
+              MediaQuery.of(context).size.width * 0.045, // Responsive font size
+        ),
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: TextStyle(
+            fontSize: MediaQuery.of(context).size.width *
+                0.04, // Responsive label font size
+          ),
           suffixIcon: suffixIcon,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
           ),
+          contentPadding: EdgeInsets.symmetric(
+            vertical: MediaQuery.of(context).size.height *
+                0.06, // Adjust height dynamically
+            horizontal: 16, // Keep horizontal padding fixed
+          ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide(color: Colors.grey, width: 1), // Default border color
+            borderSide: BorderSide(
+                color: Colors.grey, width: 1), // Default border color
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide(color: const Color.fromARGB(255, 44, 59, 48), width: 2), // Active/focused border color
+            borderSide: BorderSide(
+                color: const Color.fromARGB(255, 44, 59, 48),
+                width: 2), // Active/focused border color
           ),
         ),
         items: options

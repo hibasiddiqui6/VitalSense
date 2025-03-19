@@ -267,9 +267,7 @@ class LoginForm extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.05,
-            ), // Responsive padding
+            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05), // Responsive padding
             child: InputField(
               controller: emailController,
               labelText: 'Email',
