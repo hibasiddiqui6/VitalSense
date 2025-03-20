@@ -31,7 +31,7 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
     fetchUserProfile();
   }
 
-   /// Fetch user profile data
+  /// Fetch user profile data
   Future<void> fetchUserProfile() async {
     try {
       final data = await ApiClient().getPatientProfile();
@@ -116,13 +116,13 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("ESP32 Connection Help"),
-        content: const Text(
-            "1️⃣ Open Wi-Fi settings.\n"
+        content: const Text("1️⃣ Open Wi-Fi settings.\n"
             "2️⃣ Connect to 'ESP32_Setup'.\n"
             "3️⃣ Select your home Wi-Fi and enter the password.\n"
             "4️⃣ Return to the app after setup."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text("OK")),
         ],
       ),
     );
@@ -130,26 +130,24 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
 
   @override
   Widget build(BuildContext context) {
-  return Scaffold(
-    drawer: PatientDrawer(fullName: fullName, email: email), // Correct drawer attached
-    backgroundColor: Colors.transparent,
-    body: Center(
-      child: Container(
-        width: 400,
-        height: 800,
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(45),
-          border: Border.all(color: Colors.black, width: 5),
-        ),
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
+    return Scaffold(
+      drawer: PatientDrawer(
+          fullName: fullName, email: email), // Correct drawer attached
+      backgroundColor: Colors.transparent,
+      body: Center(
         child: Container(
-          width: 400,
-          height: 800,
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+          width: screenWidth, // 90% of screen width
+          height: screenHeight, // 90% of screen height
+          padding: EdgeInsets.symmetric(
+            horizontal:
+                MediaQuery.of(context).size.width * 0.05, // 5% of screen width
+            vertical: MediaQuery.of(context).size.height *
+                0.025, // 2.5% of screen height
+          ),
           decoration: BoxDecoration(
             color: const Color.fromARGB(255, 223, 231, 221),
-            borderRadius: BorderRadius.circular(45),
-            boxShadow: [BoxShadow(blurRadius: 10, offset: Offset(0, 4))],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -157,57 +155,98 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
               /// Menu Button
               Row(
                 children: [
-                  Builder( // Needed to get proper context to open Drawer
+                  Builder(
+                    // Needed to get proper context to open Drawer
                     builder: (context) => IconButton(
-                      icon: const Icon(Icons.menu, color: Colors.black54),
+                      icon: Icon(Icons.menu,
+                          size: screenWidth * 0.08, color: Colors.black54),
                       onPressed: () => Scaffold.of(context).openDrawer(),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 40),
+              SizedBox(height: screenHeight * 0.05),
 
               /// Main Wi-Fi Setup Text & Buttons
               Padding(
-                padding: const EdgeInsets.only(top: 100),
+                padding: EdgeInsets.only(top: screenHeight * 0.12),
                 child: Column(
                   children: [
-                    const Text(
+                    Text(
                       'ESP32 Not Connected',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+                      style: TextStyle(
+                          fontSize: screenWidth * 0.05,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87),
                     ),
-                    const SizedBox(height: 10),
-                    const Text(
+                    SizedBox(height: screenHeight * 0.01),
+                    Text(
                       '🔹 Go to Wi-Fi settings, connect to *ESP32_Setup*, and return.',
-                      style: TextStyle(fontSize: 16, color: Colors.black54),
+                      style: TextStyle(
+                          fontSize: screenWidth * 0.04, color: Colors.black54),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 30),
+                    SizedBox(height: screenHeight * 0.05),
 
                     /// Open Wi-Fi Button
                     ElevatedButton.icon(
                       onPressed: openWiFiSettings,
-                      icon: const Icon(Icons.settings),
-                      label: const Text('Open Wi-Fi Settings'),
+                      icon: Icon(Icons.settings, size: screenWidth * 0.08),
+                      label: Text(
+                        'Open Wi-Fi Settings',
+                        style: TextStyle(
+                          fontSize: MediaQuery.of(context).size.width *
+                              0.045, // 4.5% of screen width
+                        ),
+                      ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(255, 241, 201, 141),
+                        backgroundColor:
+                            const Color.fromARGB(255, 241, 201, 141),
                         foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: MediaQuery.of(context).size.width *
+                              0.05, // 5% of screen width
+                          vertical: MediaQuery.of(context).size.height *
+                              0.012, // 1.2% of screen height
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            MediaQuery.of(context).size.width *
+                                0.05, // 5% of screen width
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height *
+                          0.012, // 1.2% of screen height
+                    ),
 
                     /// Need Help Button
                     ElevatedButton.icon(
                       onPressed: () => showSetupInstructions(context),
-                      icon: const Icon(Icons.help_outline),
-                      label: const Text('Need Help?'),
+                      icon: Icon(Icons.help_outline, size: screenWidth * 0.08),
+                      label: Text('Need Help?',
+                      style: TextStyle(
+                          fontSize: MediaQuery.of(context).size.width *
+                              0.045, // 4.5% of screen width
+                        ),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue.shade200,
                         foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: MediaQuery.of(context).size.width *
+                              0.05, // 5% of screen width
+                          vertical: MediaQuery.of(context).size.height *
+                              0.015, // 1.5% of screen height
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            MediaQuery.of(context).size.width *
+                                0.05, // 5% of screen width
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -217,7 +256,6 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 }

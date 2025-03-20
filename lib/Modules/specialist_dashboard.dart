@@ -80,7 +80,9 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
       isSearching = query.isNotEmpty;
       filteredPatients = query.isEmpty
           ? List.from(patients)
-          : patients.where((p) => p['fullname'].toLowerCase().contains(lowerQuery)).toList();
+          : patients
+              .where((p) => p['fullname'].toLowerCase().contains(lowerQuery))
+              .toList();
     });
   }
 
@@ -100,98 +102,120 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
     super.dispose();
   }
 
- @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    drawer: SpecialistDrawer(fullName: fullName, email: email),
-    backgroundColor: const Color.fromARGB(255, 255, 254, 250),
-    body: Stack(
-      children: [
-        // -Background Circles
-        Positioned(
-          top: -150,
-          left: 180,
-          child: Container(
-            width: 430,
-            height: 430,
-            decoration: const BoxDecoration(
-              color: Color.fromARGB(120, 219, 237, 219),
-              shape: BoxShape.circle,
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -80,
-          left: -100,
-          child: Container(
-            width: 250,
-            height: 250,
-            decoration: const BoxDecoration(
-              color: Color.fromARGB(120, 219, 237, 219),
-              shape: BoxShape.circle,
-            ),
-          ),
-        ),
-        // -Main Scrollable Content
-        _buildMainContent(context),
-
-        // -Search Dropdown if Searching
-        if (isSearching) _buildSearchDropdown(),
-      ],
-    ),
-  );
-}
-
-Widget _buildMainContent(BuildContext context) {
-  return SizedBox(
-    height: MediaQuery.of(context).size.height,
-    child: SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      drawer: SpecialistDrawer(fullName: fullName, email: email),
+      backgroundColor: const Color.fromARGB(255, 255, 254, 250),
+      body: Stack(
         children: [
-          // -Menu Icon
-          Builder(
-            builder: (context) => Align(
-              alignment: Alignment.topLeft,
-              child: IconButton(
-                icon: const Icon(Icons.menu, color: Colors.black, size: 30),
-                onPressed: () => Scaffold.of(context).openDrawer(),
+          // -Background Circles
+          Positioned(
+            top: MediaQuery.of(context).size.height *
+                -0.15, // 15% of screen height
+            left:
+                MediaQuery.of(context).size.width * 0.45, // 45% of screen width
+            child: Container(
+              width: MediaQuery.of(context).size.width *
+                  0.9, // 90% of screen width
+              height: MediaQuery.of(context).size.height *
+                  0.5, // 50% of screen height
+              decoration: const BoxDecoration(
+                color: Color.fromARGB(120, 219, 237, 219),
+                shape: BoxShape.circle,
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          Positioned(
+            bottom: MediaQuery.of(context).size.height *
+                -0.1, // 10% of screen height
+            left: MediaQuery.of(context).size.width *
+                -0.25, // 25% of screen width
+            child: Container(
+              width: MediaQuery.of(context).size.width *
+                  0.6, // 60% of screen width
+              height: MediaQuery.of(context).size.height *
+                  0.3, // 30% of screen height
+              decoration: const BoxDecoration(
+                color: Color.fromARGB(120, 219, 237, 219),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          // -Main Scrollable Content
+          _buildMainContent(context),
 
-          // -Profile Header
-          Text('Hi! $fullName', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          Text('$profession, $speciality', style: const TextStyle(fontSize: 14, color: Colors.grey)),
-
-          const SizedBox(height: 20),
-
-          // -Search Bar
-          _buildSearchBar(),
-
-          const SizedBox(height: 35),
-
-          // -Total Patients Card with Count and Add Button
-          _buildTotalPatientsCard(),
-
-          const SizedBox(height: 40),
-
-          // -Recently Added Section (Only if not searching)
-          if (!isSearching) ..._buildRecentlyAddedSection(),
+          // -Search Dropdown if Searching
+          if (isSearching) _buildSearchDropdown(),
         ],
       ),
-    ),
-  );
-}
+    );
+  }
+
+  Widget _buildMainContent(BuildContext context) {
+    return SizedBox(
+      height: MediaQuery.of(context).size.height,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(
+            horizontal: MediaQuery.of(context).size.width * 0.05,
+            vertical: MediaQuery.of(context).size.height * 0.05),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // -Menu Icon
+            Builder(
+              builder: (context) => Align(
+                alignment: Alignment.topLeft,
+                child: IconButton(
+                  icon: Icon(Icons.menu,
+                      color: Colors.black,
+                      size: MediaQuery.of(context).size.width * 0.08),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+            ),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+
+            // -Profile Header
+            Text('Hi! $fullName',
+                style: TextStyle(
+                    fontSize: MediaQuery.of(context).size.width * 0.05,
+                    fontWeight: FontWeight.bold)),
+            Text('$profession, $speciality',
+                style: TextStyle(
+                    fontSize: MediaQuery.of(context).size.width * 0.035,
+                    color: Colors.grey)),
+
+            SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+
+            // -Search Bar
+            _buildSearchBar(),
+
+            SizedBox(height: MediaQuery.of(context).size.height * 0.035),
+
+            // -Total Patients Card with Count and Add Button
+            _buildTotalPatientsCard(),
+
+            SizedBox(height: MediaQuery.of(context).size.height * 0.04),
+
+            // -Recently Added Section (Only if not searching)
+            if (!isSearching) ..._buildRecentlyAddedSection(),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildSearchBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: EdgeInsets.symmetric(
+          horizontal: MediaQuery.of(context).size.width *
+              0.025), // 2.5% of screen width
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 186, 216, 186),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(
+          MediaQuery.of(context).size.width * 0.06,
+        ),
       ),
       child: TextField(
         focusNode: _searchFocusNode,
@@ -199,14 +223,27 @@ Widget _buildMainContent(BuildContext context) {
         onChanged: _filterPatients,
         decoration: InputDecoration(
           hintText: "Search patient",
+          hintStyle: TextStyle(
+            fontSize:
+                MediaQuery.of(context).size.width * 0.04, // 4% of screen width
+          ),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal:
+                MediaQuery.of(context).size.width * 0.04, // 4% of screen width
+            vertical: MediaQuery.of(context).size.height *
+                0.015, // 1.5% of screen height
+          ),
           border: InputBorder.none,
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (_searchController.text.isNotEmpty)
-                IconButton(icon: const Icon(Icons.clear), onPressed: _clearSearch),
+                IconButton(
+                    icon: const Icon(Icons.clear), onPressed: _clearSearch),
               IconButton(
-                icon: const Icon(Icons.search),
+                icon: Icon(Icons.search,
+                    size: MediaQuery.of(context).size.width *
+                        0.06), // 6% of screen width
                 onPressed: () {
                   _filterPatients(_searchController.text);
                   _searchFocusNode.unfocus();
@@ -215,87 +252,101 @@ Widget _buildMainContent(BuildContext context) {
             ],
           ),
         ),
+        style: TextStyle(
+          fontSize:
+              MediaQuery.of(context).size.width * 0.045, // 4.5% of screen width
+        ),
       ),
     );
   }
 
- Widget _buildTotalPatientsCard() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 20),
-    child: Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        gradient: const LinearGradient(
-          colors: [
-            Color.fromARGB(255, 224, 233, 217),
-            Color.fromARGB(255, 159, 179, 149),
-            Color.fromARGB(255, 158, 180, 146),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+  Widget _buildTotalPatientsCard() {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+          vertical: MediaQuery.of(context).size.width * 0.050),
+      child: Container(
+        padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.050),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(
+              MediaQuery.of(context).size.width * 0.04), // 4% of screen width
+          gradient: const LinearGradient(
+            colors: [
+              Color.fromARGB(255, 224, 233, 217),
+              Color.fromARGB(255, 159, 179, 149),
+              Color.fromARGB(255, 158, 180, 146),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 12,
-            spreadRadius: 2,
-            offset: Offset(4, 6),
-          ),
-        ],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Total No. of Patients",
+                    style: TextStyle(
+                        fontSize: MediaQuery.of(context).size.width * 0.045,
+                        fontWeight: FontWeight.w500),
+                    maxLines: 2,
+                  ),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+                  Text(
+                    "~${patients.length}", // Dynamic patient count
+                    style: TextStyle(
+                        fontSize: MediaQuery.of(context).size.height * 0.3,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => showDialog(
+                context: context,
+                builder: (context) =>
+                    AddPatientPopup(onPatientAdded: _loadPatients),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+                padding: EdgeInsets.symmetric(
+                    horizontal: MediaQuery.of(context).size.width *
+                        0.045, // 4.5% of screen width
+                    vertical: MediaQuery.of(context).size.height *
+                        0.012), // 1.2% of screen height
+              ),
+              child: const Text("+ Add Patient",
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Total No. of Patients",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "~${patients.length}", // Dynamic patient count
-                  style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => showDialog(
-              context: context,
-              builder: (context) => AddPatientPopup(onPatientAdded: _loadPatients),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            ),
-            child: const Text("+ Add Patient", style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+    );
+  }
 
   List<Widget> _buildRecentlyAddedSection() {
     return [
-      const Text("Recently Added Patients:", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 10),
+      Text("Recently Added Patients:",
+          style: TextStyle(
+              fontSize: MediaQuery.of(context).size.width * 0.05,
+              fontWeight: FontWeight.bold)),
+      SizedBox(height: MediaQuery.of(context).size.height * 0.01),
       if (isLoading)
         const CircularProgressIndicator()
       else if (filteredPatients.isEmpty)
         const Text("No patients found.", style: TextStyle(color: Colors.grey)),
-      ...filteredPatients.take(3).map((p) => PatientCard(patientName: p['fullname'], patientId: p['patientid'])).toList(),
+      ...filteredPatients.take(3).map((p) =>
+          PatientCard(patientName: p['fullname'], patientId: p['patientid'])),
       if (filteredPatients.length > 3)
         TextButton(
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyPatientsScreen())),
+          onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const MyPatientsScreen())),
           child: const Text("See All Patients"),
         ),
     ];
@@ -303,22 +354,28 @@ Widget _buildMainContent(BuildContext context) {
 
   Widget _buildSearchDropdown() {
     return Positioned(
-      top: 260,
-      left: 20,
-      right: 20,
+      top: MediaQuery.of(context).size.height * 0.3, // 30% of screen height
+      left: MediaQuery.of(context).size.width * 0.05, // 5% of screen width
+      right: MediaQuery.of(context).size.width * 0.05, // 5% of screen width
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: EdgeInsets.all(
+            MediaQuery.of(context).size.width * 0.02), // 2% of screen width
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(
+              MediaQuery.of(context).size.width * 0.03), // 3% of screen width
           boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
         ),
         child: filteredPatients.isEmpty
-            ? const Center(child: Text("No patients found.", style: TextStyle(color: Colors.grey)))
+            ? const Center(
+                child: Text("No patients found.",
+                    style: TextStyle(color: Colors.grey)))
             : Column(
                 children: [
-                  const Text("Search Results:", style: TextStyle(fontWeight: FontWeight.bold)),
-                  ...filteredPatients.map((p) => PatientCard(patientName: p['fullname'], patientId: p['patientid'])).toList(),
+                  const Text("Search Results:",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  ...filteredPatients.map((p) => PatientCard(
+                      patientName: p['fullname'], patientId: p['patientid'])),
                 ],
               ),
       ),
@@ -331,24 +388,32 @@ class PatientCard extends StatelessWidget {
   final String patientName;
   final String patientId;
 
-  const PatientCard({super.key, required this.patientName, required this.patientId});
+  const PatientCard(
+      {super.key, required this.patientName, required this.patientId});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(15),
+      margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).size.height *
+              0.015), // 1.5% of screen height
+      padding: EdgeInsets.all(MediaQuery.of(context).size.height * 0.02),
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 172, 202, 172),
         borderRadius: BorderRadius.circular(15),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5, offset: Offset(0, 3))],
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 5, offset: Offset(0, 3))
+        ],
       ),
       child: Row(
         children: [
           Expanded(
             child: Text(
               patientName,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                  fontSize: MediaQuery.of(context).size.width *
+                      0.045, // 4.5% of screen width
+                  fontWeight: FontWeight.w600),
             ),
           ),
           ElevatedButton(
@@ -356,14 +421,16 @@ class PatientCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => PatientInsightsScreen(patientId: patientId),
+                  builder: (context) =>
+                      PatientInsightsScreen(patientId: patientId),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
             ),
             child: const Text("View Insights"),
           ),
@@ -375,7 +442,8 @@ class PatientCard extends StatelessWidget {
 
 // Add Patient Popup with API Call Integration
 class AddPatientPopup extends StatefulWidget {
-  final VoidCallback onPatientAdded; // Callback function to refresh patient list
+  final VoidCallback
+      onPatientAdded; // Callback function to refresh patient list
 
   const AddPatientPopup({super.key, required this.onPatientAdded});
 
@@ -429,29 +497,47 @@ class _AddPatientPopupState extends State<AddPatientPopup> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: const Color.fromARGB(255, 204, 215, 188),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(
+        MediaQuery.of(context).size.width * 0.04,
+      )), // 4% of screen width
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text("Enter Patient ID", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
+          Text("Enter Patient ID",
+              style: TextStyle(
+                  fontSize: MediaQuery.of(context).size.width * 0.045,
+                  fontWeight: FontWeight.bold)),
+          SizedBox(
+              height: MediaQuery.of(context).size.height *
+                  0.025), // 2.5% of screen height
           TextField(
             controller: _idController,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(13))),
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(
+                      MediaQuery.of(context).size.width *
+                          0.03))), // 3% of screen width
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(
+              height: MediaQuery.of(context).size.height *
+                  0.02), // 2% of screen height
           ElevatedButton(
             onPressed: isLoading ? null : _handleAddPatient,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color.fromARGB(255, 119, 147, 120),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(17)),
               minimumSize: const Size(110, 40),
             ),
             child: isLoading
-                ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                : const Text("Add", style: TextStyle(fontSize: 16, color: Colors.white)),
+                ? const CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2)
+                : Text("Add",
+                    style: TextStyle(
+                        fontSize: MediaQuery.of(context).size.width * 0.016,
+                        color: Colors.white)),
           ),
         ],
       ),

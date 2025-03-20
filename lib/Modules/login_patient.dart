@@ -267,9 +267,7 @@ class LoginForm extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.05,
-            ), // Responsive padding
+            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05), // Responsive padding
             child: InputField(
               controller: emailController,
               labelText: 'Email',
@@ -363,7 +361,7 @@ class _InputFieldState extends State<InputField> {
             ),
             focusedBorder: OutlineInputBorder(
               borderSide: const BorderSide(
-                  color: const Color.fromARGB(255, 44, 59, 48), width: 2), // Focused border color
+                  color: Color.fromARGB(255, 44, 59, 48), width: 2), // Focused border color
               borderRadius: BorderRadius.circular(15),
             ),
             enabledBorder: OutlineInputBorder(
@@ -465,6 +463,7 @@ class LoginButton extends StatelessWidget {
 class RegisterPrompt extends StatelessWidget {
   const RegisterPrompt({super.key});
 
+  @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 

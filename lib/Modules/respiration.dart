@@ -9,11 +9,11 @@ class RespirationPage extends StatefulWidget {
   final String? weight;
 
   const RespirationPage({
-    Key? key,
+    super.key,
     this.gender, // optional param
     this.age,    // optional param
     this.weight, // optional param
-  }) : super(key: key);
+  });
 
   @override
   _RespirationPageState createState() => _RespirationPageState();
