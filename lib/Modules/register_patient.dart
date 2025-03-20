@@ -258,8 +258,9 @@ class _RegistrationFormState extends State<RegistrationForm> {
             }),
             validator: (value) {
               if (value == null || value.isEmpty) return 'Password is required';
-              if (value.length < 8)
+              if (value.length < 8) {
                 return 'Password must be at least 8 characters long';
+              }
               if (!RegExp(r'[A-Z]').hasMatch(value)) {
                 return 'Password must contain at least one uppercase letter';
               }
@@ -270,7 +271,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
             },
           ),
 
-          SizedBox(height: screenHeight * 0.02),
+          SizedBox(height: screenHeight * 0.04),
           _buildTextField(
             label: 'Confirm Password',
             obscureText: obscureConfirmPassword,
@@ -281,7 +282,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
             validator: (value) =>
                 value != password ? 'Passwords do not match' : null,
           ),
-          SizedBox(height: screenHeight * 0.03),
+          SizedBox(height: screenHeight * 0.04),
           // Register Button
           Center(
             child: Container(

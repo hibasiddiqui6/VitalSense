@@ -235,8 +235,9 @@ class _RegistrationFormState extends State<RegistrationForm> {
             }),
             validator: (value) {
               if (value == null || value.isEmpty) return 'Password is required';
-              if (value.length < 8)
+              if (value.length < 8) {
                 return 'Password must be at least 8 characters long';
+              }
               if (!RegExp(r'[A-Z]').hasMatch(value)) {
                 return 'Password must contain at least one uppercase letter';
               }

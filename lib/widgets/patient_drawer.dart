@@ -66,13 +66,17 @@ class _PatientDrawerState extends State<PatientDrawer> {
                     children: [
                       Text(
                         widget.fullName,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         widget.email,
-                        style: const TextStyle(fontSize: 14, color: Colors.white70),
+                        style: const TextStyle(
+                            fontSize: 14, color: Colors.white70),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -92,7 +96,11 @@ class _PatientDrawerState extends State<PatientDrawer> {
                   Icons.dashboard,
                   "Dashboard",
                   () {
-                    _navigateTo(context, smartShirtRegistered ? PatientDashboard() : PatientWifiSetup());
+                    _navigateTo(
+                        context,
+                        smartShirtRegistered
+                            ? PatientDashboard()
+                            : PatientWifiSetup());
                   },
                 ),
                 _divider(),
@@ -134,7 +142,8 @@ class _PatientDrawerState extends State<PatientDrawer> {
                   leading: const Icon(Icons.logout, color: Colors.redAccent),
                   title: const Text(
                     'Logout',
-                    style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        color: Colors.redAccent, fontWeight: FontWeight.w600),
                   ),
                   onTap: () => _handleLogout(context),
                 ),
@@ -150,7 +159,8 @@ class _PatientDrawerState extends State<PatientDrawer> {
   Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-      leading: Icon(icon, color: const Color.fromARGB(255, 82, 82, 82), size: 28),
+      leading:
+          Icon(icon, color: const Color.fromARGB(255, 82, 82, 82), size: 28),
       title: Text(
         title,
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),

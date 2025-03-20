@@ -65,10 +65,12 @@ class _ECGScreenState extends State<ECGScreen> {
           double rawADC = double.tryParse(response["ecg"].toString()) ?? 0;
 
           setState(() {
-            if (ecgData.length > 100) ecgData.removeAt(0); // Keep last 100 points
+            if (ecgData.length > 100)
+              ecgData.removeAt(0); // Keep last 100 points
             ecgData.add(FlSpot(time, rawADC));
             time += 0.1; // Increment time
-            baseTime = time.toInt() - (time.toInt() % 12); // Dynamic X-axis base
+            baseTime =
+                time.toInt() - (time.toInt() % 12); // Dynamic X-axis base
             _updateYAxisRange(); // Auto-scale Y-axis
           });
         }
@@ -99,7 +101,7 @@ class _ECGScreenState extends State<ECGScreen> {
     super.dispose();
   }
 
-    /// **Generate ECG Chart Data (Fix X-axis Overlapping)**
+  /// **Generate ECG Chart Data (Fix X-axis Overlapping)**
   LineChartData _generateChartData() {
     if (ecgData.isEmpty) return LineChartData();
 
@@ -113,25 +115,32 @@ class _ECGScreenState extends State<ECGScreen> {
           sideTitles: SideTitles(
             showTitles: true,
             interval: (maxY - minY) / 5, // Auto-scale Y-axis
-            reservedSize: 40,
+            reservedSize: MediaQuery.of(context).size.height * 0.05,
             getTitlesWidget: (value, meta) {
               return Text(value.toInt().toString(),
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold));
+                  style: TextStyle(
+                      fontSize: MediaQuery.of(context).size.width * 0.025,
+                      fontWeight: FontWeight.bold));
             },
           ),
         ),
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            interval: 12, // Keep labels at fixed positions
-            reservedSize: 20,
+            interval: MediaQuery.of(context).size.width *
+                0.03, // Adjust based on screen width
+            reservedSize: MediaQuery.of(context).size.height *
+                0.025, // Adjust based on screen height
             getTitlesWidget: (value, meta) {
-              int updatedValue = dynamicBaseTime + (value.toInt()); // Update dynamically
+              int updatedValue =
+                  dynamicBaseTime + (value.toInt()); // Update dynamically
               return SideTitleWidget(
                 axisSide: meta.axisSide,
                 child: Text(
-                  updatedValue.toString(), 
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  updatedValue.toString(),
+                  style: TextStyle(
+                      fontSize: MediaQuery.of(context).size.width * 0.01,
+                      fontWeight: FontWeight.bold),
                 ),
               );
             },
@@ -156,7 +165,7 @@ class _ECGScreenState extends State<ECGScreen> {
           spots: ecgData.map((point) => FlSpot(point.x, point.y)).toList(),
           isCurved: true,
           color: Colors.green,
-          barWidth: 2,
+          barWidth: MediaQuery.of(context).size.width * 0.005,
           isStrokeCapRound: true,
           belowBarData: BarAreaData(show: false),
           dotData: FlDotData(show: false),
@@ -171,28 +180,39 @@ class _ECGScreenState extends State<ECGScreen> {
       backgroundColor: const Color(0xFFEFF2E6),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.symmetric(
+            horizontal: MediaQuery.of(context).size.width * 0.04, // 4% of width
+            vertical: MediaQuery.of(context).size.height * 0.02, // 2% of height
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header Section
               Padding(
-                padding: const EdgeInsets.only(bottom: 40),
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).size.height * 0.05),
                 child: Row(
                   children: [
                     GestureDetector(
                       onTap: () {
                         Navigator.pop(context);
                       },
-                      child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
+                      child: Icon(Icons.arrow_back,
+                          size: MediaQuery.of(context).size.width * 0.06,
+                          color: Colors.black),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(
+                        width: MediaQuery.of(context).size.width *
+                            0.02), // 2% of screen width
                     Container(
-                      margin: const EdgeInsets.only(left: 15),
+                      margin: EdgeInsets.only(
+                          left: MediaQuery.of(context).size.width *
+                              0.04), // 4% of screen width
                       child: Text(
                         "ECG",
                         style: GoogleFonts.poppins(
-                          fontSize: 22,
+                          fontSize: MediaQuery.of(context).size.width *
+                              0.05, // 5% of screen width
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -214,10 +234,12 @@ class _ECGScreenState extends State<ECGScreen> {
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.all(12),
+                padding:
+                    EdgeInsets.all(MediaQuery.of(context).size.width * 0.03),
                 child: Column(
                   children: [
-                    const SizedBox(height: 1),
+                    SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.001),
                     // Inner Box for ECG Graph
                     Container(
                       decoration: BoxDecoration(
@@ -236,17 +258,18 @@ class _ECGScreenState extends State<ECGScreen> {
                           ),
                         ],
                       ),
-                      padding: const EdgeInsets.all(10),
+                      padding: EdgeInsets.all(
+                          MediaQuery.of(context).size.width * 0.025),
                       child: SizedBox(
-                        height: 200,
-                        width: 350,
+                        height: MediaQuery.of(context).size.height * 0.25,
+                        width: MediaQuery.of(context).size.width * 0.9,
                         child: LineChart(_generateChartData()),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
 
               // Gender, Age, Weight Section
               Container(
@@ -272,14 +295,18 @@ class _ECGScreenState extends State<ECGScreen> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
 
               // View Trends Button
               Center(
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: MediaQuery.of(context).size.width *
+                            0.12, // 12% of screen width
+                        vertical: MediaQuery.of(context).size.height *
+                            0.017), // 1.7% of screen height
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -288,7 +315,7 @@ class _ECGScreenState extends State<ECGScreen> {
                   child: Text(
                     "View Trends",
                     style: GoogleFonts.poppins(
-                      fontSize: 16,
+                      fontSize: MediaQuery.of(context).size.width * 0.04,
                       color: Colors.white,
                     ),
                   ),
@@ -300,11 +327,16 @@ class _ECGScreenState extends State<ECGScreen> {
       ),
     );
   }
+
   Widget _infoCard(String value, String label) {
     return Expanded(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        margin: EdgeInsets.symmetric(
+            horizontal:
+                MediaQuery.of(context).size.width * 0.01), // 1% of screen width
+        padding: EdgeInsets.symmetric(
+            vertical: MediaQuery.of(context).size.height *
+                0.015), // 1.5% of screen height
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -318,8 +350,15 @@ class _ECGScreenState extends State<ECGScreen> {
         ),
         child: Column(
           children: [
-            Text(value, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(label, style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey)),
+            Text(value,
+                style: GoogleFonts.poppins(
+                    fontSize: MediaQuery.of(context).size.width * 0.045,
+                    fontWeight: FontWeight.bold)), // 4.5% of screen width
+            Text(label,
+                style: GoogleFonts.poppins(
+                    fontSize: MediaQuery.of(context).size.width *
+                        0.04, // 4% of screen width
+                    color: Colors.grey)),
           ],
         ),
       ),
