@@ -65,8 +65,9 @@ class _ECGScreenState extends State<ECGScreen> {
           double rawADC = double.tryParse(response["ecg"].toString()) ?? 0;
 
           setState(() {
-            if (ecgData.length > 100)
+            if (ecgData.length > 100) {
               ecgData.removeAt(0); // Keep last 100 points
+            }
             ecgData.add(FlSpot(time, rawADC));
             time += 0.1; // Increment time
             baseTime =

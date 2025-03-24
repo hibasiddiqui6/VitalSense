@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:vitalsense/Modules/ecg.dart';
 import 'Modules/welcome_page.dart'; // Import the welcome page
 
 void main() {
@@ -14,7 +13,7 @@ class VitalSenseApp extends StatelessWidget {
     return MaterialApp(
       title: 'VitalSense',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const ECGScreen(),
+      home: const WelcomePage(),
     );
   }
 }
