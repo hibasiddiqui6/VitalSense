@@ -593,7 +593,7 @@ def receive_sensor_data():
 
         # Fetch active SmartShirt
         sql_query = """
-        SELECT patientid, smartshirtID 
+        SELECT patientid, smartshirtid 
         FROM smartshirt 
         WHERE shirtstatus = TRUE
         LIMIT 1
@@ -666,7 +666,7 @@ def get_sensor_data():
                     return jsonify({"error": "No recent sensor data available"}), 404
             except Exception as parse_err:
                 print(f"[WARN] Failed to parse timestamp: {parse_err}")
-
+                
         return jsonify(latest_data), 200
 
     except Exception as e:
@@ -797,6 +797,10 @@ def get_patient_insights(patient_id):
     except Exception as e:
         print(f"Error fetching patient insights: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
+
+@app.route('/ping', methods=['GET'])
+def ping():
+    return jsonify({"status": "online"}), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000)) 

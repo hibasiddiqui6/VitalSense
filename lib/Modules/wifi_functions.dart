@@ -10,45 +10,45 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// **Check if ESP32 is already connected to Home Wi-Fi**
 Future<bool> checkESP32Connection(BuildContext context) async {
-    print("Checking if ESP32 is already connected...");
+  print("Checking if ESP32 is already connected...");
 
-    int attempts = 5; // Retry up to 5 times
-    while (attempts-- > 0) {
+  final fetchIpUrl = Uri.parse("${ApiClient.baseUrl}/get_latest_mac_ip");
+
+  try {
+    final latest = await http.get(fetchIpUrl).timeout(const Duration(seconds: 3));
+    if (latest.statusCode == 200) {
+      final data = json.decode(latest.body);
+      final ip = data["ip_address"];
+      final pingUrl = Uri.parse("http://$ip/ping");
+
+      for (int i = 0; i < 5; i++) {
         try {
-            final prefs = await SharedPreferences.getInstance();
-              final patientId = prefs.getString("patient_id");
-
-              final response = await http.get(
-                Uri.parse("${ApiClient.baseUrl}/get_sensor?patient_id=$patientId"),
-              );
-            print(response.statusCode);
-            if (response.statusCode == 200) {
-                final Map<String, dynamic> sensorData = json.decode(response.body);
-                print(sensorData);
-                if (sensorData.isNotEmpty) {
-                    print("ESP32 is online and sending data!");
-
-                    return true; // Successfully connected
-                }
-            }
+          final resp = await http.get(pingUrl).timeout(const Duration(seconds: 2));
+          if (resp.statusCode == 200) {
+            print("✅ ESP responded to /ping");
+            return true;
+          }
         } catch (e) {
-            print("Attempt ${5 - attempts}: ESP32 not responding. Retrying...");
+          print("Attempt ${i + 1}: Ping failed. Retrying...");
         }
-
-        await Future.delayed(const Duration(seconds: 2)); // Wait before retrying
-    }
-
-    print("ESP32 did not respond after multiple attempts. Checking if ESP32 SoftAP exists...");
-
-    // **Check if ESP32 SoftAP is available**
-    String? currentSSID = await WiFiForIoTPlugin.getSSID();
-    if (currentSSID == "ESP32_Setup") {
-        print("ESP32 SoftAP detected. Prompting user...");
-        return false; // Not connected, but SoftAP exists
+        await Future.delayed(const Duration(seconds: 2));
+      }
     } else {
-        // print("ESP32 SoftAP not found.");
-        return false; // Neither connected nor SoftAP available
+      print("Failed to fetch IP from backend. Status: ${latest.statusCode}");
     }
+  } catch (e) {
+    print("❌ Ping check failed: $e");
+  }
+
+  // Fallback: check if we're connected to ESP32_Setup
+  final currentSSID = await WiFiForIoTPlugin.getSSID();
+  if (currentSSID == "ESP32_Setup") {
+    print("ESP32 SoftAP detected. Provisioning likely needed.");
+    return false;
+  }
+
+  print("ESP32 is not connected and SoftAP not found.");
+  return false;
 }
 
 /// **Connects to ESP32 SoftAP and handles Wi-Fi provisioning**
