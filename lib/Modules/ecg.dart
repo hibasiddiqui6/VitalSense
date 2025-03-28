@@ -1,5 +1,4 @@
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
@@ -55,30 +54,32 @@ class _ECGScreenState extends State<ECGScreen> {
     }
   }
 
-  /// **Fetch real-time ECG data every 2ms**
   void startECGStreaming() {
-    ecgTimer = Timer.periodic(const Duration(milliseconds: 2), (timer) async {
+    ecgTimer = Timer.periodic(const Duration(milliseconds: 1000), (timer) async {
       try {
-        var response = await apiClient.getSensorData(); // Fetch ECG data
+        final response = await apiClient.getECGStream(limit: 100);
 
-        if (response.containsKey("ecg")) {
-          double rawADC = double.tryParse(response["ecg"].toString()) ?? 0;
+        if (response.isNotEmpty) {
+          print("🔁 Streaming ${response.length} points.");
+          print("From: ${response.first["timestamp"]} to ${response.last["timestamp"]}");
 
-          setState(() {
-            if (ecgData.length > 100) {
-              ecgData.removeAt(0); // Keep last 100 points
-            }
-            ecgData.add(FlSpot(time, rawADC));
-            time += 0.1; // Increment time
-            baseTime =
-                time.toInt() - (time.toInt() % 12); // Dynamic X-axis base
-            _updateYAxisRange(); // Auto-scale Y-axis
-          });
+          List<FlSpot> newSpots = List.generate(
+              response.length,
+              (i) => FlSpot(time + (i * 0.1), double.tryParse(response[i]["ecg"].toString()) ?? 0),
+            );
+
+            setState(() {
+              ecgData.addAll(newSpots);
+              if (ecgData.length > 100) {
+                ecgData = ecgData.sublist(ecgData.length - 100); // Rolling window
+              }
+              time = ecgData.last.x + 0.1;
+              _updateYAxisRange();
+            });
+
         }
       } catch (e) {
-        if (kDebugMode) {
-          print("Error fetching ECG data: $e");
-        }
+        print("Stream error: $e");
       }
     });
   }
@@ -102,50 +103,30 @@ class _ECGScreenState extends State<ECGScreen> {
     super.dispose();
   }
 
-  /// **Generate ECG Chart Data (Fix X-axis Overlapping)**
   LineChartData _generateChartData() {
     if (ecgData.isEmpty) return LineChartData();
 
-    // Get the base time for dynamic updating
-    int dynamicBaseTime = baseTime;
-
     return LineChartData(
+      backgroundColor: Colors.white,
       gridData: FlGridData(show: false),
       titlesData: FlTitlesData(
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            interval: (maxY - minY) / 5, // Auto-scale Y-axis
-            reservedSize: MediaQuery.of(context).size.height * 0.05,
-            getTitlesWidget: (value, meta) {
-              return Text(value.toInt().toString(),
-                  style: TextStyle(
-                      fontSize: MediaQuery.of(context).size.width * 0.025,
-                      fontWeight: FontWeight.bold));
-            },
+            interval: (maxY - minY) / 5,
+            reservedSize: 28,
+            getTitlesWidget: (value, meta) => Text(
+              value.toInt().toString(),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.black,
+              ),
+            ),
           ),
         ),
         bottomTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
-            interval: MediaQuery.of(context).size.width *
-                0.03, // Adjust based on screen width
-            reservedSize: MediaQuery.of(context).size.height *
-                0.025, // Adjust based on screen height
-            getTitlesWidget: (value, meta) {
-              int updatedValue =
-                  dynamicBaseTime + (value.toInt()); // Update dynamically
-              return SideTitleWidget(
-                axisSide: meta.axisSide,
-                child: Text(
-                  updatedValue.toString(),
-                  style: TextStyle(
-                      fontSize: MediaQuery.of(context).size.width * 0.01,
-                      fontWeight: FontWeight.bold),
-                ),
-              );
-            },
-          ),
+          sideTitles: SideTitles(showTitles: false),
         ),
         rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
         topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -153,20 +134,20 @@ class _ECGScreenState extends State<ECGScreen> {
       borderData: FlBorderData(
         show: true,
         border: const Border(
-          left: BorderSide(color: Colors.black, width: 1), // Y-axis
-          bottom: BorderSide(color: Colors.black, width: 1), // X-axis
+          left: BorderSide(color: Colors.black, width: 1),
+          bottom: BorderSide(color: Colors.black, width: 1),
         ),
       ),
-      minX: ecgData.first.x, // Keep graph aligned with incoming data
-      maxX: ecgData.last.x, // Show only relevant data in real-time
+      minX: ecgData.first.x,
+      maxX: ecgData.last.x,
       minY: minY,
-      maxY: maxY, // Auto-scaled Y-axis
+      maxY: maxY,
       lineBarsData: [
         LineChartBarData(
-          spots: ecgData.map((point) => FlSpot(point.x, point.y)).toList(),
-          isCurved: true,
-          color: Colors.green,
-          barWidth: MediaQuery.of(context).size.width * 0.005,
+          spots: ecgData,
+          isCurved: false,
+          color: Colors.green.shade700,
+          barWidth: 1.5,
           isStrokeCapRound: true,
           belowBarData: BarAreaData(show: false),
           dotData: FlDotData(show: false),
@@ -221,20 +202,8 @@ class _ECGScreenState extends State<ECGScreen> {
                   ],
                 ),
               ),
-
               // ECG Graph Section
               Container(
-                decoration: BoxDecoration(
-                  color: const Color.fromARGB(255, 200, 215, 160),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(4, 4),
-                    ),
-                  ],
-                ),
                 padding:
                     EdgeInsets.all(MediaQuery.of(context).size.width * 0.03),
                 child: Column(
