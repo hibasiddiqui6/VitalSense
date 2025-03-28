@@ -7,7 +7,8 @@ class ApiClient {
   
   /// Get Base URL
   static String get baseUrl => _baseUrl;
-  // Fetch Sensor Data from Firebase via Flask API
+
+//   /// Fetch Sensor Data from database
   Future<Map<String, dynamic>> getSensorData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? patientId = prefs.getString("patient_id");
@@ -31,35 +32,30 @@ class ApiClient {
     }
   }
 
-//   /// Fetch Sensor Data from MySQL
-//   Future<Map<String, dynamic>> getSensorData() async {
+  Future<List<Map<String, dynamic>>> getECGStream({int limit = 100}) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
 
-//     SharedPreferences prefs = await SharedPreferences.getInstance();
-//     String? patientId = prefs.getString("patient_id");
+    if (patientId == null) {
+      return [];
+    }
 
-//     if (patientId == null) {
-//       print("❌ Patient ID not found in storage.");
-//       return {'error': 'Patient ID not found in storage'};
-//     }
+    final url = Uri.parse("$_baseUrl/get_sensor_stream?patient_id=$patientId&limit=$limit");
 
-//     final url = Uri.parse('$_baseUrl/get_sensor?patient_id=$patientId');
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 3));
 
-//     try {
-//       final response = await http.get(url).timeout(const Duration(seconds: 3));
-
-//       print("🟢 API Response Code: ${response.statusCode}");
-//       print("🟢 API Response Body: ${response.body}");
-
-//       if (response.statusCode == 200) {
-//         return json.decode(response.body);
-//       } else {
-//         return {'error': 'Failed to fetch sensor data (HTTP ${response.statusCode})'};
-//       }
-//     } catch (e) {
-//       print("❌ Error in getSensorData(): $e");
-//       return {'error': 'Server unreachable. Check your connection.'};
-//     }
-// }
+      if (response.statusCode == 200) {
+        List<dynamic> data = json.decode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        return [];
+      }
+    } catch (e) {
+      print("Error fetching ECG stream: $e");
+      return [];
+    }
+  }
 
   static Future<void> fetchAndSavePatientId(String email) async { 
     try {
