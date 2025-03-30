@@ -1,9 +1,11 @@
-import 'package:fl_chart/fl_chart.dart';
+// import 'package:fl_chart/fl_chart.dart';
+// import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_client.dart'; // API for fetching ECG data
 import 'package:shared_preferences/shared_preferences.dart';
+// import 'dart:math';
 
 class ECGScreen extends StatefulWidget {
   final String? gender;
@@ -16,13 +18,78 @@ class ECGScreen extends StatefulWidget {
   _ECGScreenState createState() => _ECGScreenState();
 }
 
+class ECGPainter extends CustomPainter {
+  final List<Offset> points;
+
+  ECGPainter(this.points);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Define the bounding box (ensures ECG stays within this area)
+    Rect bounds = Rect.fromLTWH(0, 0, size.width, size.height);
+    canvas.clipRect(bounds); // Clipping to prevent overflow
+// Paint for grid lines
+    Paint gridPaint = Paint()
+      ..color = Colors.grey.withOpacity(0.6) // Light gray for grid
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+// Grid box size (adjust for ECG scaling)
+    double smallBoxSize = 5; // Small squares
+
+// Draw small grid (thin lines)
+    for (double i = 0; i < size.width; i += smallBoxSize) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), gridPaint);
+    }
+    for (double j = 0; j < size.height; j += smallBoxSize) {
+      canvas.drawLine(Offset(0, j), Offset(size.width, j), gridPaint);
+    }
+
+    // line paint
+    Paint paint = Paint()
+      ..color = Colors.green
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    Path path = Path();
+    if (points.isNotEmpty) {
+      double minValue = 1900; // ECG Min
+      double maxValue = 2200; // ECG Max
+      double canvasHeight = size.height * 0.8;
+      double normalize(double value) {
+        if (maxValue == minValue) {
+          return size.height / 2; // Prevent division by zero
+        }
+        return size.height -
+            ((value - minValue) / (maxValue - minValue)) * canvasHeight;
+      }
+
+      path.moveTo(points.first.dx, normalize(points.first.dy));
+      for (var point in points) {
+        path.lineTo(point.dx, normalize(point.dy));
+      }
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true;
+  }
+}
+
 class _ECGScreenState extends State<ECGScreen> {
-  List<FlSpot> ecgData = [];
-  double time = 0;
-  ApiClient apiClient = ApiClient();
+  // List<FlSpot> ecgData = [];
+  // double time = 0;
+  List<Offset> points = [];
+  double x = 0;
   Timer? ecgTimer;
-  double minY = 0, maxY = 4095; // Default range for 12-bit ADC
-  int baseTime = 0; // Base time for X-axis labels
+  List<double> ecgBuffer = [];
+
+  ApiClient apiClient = ApiClient();
+  // Timer? ecgTimer;
+  // double minY = 0, maxY = 4095; // Default range for 12-bit ADC
+  // int baseTime = 0; // Base time for X-axis labels
 
   // Patient details
   String gender = "-";
@@ -54,106 +121,69 @@ class _ECGScreenState extends State<ECGScreen> {
     }
   }
 
-  void startECGStreaming() {
-    ecgTimer = Timer.periodic(const Duration(milliseconds: 1000), (timer) async {
-      try {
-        final response = await apiClient.getECGStream(limit: 100);
+  /// **Fetch real-time ECG data every 2ms**
+  Future<void> startECGStreaming() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
 
-        if (response.isNotEmpty) {
-          print("🔁 Streaming ${response.length} points.");
-          print("From: ${response.first["timestamp"]} to ${response.last["timestamp"]}");
+    if (patientId == null) {
+      print("⚠️ Patient ID not found.");
+      return;
+    }
 
-          List<FlSpot> newSpots = List.generate(
-              response.length,
-              (i) => FlSpot(time + (i * 0.1), double.tryParse(response[i]["ecg"].toString()) ?? 0),
-            );
-
-            setState(() {
-              ecgData.addAll(newSpots);
-              if (ecgData.length > 100) {
-                ecgData = ecgData.sublist(ecgData.length - 100); // Rolling window
-              }
-              time = ecgData.last.x + 0.1;
-              _updateYAxisRange();
-            });
-
-        }
-      } catch (e) {
-        print("Stream error: $e");
+    // Listen to Firebase updates
+    apiClient.getFirebaseECGStream(patientId).listen((String ecgValue) {
+      if (ecgValue.isNotEmpty) {
+        double? parsed = double.tryParse(ecgValue.trim());
+        if (parsed != null) ecgBuffer.add(parsed);
       }
+    }, onError: (error) {
+      print("❌ ECG Stream Error: $error");
     });
-  }
 
-  /// Auto-Adjust Y-Axis based on incoming data
-  void _updateYAxisRange() {
-    if (ecgData.isNotEmpty) {
-      double minVal = ecgData.map((e) => e.y).reduce((a, b) => a < b ? a : b);
-      double maxVal = ecgData.map((e) => e.y).reduce((a, b) => a > b ? a : b);
+    // Timer to consume buffer at fixed interval (e.g., 20ms = 50 FPS)
+    ecgTimer?.cancel(); // avoid multiple timers
+    ecgTimer = Timer.periodic(Duration(milliseconds: 0), (_) {
+      if (!mounted || ecgBuffer.isEmpty) return;
+
+      double ecg = ecgBuffer.removeAt(0);
 
       setState(() {
-        minY = minVal - 100;
-        maxY = maxVal + 100;
+        points.add(Offset(x, ecg));
+        x += 5;
+
+        if (points.length > 100) points.removeAt(0);
+        if (x >= 350) {
+          x = 0;
+          points.clear();
+        }
+        print("Updated Points: $points");
       });
-    }
+    });
   }
+    
+//   // **Mock Function** to fetch ECG values from a cloud database
+//   Future<double> fetchECGDataFromCloud() async {
+//   return 50 + 30 * sin(x / 20); // Simulated ECG signal with smooth waves
+// }
+
+  /// Auto-Adjust Y-Axis based on incoming data
+  // void _updateYAxisRange() {
+  //   if (ecgData.isNotEmpty) {
+  //     double minVal = ecgData.map((e) => e.y).reduce((a, b) => a < b ? a : b);
+  //     double maxVal = ecgData.map((e) => e.y).reduce((a, b) => a > b ? a : b);
+
+  //     setState(() {
+  //       minY = minVal - 100;
+  //       maxY = maxVal + 100;
+  //     });
+  //   }
+  // }
 
   @override
   void dispose() {
-    ecgTimer?.cancel(); // Stop timer on dispose
+    ecgTimer?.cancel();
     super.dispose();
-  }
-
-  LineChartData _generateChartData() {
-    if (ecgData.isEmpty) return LineChartData();
-
-    return LineChartData(
-      backgroundColor: Colors.white,
-      gridData: FlGridData(show: false),
-      titlesData: FlTitlesData(
-        leftTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
-            interval: (maxY - minY) / 5,
-            reservedSize: 28,
-            getTitlesWidget: (value, meta) => Text(
-              value.toInt().toString(),
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.black,
-              ),
-            ),
-          ),
-        ),
-        bottomTitles: AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
-        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      ),
-      borderData: FlBorderData(
-        show: true,
-        border: const Border(
-          left: BorderSide(color: Colors.black, width: 1),
-          bottom: BorderSide(color: Colors.black, width: 1),
-        ),
-      ),
-      minX: ecgData.first.x,
-      maxX: ecgData.last.x,
-      minY: minY,
-      maxY: maxY,
-      lineBarsData: [
-        LineChartBarData(
-          spots: ecgData,
-          isCurved: false,
-          color: Colors.green.shade700,
-          barWidth: 1.5,
-          isStrokeCapRound: true,
-          belowBarData: BarAreaData(show: false),
-          dotData: FlDotData(show: false),
-        ),
-      ],
-    );
   }
 
   @override
@@ -202,14 +232,24 @@ class _ECGScreenState extends State<ECGScreen> {
                   ],
                 ),
               ),
+
               // ECG Graph Section
               Container(
+                decoration: BoxDecoration(
+                  color: const Color.fromARGB(255, 200, 215, 160),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(4, 4),
+                    ),
+                  ],
+                ),
                 padding:
                     EdgeInsets.all(MediaQuery.of(context).size.width * 0.03),
                 child: Column(
                   children: [
-                    SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.001),
                     // Inner Box for ECG Graph
                     Container(
                       decoration: BoxDecoration(
@@ -221,11 +261,6 @@ class _ECGScreenState extends State<ECGScreen> {
                             blurRadius: 4,
                             offset: const Offset(4, 4),
                           ),
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
-                            offset: const Offset(-4, -4),
-                          ),
                         ],
                       ),
                       padding: EdgeInsets.all(
@@ -233,7 +268,11 @@ class _ECGScreenState extends State<ECGScreen> {
                       child: SizedBox(
                         height: MediaQuery.of(context).size.height * 0.25,
                         width: MediaQuery.of(context).size.width * 0.9,
-                        child: LineChart(_generateChartData()),
+                        child: CustomPaint(
+                          size: Size(MediaQuery.of(context).size.width * 0.9,
+                              400), // ECG plot size
+                          painter: ECGPainter(points),
+                        ),
                       ),
                     ),
                   ],
