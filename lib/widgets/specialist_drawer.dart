@@ -6,7 +6,7 @@ import '../Modules/specialist_profile.dart';
 import '../Modules/specialist_patients.dart';
 import '../Modules/specialist_settings.dart';
 import '../Modules/about_us.dart';
-import '../Modules/patient_trends.dart';
+import '../Modules/specialist_patient_trends.dart';
 import '../Modules/patient_reports.dart';
 
 class SpecialistDrawer extends StatelessWidget {

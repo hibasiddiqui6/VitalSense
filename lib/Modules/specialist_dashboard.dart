@@ -104,22 +104,26 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
-      drawer: SpecialistDrawer(fullName: fullName, email: email),
+      drawer: SizedBox(
+        width: screenWidth * 0.6,
+        child: SpecialistDrawer(
+          fullName: fullName, // fetched and stored in State
+          email: email, // fetched and stored in State
+        ),
+      ),
       backgroundColor: const Color.fromARGB(255, 255, 254, 250),
       body: Stack(
         children: [
           // -Background Circles
           Positioned(
-            top: MediaQuery.of(context).size.height *
-                -0.15, // 15% of screen height
-            left:
-                MediaQuery.of(context).size.width * 0.45, // 45% of screen width
+            top: screenHeight * -0.15, // 15% of screen height
+            left: screenWidth * 0.45, // 45% of screen width
             child: Container(
-              width: MediaQuery.of(context).size.width *
-                  0.9, // 90% of screen width
-              height: MediaQuery.of(context).size.height *
-                  0.5, // 50% of screen height
+              width: screenWidth * 0.9, // 90% of screen width
+              height: screenHeight * 0.5, // 50% of screen height
               decoration: const BoxDecoration(
                 color: Color.fromARGB(120, 219, 237, 219),
                 shape: BoxShape.circle,
@@ -127,15 +131,11 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
             ),
           ),
           Positioned(
-            bottom: MediaQuery.of(context).size.height *
-                -0.1, // 10% of screen height
-            left: MediaQuery.of(context).size.width *
-                -0.25, // 25% of screen width
+            bottom: screenHeight * -0.1, // 10% of screen height
+            left: screenWidth * -0.25, // 25% of screen width
             child: Container(
-              width: MediaQuery.of(context).size.width *
-                  0.6, // 60% of screen width
-              height: MediaQuery.of(context).size.height *
-                  0.3, // 30% of screen height
+              width: screenWidth * 0.6, // 60% of screen width
+              height: screenHeight * 0.3, // 30% of screen height
               decoration: const BoxDecoration(
                 color: Color.fromARGB(120, 219, 237, 219),
                 shape: BoxShape.circle,
@@ -153,12 +153,13 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
   }
 
   Widget _buildMainContent(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return SizedBox(
-      height: MediaQuery.of(context).size.height,
+      height: screenHeight,
       child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(
-            horizontal: MediaQuery.of(context).size.width * 0.05,
-            vertical: MediaQuery.of(context).size.height * 0.05),
+            horizontal: screenWidth * 0.05, vertical: screenHeight * 0.05),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -169,17 +170,17 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
                 child: IconButton(
                   icon: Icon(Icons.menu,
                       color: Colors.black,
-                      size: MediaQuery.of(context).size.width * 0.08),
+                      size: screenWidth * 0.08),
                   onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
             ),
-            SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+            SizedBox(height: screenHeight * 0.01),
 
             // -Profile Header
             Text('Hi! $fullName',
                 style: TextStyle(
-                    fontSize: MediaQuery.of(context).size.width * 0.05,
+                    fontSize: screenWidth * 0.05,
                     fontWeight: FontWeight.bold)),
             Text('$profession, $speciality',
                 style: TextStyle(

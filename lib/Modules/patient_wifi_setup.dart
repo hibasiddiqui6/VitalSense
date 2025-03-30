@@ -143,8 +143,8 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
           padding: EdgeInsets.symmetric(
             horizontal:
                 MediaQuery.of(context).size.width * 0.05, // 5% of screen width
-            vertical: MediaQuery.of(context).size.height *
-                0.025, // 2.5% of screen height
+            vertical: screenHeight*
+                0.01, // 2.5% of screen height
           ),
           decoration: BoxDecoration(
             color: const Color.fromARGB(255, 223, 231, 221),
@@ -226,8 +226,9 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
                     ElevatedButton.icon(
                       onPressed: () => showSetupInstructions(context),
                       icon: Icon(Icons.help_outline, size: screenWidth * 0.08),
-                      label: Text('Need Help?',
-                      style: TextStyle(
+                      label: Text(
+                        'Need Help?',
+                        style: TextStyle(
                           fontSize: MediaQuery.of(context).size.width *
                               0.045, // 4.5% of screen width
                         ),

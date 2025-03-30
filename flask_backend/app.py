@@ -1,9 +1,12 @@
+from urllib import response
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import bcrypt  # For secure password hashing
 from db_utils import fetch_data, fetch_all_data, modify_data, get_db_connection, insert_data, fetch_latest_data  # Import database utility functions
-from datetime import datetime
+from datetime import datetime, time, timedelta, timezone
 import os
+from flask import Flask, request, jsonify, Response, stream_with_context
+import logging
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -217,6 +220,73 @@ def login_specialist():
 
 #     except Exception as e:
 #         return jsonify({"error": f"An error occurred: {e}"}), 500
+
+@app.route('/get_sensor', methods=['GET'])
+def get_sensor_data():
+    try:
+        patient_id = request.args.get("patient_id")
+        logging.basicConfig(level=logging.INFO)
+        logging.info(f"/get_sensor request for patient_id: {patient_id}")
+        print(f"[DEBUG] /get_sensor request for patient_id: {patient_id}")
+
+        if not patient_id:
+            return jsonify({"error": "Patient ID is required"}), 400
+
+        latest_data = fetch_latest_data("health_vitals", "patientID", patient_id)
+        print(f"[DEBUG] Retrieved latest data: {latest_data}")
+
+        if not latest_data:
+            return jsonify({"error": "No sensor data found for this patient"}), 404
+
+        # Freshness check using already-localized datetime
+        timestamp = latest_data.get("timestamp")
+        if isinstance(timestamp, datetime):
+            # Localize naive timestamp
+            pakistan_tz = timezone("Asia/Karachi")
+            if timestamp.tzinfo is None:
+                timestamp = pakistan_tz.localize(timestamp)
+
+            now_pkt = datetime.now(pakistan_tz)
+            if now_pkt - timestamp > timedelta(minutes=5):
+                print(f"[INFO] Data is older than 5 minutes. Timestamp: {timestamp}")
+                return jsonify({"error": "No recent sensor data available"}), 404
+
+        return jsonify(latest_data), 200
+
+    except Exception as e:
+        print(f"[EXCEPTION] Error in /get_sensor API: {e}")
+        return jsonify({"error": f"An error occurred: {e}"}), 500
+
+
+
+
+@app.route('/ecg_sse')
+def ecg_sse():
+    patient_id = request.args.get("patient_id")
+    if not patient_id:
+        return "Patient ID is required", 400
+
+    def generate():
+        last_id = None
+        while True:
+            query = """
+                SELECT id, ecg FROM health_vitals
+                WHERE patientID = %s
+                ORDER BY timestamp DESC
+                LIMIT 10
+            """
+            results = fetch_data(query, (patient_id,))
+            if results:
+                for row in results:
+                    current_id = row["id"]
+                    print("current_id", current_id)
+                    ecg = row["ecg"]
+                    if current_id != last_id:
+                        last_id = current_id
+                        yield f"data: {ecg}\n\n"
+            time.sleep(1)  # try 50ms polling
+
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 @app.route('/get_patient_id', methods=['GET'])
 def get_patient_id():

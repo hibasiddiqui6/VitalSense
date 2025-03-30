@@ -34,6 +34,8 @@ class _AboutUsState extends State<AboutUs> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
       backgroundColor: Colors.white, // Set background to white
       appBar: AppBar(
@@ -42,7 +44,7 @@ class _AboutUsState extends State<AboutUs> {
         iconTheme: const IconThemeData(color: Colors.black), // Hamburger color
       ),
       drawer: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.8,
+        width: screenWidth * 0.8,
         child: role == 'specialist'
             ? SpecialistDrawer(
                 fullName: fullName,
@@ -54,15 +56,15 @@ class _AboutUsState extends State<AboutUs> {
               ),
       ),
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: screenWidth*0.04, vertical: screenHeight*0.012),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text(
+            Text(
               "About Us",
-              style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: screenWidth* 0.02, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: screenHeight*0.04),
 
             // University Logos Section
             Row(
@@ -72,31 +74,31 @@ class _AboutUsState extends State<AboutUs> {
                   children: [
                     Image.asset(
                       "assets/engineering.png",
-                      width: 150,
-                      height: 150,
+                      width: screenWidth*0.4,
+                      height: screenHeight * 0.25,
                       errorBuilder: (context, error, stackTrace) {
                         return const Text("Image not found", style: TextStyle(color: Colors.red));
                       },
                     ),
-                    const SizedBox(height: 5),
+                    SizedBox(height: screenHeight * 0.05),
                     const Text(
                       "Fabricated By",
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
-                const SizedBox(width: 40),
+                SizedBox(width: screenWidth*0.08),
                 Column(
                   children: [
                     Image.asset(
                       "assets/uit.png",
-                      width: 150,
-                      height: 150,
+                      width: screenWidth*0.4,
+                      height: screenHeight * 0.4,
                       errorBuilder: (context, error, stackTrace) {
                         return const Text("Image not found", style: TextStyle(color: Colors.red));
                       },
                     ),
-                    const SizedBox(height: 5),
+                    SizedBox(height: screenHeight * 0.08),
                     const Text(
                       "Developed By",
                       style: TextStyle(fontWeight: FontWeight.bold),
@@ -106,22 +108,22 @@ class _AboutUsState extends State<AboutUs> {
               ],
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: screenHeight * 0.02),
 
             // Description
-            const Text(
+            Text(
               "Welcome to VitalSense",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: screenWidth*0.016, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 10),
-            const Text(
+            SizedBox(height: screenHeight*0.1),
+            Text(
               "Your go-to app for real-time health monitoring. Developed by UIT University's Software Engineering students, VitaSense connects with a smart shirt to track ECG, respiration, and temperature, delivering continuous health insights. "
               "Our app offers secure data storage, AI-driven alerts, and dual access for healthcare providers, making proactive health management easy and accessible.",
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14),
+              style: TextStyle(fontSize : screenWidth*0.025),
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height:screenHeight * 0.2),
 
             // Contact and Follow Us section in a Row
             Row(
@@ -141,11 +143,11 @@ class _AboutUsState extends State<AboutUs> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Text(
+                    Text(
                       "Follow us:",
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: screenWidth*0.016, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: screenHeight * 0.002),
                     Row(
                       children: [
                         IconButton(

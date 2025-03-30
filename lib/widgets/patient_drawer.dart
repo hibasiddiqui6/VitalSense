@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vitalsense/Modules/report_types.dart';
+import 'package:vitalsense/Modules/trends_type.dart';
 import '../Modules/welcome_page.dart';
 import '../Modules/patient_dashboard.dart';
 import '../Modules/patient_profile.dart';
@@ -41,6 +43,7 @@ class _PatientDrawerState extends State<PatientDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
     return Drawer(
       backgroundColor: Colors.white,
       child: Column(
@@ -54,10 +57,11 @@ class _PatientDrawerState extends State<PatientDrawer> {
             ),
             child: Row(
               children: [
-                const CircleAvatar(
-                  radius: 40,
+                CircleAvatar(
+                  radius: screenWidth * 0.065,
                   backgroundColor: Colors.white,
-                  child: Icon(Icons.person, size: 40, color: Colors.black54),
+                  child: Icon(Icons.person,
+                      size: screenWidth * 0.1, color: Colors.black54),
                 ),
                 const SizedBox(width: 15),
                 Expanded(
@@ -66,8 +70,8 @@ class _PatientDrawerState extends State<PatientDrawer> {
                     children: [
                       Text(
                         widget.fullName,
-                        style: const TextStyle(
-                            fontSize: 18,
+                        style: TextStyle(
+                            fontSize: screenWidth * 0.043,
                             fontWeight: FontWeight.bold,
                             color: Colors.white),
                         overflow: TextOverflow.ellipsis,
@@ -75,8 +79,9 @@ class _PatientDrawerState extends State<PatientDrawer> {
                       const SizedBox(height: 4),
                       Text(
                         widget.email,
-                        style: const TextStyle(
-                            fontSize: 14, color: Colors.white70),
+                        style: TextStyle(
+                            fontSize: screenWidth * 0.03,
+                            color: Colors.white70),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -116,15 +121,15 @@ class _PatientDrawerState extends State<PatientDrawer> {
                 _divider(),
 
                 // Add these when implemented
-                // _buildDrawerItem(Icons.timeline, "Trends and History", () {
-                //   _navigateTo(context, const PatientTrendsHistory());
-                // }),
-                // _divider(),
+                _buildDrawerItem(Icons.timeline, "Trends and History", () {
+                  _navigateTo(context, const PatientTrends());
+                }),
+                _divider(),
 
-                // _buildDrawerItem(Icons.insert_drive_file, "Reports", () {
-                //   _navigateTo(context, const PatientReportsScreen());
-                // }),
-                // _divider(),
+                _buildDrawerItem(Icons.insert_drive_file, "Reports", () {
+                  _navigateTo(context, const PatientReportsScreen());
+                }),
+                _divider(),
 
                 _buildDrawerItem(Icons.settings, "Settings", () {
                   _navigateTo(context, PatientSettings());
