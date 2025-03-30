@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1092772190649",
+    "firebase_url": "https://vitalsense-43478-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "vitalsense-43478",
+    "storage_bucket": "vitalsense-43478.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1092772190649:android:c455a884f5a20fd9b47e68",
+        "android_client_info": {
+          "package_name": "com.example.vitalsense"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDAV8LSIqsQK9SBPzW_efPaebiSu0yfcn4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

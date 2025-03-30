@@ -1,13 +1,15 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class ApiClient {
-  static final String _baseUrl = "https://vitalsense-backend.onrender.com";
+  static final String _baseUrl = "https://vitalsense-flask-backend.fly.dev";
   
   /// Get Base URL
   static String get baseUrl => _baseUrl;
-  // Fetch Sensor Data from Firebase via Flask API
+  
+   /// Fetch Sensor Data from database
   Future<Map<String, dynamic>> getSensorData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? patientId = prefs.getString("patient_id");
@@ -31,35 +33,48 @@ class ApiClient {
     }
   }
 
-//   /// Fetch Sensor Data from MySQL
-//   Future<Map<String, dynamic>> getSensorData() async {
+  Stream<String> getFirebaseECGStream(String patientId) {
+    final dbRef = FirebaseDatabase.instance.ref("ecg_data/$patientId");
 
-//     SharedPreferences prefs = await SharedPreferences.getInstance();
-//     String? patientId = prefs.getString("patient_id");
+    return dbRef
+        .limitToLast(1)
+        .onChildAdded
+        .map((DatabaseEvent event) {
+          final value = event.snapshot.value as Map;
+          return value['ecg'].toString();
+        });
+  }
+  // Stream<String> getECGStream() async* {
+  //     SharedPreferences prefs = await SharedPreferences.getInstance();
+  //     String? patientId = prefs.getString("patient_id");
 
-//     if (patientId == null) {
-//       print("❌ Patient ID not found in storage.");
-//       return {'error': 'Patient ID not found in storage'};
-//     }
+  //     if (patientId == null) {
+  //       yield "No Patient ID"; // Handle missing ID
+  //       return;
+  //     }
 
-//     final url = Uri.parse('$_baseUrl/get_sensor?patient_id=$patientId');
+  //     final url = Uri.parse("$_baseUrl/ecg_sse?patient_id=$patientId");
+  //     var client = http.Client();
+  //     try {
+  //       var request = http.Request("GET", url);
+  //       var response = await client.send(request);
 
-//     try {
-//       final response = await http.get(url).timeout(const Duration(seconds: 3));
-
-//       print("🟢 API Response Code: ${response.statusCode}");
-//       print("🟢 API Response Body: ${response.body}");
-
-//       if (response.statusCode == 200) {
-//         return json.decode(response.body);
-//       } else {
-//         return {'error': 'Failed to fetch sensor data (HTTP ${response.statusCode})'};
-//       }
-//     } catch (e) {
-//       print("❌ Error in getSensorData(): $e");
-//       return {'error': 'Server unreachable. Check your connection.'};
-//     }
-// }
+  //       await for (String event in response.stream
+  //           .transform(utf8.decoder)
+  //           .transform(const LineSplitter())) {
+  //         if (event.startsWith("data: ")) {
+  //           String ecgValue = event.substring(6).trim();
+  //           if (ecgValue != "keep-alive") {
+  //             // Ignore keep-alive messages
+  //             print("Received ECG Value: $ecgValue");
+  //             yield ecgValue;
+  //           }
+  //         }
+  //       }
+  //     } catch (e) {
+  //       print("Error fetching ECG stream: $e");
+  //     }
+  //   }
 
   static Future<void> fetchAndSavePatientId(String email) async { 
     try {

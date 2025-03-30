@@ -107,6 +107,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
         return;
       }
 
+
       if (mounted) {
         setState(() {
           fullName = data["fullname"] ?? "Unknown User";
