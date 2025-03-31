@@ -70,6 +70,27 @@ def modify_data(query, params=None):
         if db:
             db.close()
 
+# Execute INSERT/UPDATE/DELETE that returns something (e.g., RETURNING id)
+def modify_and_return(query, params=None):
+    db = None
+    cursor = None
+    try:
+        db = get_db_connection()
+        cursor = db.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(query, params or ())
+        result = cursor.fetchone()
+        db.commit()
+        return result
+    except Exception as e:
+        print(f"❌ Error executing modifying query with return: {e}")
+        db.rollback()
+        raise e
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
+
 def fetch_latest_data(table, column, value):
     sql = f"""
         SELECT * FROM {table}

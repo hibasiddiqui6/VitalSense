@@ -118,7 +118,7 @@ class _PatientDrawerState extends State<PatientDrawer> {
 
                 // Add these when implemented
                 _buildDrawerItem(Icons.timeline, "Trends and History", () {
-                  _navigateTo(context, const PatientReportsScreen());
+                  _navigateTo(context, const PatientTrends());
                 }),
                 _divider(),
 

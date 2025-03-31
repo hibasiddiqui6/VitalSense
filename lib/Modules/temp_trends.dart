@@ -1,228 +1,251 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-
-void main() {
-  runApp(TempChartApp());
-}
-
-class TempChartApp extends StatelessWidget {
-  const TempChartApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.light,
-        fontFamily: 'Arial', // Clean font
-      ),
-      home: TempChartScreen(),
-    );
-  }
-}
+import 'package:intl/intl.dart';
+import '../services/api_client.dart';
+import '../services/timezone_helper.dart';
+import '../widgets/patient_drawer.dart';
+import '../widgets/specialist_drawer.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TempChartScreen extends StatefulWidget {
-  const TempChartScreen({super.key});
+  final bool showDrawer;
+  final String? patientName;
+
+  const TempChartScreen({super.key, this.showDrawer = false, this.patientName});
 
   @override
   _TempChartScreenState createState() => _TempChartScreenState();
 }
 
 class _TempChartScreenState extends State<TempChartScreen> {
-  String selectedTime = "24h"; // Default selected button
+  String selectedTime = "24h";
+  List<Map<String, dynamic>> trendData = [];
+  bool isLoading = true;
+  String role = "-";
+  String fullName = "User";
+  String email = "example@example.com";
+
+  bool isValidTemperature(double temp) => temp >= 93 && temp <= 110;
+
+  @override
+  void initState() {
+    super.initState();
+    initializeTimeZone().then((_) {
+      _loadUserDetails();
+      fetchTrends();
+    });
+  }
+
+  Future<void> _loadUserDetails() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      fullName = prefs.getString("full_name") ?? "User";
+      email = prefs.getString("email") ?? "email@example.com";
+      role = prefs.getString("role") ?? "-";
+    });
+  }
+
+  Future<void> fetchTrends() async {
+    setState(() => isLoading = true);
+    final data = await ApiClient().getTemperatureTrends(selectedTime);
+    setState(() {
+      trendData = data;
+      trendData.sort((a, b) => DateTime.parse(a['timestamp']).compareTo(DateTime.parse(b['timestamp'])));
+      isLoading = false;
+    });
+  }
+
+  List<Map<String, dynamic>> getFilteredData() {
+    final now = DateTime.now().toUtc();
+    Duration cutoff;
+
+    switch (selectedTime.toLowerCase()) {
+      case "week":
+        cutoff = const Duration(days: 7);
+        break;
+      case "month":
+        cutoff = const Duration(days: 30);
+        break;
+      default:
+        cutoff = const Duration(hours: 24);
+    }
+
+    return trendData.where((e) {
+      final timestamp = DateTime.parse(e['timestamp']);
+      final temp = double.tryParse(e['temperature'] ?? '') ?? 0.0;
+      return isValidTemperature(temp) && now.difference(timestamp) <= cutoff;
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF3F2EE), // Soft background
-
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Positioned(
-              top: 10, // Adjust for positioning
-              left: 10,
-              child: IconButton(
-                icon: Icon(Icons.arrow_back, color: Colors.black, size: 20),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-              ),
-            ),
-            Center(
-              child: Text(
-                "Trends and History",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+      backgroundColor: const Color(0xFFF3F2EE),
+      drawer: widget.showDrawer
+          ? SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              child: role == 'specialist'
+                  ? SpecialistDrawer(fullName: fullName, email: email)
+                  : PatientDrawer(fullName: fullName, email: email),
+            )
+          : null,
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.black),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    Center(
+                      child: Column(
+                        children: const [
+                          Text("Trends and History", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                          Text("TEMPERATURE", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black54)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _timeFilterButton("24h"),
+                        _timeFilterButton("Week"),
+                        _timeFilterButton("Month"),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildGradientChart(),
+                    _buildRangeSummary(),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: trendData.isEmpty
+                          ? [
+                              _bpmIndicator("-", "MIN", [Color(0xFFFFCDB6), Color(0xFFFFE9DF)]),
+                              _bpmIndicator("-", "AVG", [Color(0xFFA6C583), Color(0xFFF0FFD7)]),
+                              _bpmIndicator("-", "MAX", [Color(0xFFFFE5B4), Color(0xFFFFEBD6)]),
+                            ]
+                          : _generateStats(),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildDataTable(),
+                  ],
                 ),
               ),
             ),
-            // TEMP TITLE
-            Center(
-              child: Text(
-                "TEMPERATURE",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black54,
-                ),
-              ),
-            ),
-            SizedBox(height: 8),
-
-            // TIME FILTER BUTTONS
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _timeFilterButton("24h"),
-                _timeFilterButton("Week"),
-                _timeFilterButton("Month"),
-              ],
-            ),
-            SizedBox(height: 16),
-
-            // LINE CHART
-            _buildGradientChart(),
-            SizedBox(height: 16),
-
-            // BPM CARDS
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _bpmIndicator(
-                    "33 F", "MIN", [Color(0xFFFFCDB6), Color(0xFFFFE9DF)]),
-                _bpmIndicator(
-                    "26 F", "MAX", [Color(0xFFFFE5B4), Color(0xFFFFEBD6)]),
-                _bpmIndicator(
-                    "33.5 F", "AVG", [Color(0xFFA6C583), Color(0xFFF0FFD7)]),
-              ],
-            ),
-            SizedBox(height: 16),
-
-            // DATA TABLE (UPDATED)
-            _buildDataTable(),
-          ],
-        ),
-      ),
     );
   }
 
-  // TIME FILTER BUTTONS
   Widget _timeFilterButton(String text) {
     bool isSelected = text == selectedTime;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0),
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            selectedTime = text;
-          });
+      child: ElevatedButton(
+        onPressed: () {
+          setState(() => selectedTime = text);
+          fetchTrends();
         },
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: isSelected
-                ? LinearGradient(colors: [Color(0xFFE8C492), Color(0xFFD9C2BA)])
-                : null,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                        color: Colors.grey.withOpacity(0.3), blurRadius: 5)
-                  ]
-                : [],
-          ),
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  isSelected ? Colors.transparent : Colors.grey[300],
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            onPressed: () {
-              setState(() {
-                selectedTime = text;
-              });
-            },
-            child: Text(
-              text,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.black,
-              ),
-            ),
-          ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isSelected ? Colors.brown[300] : Colors.grey[300],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         ),
+        child: Text(text, style: TextStyle(color: isSelected ? Colors.white : Colors.black)),
       ),
     );
   }
 
-  // GRADIENT LINE CHART
   Widget _buildGradientChart() {
+    final filteredTrend = getFilteredData();
+    if (filteredTrend.isEmpty) return const Center(child: Text("No temperature data."));
+
+    final spots = <FlSpot>[];
+    final dateTimes = <DateTime>[];
+
+    for (int i = 0; i < filteredTrend.length; i++) {
+      final temp = double.tryParse(filteredTrend[i]['temperature'])!;
+      final time = DateTime.parse(filteredTrend[i]['timestamp']);
+      spots.add(FlSpot(i.toDouble(), temp));
+      dateTimes.add(time);
+    }
+
+    String formatLabel(DateTime dt) {
+      final localDT = toPKT(dt);
+      switch (selectedTime.toLowerCase()) {
+        case "week": return DateFormat.E().format(localDT);
+        case "month": return DateFormat.MMMd().format(localDT);
+        default: return DateFormat.jm().format(localDT);
+      }
+    }
+
     return Container(
       height: 200,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFE8C492), Color(0xFFC6D8C0)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: const LinearGradient(colors: [Color(0xFFE8C492), Color(0xFFC6D8C0)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            blurRadius: 8,
-            spreadRadius: 3,
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 8, spreadRadius: 3)],
       ),
-      padding: EdgeInsets.all(12),
       child: LineChart(
         LineChartData(
+          minY: 93,
+          maxY: 105,
           gridData: FlGridData(show: false),
           borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(
-            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 22,
+                reservedSize: 30,
+                interval: 1,
                 getTitlesWidget: (value, meta) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text('${value.toInt()}h',
-                        style: TextStyle(fontSize: 12, color: Colors.black)),
-                  );
+                  int index = value.toInt();
+                  if (index < 0 || index >= dateTimes.length) return const SizedBox();
+                  final label = formatLabel(dateTimes[index]);
+                  final shouldShow = index == 0 || index == dateTimes.length - 1 || index % (dateTimes.length ~/ 4).clamp(1, 9999) == 0;
+                  return shouldShow
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 2.0),
+                          child: Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.black), overflow: TextOverflow.ellipsis),
+                        )
+                      : const SizedBox();
                 },
               ),
             ),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 28,
+                getTitlesWidget: (value, meta) => Text("${value.toInt()}°", style: const TextStyle(fontSize: 10, color: Colors.black)),
+              ),
+            ),
+            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
           lineBarsData: [
             LineChartBarData(
               isCurved: true,
               color: Colors.black,
-              barWidth: 2.5,
+              barWidth: 1.5,
               belowBarData: BarAreaData(
                 show: true,
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0xFFE8C492).withOpacity(0.5),
-                    Color(0xFFC6D8C0).withOpacity(0.5)
-                  ],
-                ),
+                gradient: LinearGradient(colors: [Color(0xFFE8C492).withOpacity(0.3), Color(0xFFC6D8C0).withOpacity(0.3)]),
               ),
-              spots: [
-                FlSpot(1, 12),
-                FlSpot(2, 14),
-                FlSpot(3, 16),
-                FlSpot(4, 15),
-                FlSpot(5, 17),
-                FlSpot(6, 20),
-              ],
+              spots: spots,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  final reading = filteredTrend[index];
+                  final status = reading['temperaturestatus'] ?? "";
+                  final isAbnormal = ["Fever", "Hyperthermia", "Hyperpyrexia", "Hypothermia"].contains(status);
+                  return FlDotCirclePainter(radius: 2.2, color: isAbnormal ? Colors.red : Colors.black, strokeWidth: 0);
+                },
+              ),
             ),
           ],
         ),
@@ -230,66 +253,190 @@ class _TempChartScreenState extends State<TempChartScreen> {
     );
   }
 
-  // BPM CARDS
-  Widget _bpmIndicator(String value, String label, List<Color> gradientColors) {
+  Widget _buildRangeSummary() {
+    final filtered = getFilteredData();
+    if (filtered.isEmpty) return const SizedBox.shrink();
+    final first = toPKT(DateTime.parse(filtered.first['timestamp']));
+    final last = toPKT(DateTime.parse(filtered.last['timestamp']));
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: Center(
+        child: Text(
+          "${DateFormat('MMM d, h:mm a').format(first)} → ${DateFormat('MMM d, h:mm a').format(last)}",
+          style: const TextStyle(color: Colors.black54, fontSize: 12),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _generateStats() {
+  final filtered = getFilteredData();
+
+  final temps = filtered
+      .map((e) => double.tryParse(e['temperature'] ?? '') ?? 0.0)
+      .where((temp) => isValidTemperature(temp))
+      .toList();
+
+  if (temps.isEmpty) {
+    return [
+      _bpmIndicator("-", "MIN", [Color(0xFFFFCDB6), Color(0xFFFFE9DF)]),
+      _bpmIndicator("-", "AVG", [Color(0xFFA6C583), Color(0xFFF0FFD7)]),
+      _bpmIndicator("-", "MAX", [Color(0xFFFFE5B4), Color(0xFFFFEBD6)]),
+    ];
+  }
+
+  final min = temps.reduce((a, b) => a < b ? a : b);
+  final max = temps.reduce((a, b) => a > b ? a : b);
+  final avg = temps.reduce((a, b) => a + b) / temps.length;
+
+  return [
+    _bpmIndicator("${min.toStringAsFixed(1)} F", "MIN", [Color(0xFFFFCDB6), Color(0xFFFFE9DF)]),
+    _bpmIndicator("${avg.toStringAsFixed(1)} F", "AVG", [Color(0xFFA6C583), Color(0xFFF0FFD7)]),
+    _bpmIndicator("${max.toStringAsFixed(1)} F", "MAX", [Color(0xFFFFE5B4), Color(0xFFFFEBD6)]),
+  ];
+}
+
+  Widget _bpmIndicator(String value, String label, List<Color> colors) {
     return Container(
       width: 80,
-      padding: EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: LinearGradient(colors: colors),
         borderRadius: BorderRadius.circular(15),
       ),
       child: Column(
         children: [
-          Text(value,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          SizedBox(height: 4),
-          Text(label,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
-  // UPDATED DATA TABLE
   Widget _buildDataTable() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 6)
-        ],
-      ),
-      padding: EdgeInsets.all(12),
-      child: Column(
-        children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-            _tableHeaderText("Time"),
-            _tableHeaderText("Reading"),
-            _tableHeaderText("Status"),
-          ]),
-          Divider(color: Colors.grey.shade300, thickness: 1),
-          _tableRow("10:17", "33 F", "Low"),
-          Divider(color: Colors.grey.shade300, thickness: 1),
-          _tableRow("10:20", "34 F", "Low"),
-        ],
+  final filtered = getFilteredData();
+
+  if (filtered.isEmpty) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Text("No temperature data available."),
       ),
     );
   }
 
-  Widget _tableHeaderText(String text) =>
-      Text(text, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16));
+  List<Map<String, String>> rows = [];
 
-  Widget _tableRow(String time, String reading, String status) {
-    return Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-      Text(time),
-      Text(reading),
-      Text(status),
-    ]);
+  if (selectedTime.toLowerCase() == "24h") {
+    // Show individual rows
+    final shownLabels = <String>{};
+    for (final entry in filtered.reversed) {
+      final label = _formatTimeLabel(entry['timestamp']);
+      if (!shownLabels.contains(label)) {
+        shownLabels.add(label);
+        rows.add({
+          "time": label,
+          "temp": "${entry['temperature']} F",
+          "status": entry['temperaturestatus'] ?? "-",
+        });
+      }
+    }
+  } else {
+    // Group by label (day/month), then average temp and majority status
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (final entry in filtered) {
+      final label = _formatTimeLabel(entry['timestamp']);
+      grouped.putIfAbsent(label, () => []).add(entry);
+    }
+
+    grouped.forEach((label, entries) {
+      final temps = entries
+          .map((e) => double.tryParse(e['temperature'] ?? '') ?? 0.0)
+          .toList();
+
+      final avgTemp =
+          temps.reduce((a, b) => a + b) / temps.length;
+
+      final statusCounts = <String, int>{};
+      for (final e in entries) {
+        final status = e['temperaturestatus'] ?? "-";
+        statusCounts[status] = (statusCounts[status] ?? 0) + 1;
+      }
+      final topStatus = statusCounts.entries
+          .reduce((a, b) => a.value >= b.value ? a : b)
+          .key;
+
+      rows.add({
+        "time": label,
+        "temp": "${avgTemp.toStringAsFixed(1)} F",
+        "status": topStatus,
+      });
+    });
+
+    rows.sort((a, b) => a["time"]!.compareTo(b["time"]!)); // chronological order
   }
+
+  return Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(15),
+      boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 6)],
+    ),
+    child: Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _tableHeaderText("Time")),
+            Expanded(child: _tableHeaderText("Reading")),
+            Expanded(child: _tableHeaderText("Status")),
+          ],
+        ),
+        Divider(color: Colors.grey.shade300),
+        ...rows.map((e) => Column(
+              children: [
+                _tableRow(e["time"]!, e["temp"]!, e["status"]!),
+                Divider(color: Colors.grey.shade300),
+              ],
+            )),
+      ],
+    ),
+  );
+}
+
+String _formatTimeLabel(String timestamp) {
+  final dt = toPKT(DateTime.parse(timestamp));
+  switch (selectedTime.toLowerCase()) {
+    case "week":
+      return DateFormat.E().format(dt); // Mon, Tue
+    case "month":
+      return DateFormat.MMMd().format(dt); // Mar 31
+    default:
+      return DateFormat('hh:mm a').format(dt); // 04:46 AM
+  }
+}
+
+Widget _tableRow(String time, String reading, String status) {
+  final isAbnormal = ["Fever", "Hyperthermia", "Hyperpyrexia", "Hypothermia"].contains(status);
+
+  return Row(
+    children: [
+      Expanded(child: Text(time, textAlign: TextAlign.center)),
+      Expanded(child: Text(reading, textAlign: TextAlign.center)),
+      Expanded(
+        child: Text(
+          status,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: isAbnormal ? Colors.red : Colors.black,
+            fontWeight: isAbnormal ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+  Widget _tableHeaderText(String text) => Text(text, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16));
 }

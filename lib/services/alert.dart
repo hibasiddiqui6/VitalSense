@@ -37,14 +37,14 @@ Future<void> notifyTrustedContacts(String alertStatus, List<Map<String, dynamic>
     );
 
     // 5. Format contact list
-    String contactNumbers = contacts.map((c) => c['contactnumber']).join(',');
-
-    final Uri smsUri = Uri.parse("sms:$contactNumbers?body=$message");
+    for (var contact in contacts) {
+    final Uri smsUri = Uri.parse("sms:${contact['contactnumber']}?body=$message");
 
     if (await canLaunchUrl(smsUri)) {
       await launchUrl(smsUri);
     } else {
-      print("❌ Could not launch SMS app");
+      print("❌ Could not launch SMS app for ${contact['contactnumber']}");
+    }
     }
 
   } catch (e) {

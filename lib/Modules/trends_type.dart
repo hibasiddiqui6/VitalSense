@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:vitalsense/Modules/patient_dashboard.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vitalsense/Modules/ecg_trends.dart';
 import 'package:vitalsense/Modules/respiration_trends.dart';
 import 'package:vitalsense/Modules/temp_trends.dart';
-import 'ecg_trends.dart';
+import '../widgets/patient_drawer.dart';
+import '../widgets/specialist_drawer.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
-// Main Application
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -17,121 +18,93 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primaryColor: const Color.fromARGB(255, 118, 150, 108),
-        scaffoldBackgroundColor: Colors.grey.shade100,
+        scaffoldBackgroundColor: const Color(0xFFFAF9F4),
       ),
-      home: const PatientReportsScreen(),
+      home: const PatientTrends(),
     );
   }
 }
 
-// Patient Reports Screen
-class PatientReportsScreen extends StatelessWidget {
-  const PatientReportsScreen({super.key});
+class PatientTrends extends StatefulWidget {
+  const PatientTrends({super.key});
+
+  @override
+  State<PatientTrends> createState() => _PatientTrendsState();
+}
+
+class _PatientTrendsState extends State<PatientTrends> {
+  String role = "-";
+  String fullName = "";
+  String email = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserDetails();
+  }
+
+  Future<void> _loadUserDetails() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      fullName = prefs.getString("full_name") ?? "Unknown User";
+      email = prefs.getString("email") ?? "example@example.com";
+      role = prefs.getString("role") ?? "-";
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(),
-      body: Column(
-        children: [
-          const CurvedHeader(),
-          Expanded(child: ReportsScreen()),
-        ],
+      backgroundColor: const Color(0xFFFAF9F4),
+      drawer: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.8,
+        child: role == 'specialist'
+            ? SpecialistDrawer(fullName: fullName, email: email)
+            : PatientDrawer(fullName: fullName, email: email),
       ),
-    );
-  }
-}
-
-// Custom App Bar with Back Button & Search Field
-class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const CustomAppBar({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBar(
-      backgroundColor: const Color.fromARGB(255, 118, 150, 108),
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => PatientDashboard()),
-          );
-        },
-      ),
-      title: Padding(
-        padding: const EdgeInsets.only(right: 0.0),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 1.0,
-          decoration: BoxDecoration(
-            color: const Color.fromARGB(255, 242, 244, 241),
-            borderRadius: BorderRadius.circular(30),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 15),
-          child: Row(
-            children: [
-              const Expanded(
-                child: TextField(
-                  style: TextStyle(color: Colors.black),
-                  decoration: InputDecoration(
-                    hintText: "Search patient...",
-                    hintStyle:
-                        TextStyle(color: Color.fromARGB(179, 103, 103, 103)),
-                    border: InputBorder.none,
-                  ),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Menu icon
+            Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu, color: Colors.black54, size: 28),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
-              const Icon(Icons.search,
-                  color: Color.fromARGB(179, 103, 103, 103)),
-            ],
-          ),
+            ),
+
+            // Page Title
+            Center(
+              child: Text(
+                'Trends and History',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            const Expanded(child: Trends()),
+          ],
         ),
       ),
     );
   }
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
 
-// Curved Header
-class CurvedHeader extends StatelessWidget {
-  const CurvedHeader({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 118, 150, 108),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 6, spreadRadius: 1),
-        ],
-      ),
-      child: const Text(
-        "REPORTS",
-        textAlign: TextAlign.center,
-        style: TextStyle(
-            fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-      ),
-    );
-  }
-}
-
-// Reports List
-class ReportsScreen extends StatelessWidget {
-  const ReportsScreen({super.key});
-
-  // const ReportsList({super.key});
+class Trends extends StatelessWidget {
+  const Trends({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -149,8 +122,7 @@ class ReportsScreen extends StatelessWidget {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (context) => RespirationChartScreen()),
+                MaterialPageRoute(builder: (context) => RespirationChartScreen()),
               );
             },
             child: const Text("Respiration Trends / History"),

@@ -35,7 +35,7 @@ class ECGPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
 // Grid box size (adjust for ECG scaling)
-    double smallBoxSize = 5; // Small squares
+    double smallBoxSize = 8; // Small squares
 
 // Draw small grid (thin lines)
     for (double i = 0; i < size.width; i += smallBoxSize) {
@@ -53,8 +53,8 @@ class ECGPainter extends CustomPainter {
 
     Path path = Path();
     if (points.isNotEmpty) {
-      double minValue = 1900; // ECG Min
-      double maxValue = 2200; // ECG Max
+      double minValue = 1700; // ECG Min
+      double maxValue = 2100; // ECG Max
       double canvasHeight = size.height * 0.8;
       double normalize(double value) {
         if (maxValue == minValue) {

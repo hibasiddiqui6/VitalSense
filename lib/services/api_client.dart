@@ -24,7 +24,15 @@ class ApiClient {
       final response = await http.get(url).timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final data = json.decode(response.body);
+        if (!prefs.containsKey("stabilization_start_time")) {
+          final temp = double.tryParse(data['temperature'].toString()) ?? -100;
+          if (temp != -100) {
+            await prefs.setInt("stabilization_start_time", DateTime.now().millisecondsSinceEpoch);
+          }
+        }
+        return data;
+
       } else {
         return {'error': 'Failed to fetch sensor data (HTTP ${response.statusCode})'};
       }
@@ -44,37 +52,6 @@ class ApiClient {
           return value['ecg'].toString();
         });
   }
-  // Stream<String> getECGStream() async* {
-  //     SharedPreferences prefs = await SharedPreferences.getInstance();
-  //     String? patientId = prefs.getString("patient_id");
-
-  //     if (patientId == null) {
-  //       yield "No Patient ID"; // Handle missing ID
-  //       return;
-  //     }
-
-  //     final url = Uri.parse("$_baseUrl/ecg_sse?patient_id=$patientId");
-  //     var client = http.Client();
-  //     try {
-  //       var request = http.Request("GET", url);
-  //       var response = await client.send(request);
-
-  //       await for (String event in response.stream
-  //           .transform(utf8.decoder)
-  //           .transform(const LineSplitter())) {
-  //         if (event.startsWith("data: ")) {
-  //           String ecgValue = event.substring(6).trim();
-  //           if (ecgValue != "keep-alive") {
-  //             // Ignore keep-alive messages
-  //             print("Received ECG Value: $ecgValue");
-  //             yield ecgValue;
-  //           }
-  //         }
-  //       }
-  //     } catch (e) {
-  //       print("Error fetching ECG stream: $e");
-  //     }
-  //   }
 
   static Future<void> fetchAndSavePatientId(String email) async { 
     try {
@@ -657,5 +634,44 @@ class ApiClient {
     return {'error': 'Failed to fetch patient insights'};
   }
 }
+
+  Future<Map<String, dynamic>> classifyTemperature(double temperature) async {
+    final url = Uri.parse('$baseUrl/classify_temp_status');
+
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"temperature": temperature}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception("Failed to classify temperature: ${response.body}");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTemperatureTrends(String range) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
+
+    if (patientId == null) return [];
+
+    final url = Uri.parse('$_baseUrl/temperature_trends?patient_id=$patientId&range=$range');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(json.decode(response.body));
+      } else {
+        print("Error fetching temp trends: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("❌ Exception: $e");
+    }
+
+    return [];
+  }
+
 
 }

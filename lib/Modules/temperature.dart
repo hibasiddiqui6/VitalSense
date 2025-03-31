@@ -34,36 +34,62 @@ class _TemperaturePageState extends State<TemperaturePage> {
   String age = "-";
   String weight = "-";
   DateTime? startTime;
-  int secondsRemaining = 60;
+  int secondsRemaining = 30;
   bool hasStabilized = false;
+  bool hasShownAlert = false;
+  DateTime? lastTempFetch;
 
   @override
     void initState() {
       super.initState();
 
-      // Only set start time if it's not already stabilized
-      if (!hasStabilized) {
-        startTime = DateTime.now();
-      }
-
+      _loadStabilizationTime();
       _startTemperatureFetchingLoop();
       _loadUserDetailsOrUseParams();
     }
 
+  Future<void> _loadStabilizationTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.containsKey("stabilization_start_time")) {
+      final millis = prefs.getInt("stabilization_start_time")!;
+      final savedStartTime = DateTime.fromMillisecondsSinceEpoch(millis);
+      final now = DateTime.now();
+      final diff = now.difference(savedStartTime).inSeconds;
+
+      if (diff >= 30) {
+        if (!mounted) return;
+        setState(() {
+          hasStabilized = true;
+          secondsRemaining = 0;
+          startTime = savedStartTime;
+        });
+      } else {
+        if (!mounted) return;
+        setState(() {
+          startTime = savedStartTime;
+          hasStabilized = false;
+          secondsRemaining = 30 - diff;
+        });
+      }
+    }
+  }
+
   void _startTemperatureFetchingLoop() {
-    dataFetchTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      fetchTemperature();
+    dataFetchTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      await fetchTemperature();
 
       if (!hasStabilized && startTime != null) {
         final now = DateTime.now();
         final diff = now.difference(startTime!);
-        final remaining = 60 - diff.inSeconds;
+        final remaining = 30 - diff.inSeconds;
 
         if (remaining > 0) {
+          if (!mounted) return;
           setState(() {
             secondsRemaining = remaining;
           });
         } else {
+          if (!mounted) return;
           setState(() {
             hasStabilized = true;
             secondsRemaining = 0;
@@ -74,84 +100,95 @@ class _TemperaturePageState extends State<TemperaturePage> {
   }
 
   /// Fetch latest temperature
-    Future<void> fetchTemperature() async {
-      try {
-        final data = await ApiClient().getSensorData();
+  Future<void> fetchTemperature() async {
+    try {
+      final now = DateTime.now();
 
-        if (data.containsKey("error") || data['temperature'] == null) {
-          setState(() {
-            showError = true;
-            temperature = "-";
-            currentTempStatus = "Sensor Error";
-          });
-          return;
-        }
-
-        final rawTemp = double.tryParse(data['temperature'].toString()) ?? -100;
-
-        if (rawTemp == -100) {
-          setState(() {
-            temperature = "Sensor Disconnected";
-            currentTempStatus = "No Data";
-            isFetching = false;
-            showError = false;
-          });
-          return;
-        }
-
-        final formattedTemp = "${rawTemp.toStringAsFixed(1)} °F";
-
-        if (hasStabilized) {
-            String newStatus = _classifyTemperature(rawTemp);
-
-            // Trigger alert if status is critical
-            if (newStatus.contains("Fever") || newStatus.contains("Hyperthermia") || newStatus.contains("Hyperpyrexia")) {
-              _showAlertNotification(newStatus);
-            }
-
-            setState(() {
-              temperature = formattedTemp;
-              currentTempStatus = newStatus;
-              isFetching = false;
-              showError = false;
-            });
-          } else {
-            setState(() {
-              temperature = formattedTemp;
-              currentTempStatus = "Stabilizing...";
-              isFetching = false;
-              showError = false;
-            });
-          }
-      } catch (e) {
-        print("❌ Failed to fetch temperature: $e");
-        setState(() {
-          showError = true;
-          temperature = "Error";
-          currentTempStatus = "Unknown";
-        });
-      }
+    // Reset if no update for > 5 minutes
+    if (lastTempFetch != null && now.difference(lastTempFetch!).inSeconds > 300) {
+      print("⚠️ Detected gap > 5 mins. Restarting stabilization.");
+      if (!mounted) return;
+      setState(() {
+        hasStabilized = false;
+        hasShownAlert = false;
+        secondsRemaining = 30;
+        startTime = now;
+      });
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt("stabilization_start_time", now.millisecondsSinceEpoch);
     }
 
+    lastTempFetch = now;
 
-  String _classifyTemperature(double tempF) {
-    if (tempF == -100.0) return "Sensor Disconnected";
+      final data = await ApiClient().getSensorData();
 
-    // Based on typical axillary ranges + research context
-    if (tempF < 95.0) return "Hypothermia";
-    if (tempF >= 95.0 && tempF < 96.8) return "Below Normal";
-    if (tempF >= 96.8 && tempF <= 98.6) return "Normal";
-    if (tempF > 98.6 && tempF < 100.4) return "Elevated (Monitor)";
-    if (tempF >= 100.4 && tempF < 104.0) return "Fever";
-    if (tempF >= 104.0 && tempF < 107.0) return "Hyperthermia";
-    if (tempF >= 107.0) return "Hyperpyrexia";
+      if (data.containsKey("error") || data['temperature'] == null) {
+        if (!mounted) return;
+        setState(() {
+          showError = true;
+          temperature = "-";
+          currentTempStatus = "Sensor Error";
+        });
+        return;
+      }
 
-    return "Unknown";
+      final rawTemp = double.tryParse(data['temperature'].toString()) ?? -100;
+
+      if (rawTemp == -100) {
+        if (!mounted) return;
+        setState(() {
+          temperature = "Sensor Disconnected";
+          currentTempStatus = "No Data";
+          isFetching = false;
+          showError = false;
+        });
+        return;
+      }
+
+      final formattedTemp = "${rawTemp.toStringAsFixed(1)} °F";
+
+      if (hasStabilized) {
+        // Just classify to show status in UI
+        final classification = await ApiClient().classifyTemperature(rawTemp);
+        final newStatus = classification['status'] ?? "Unknown";
+        final newDisease = classification['disease'];
+
+        // Alert if needed (UI only)
+        if (newDisease != null && !hasShownAlert) {
+          _showAlertNotification(newDisease);
+          hasShownAlert = true;
+        }
+
+        if (!mounted) return;
+        setState(() {
+          temperature = formattedTemp;
+          currentTempStatus = newStatus;
+          isFetching = false;
+          showError = false;
+        });
+      } else {
+        if (!mounted) return;
+        setState(() {
+          temperature = formattedTemp;
+          currentTempStatus = "Stabilizing...";
+          isFetching = false;
+          showError = false;
+        });
+      }
+    } catch (e) {
+      print("❌ Failed to fetch temperature: $e");
+      if (!mounted) return;
+      setState(() {
+        showError = true;
+        temperature = "Error";
+        currentTempStatus = "Unknown";
+      });
+    }
   }
-
   /// Load gender, age, weight from params or SharedPreferences
   Future<void> _loadUserDetailsOrUseParams() async {
     if (widget.gender != null && widget.age != null && widget.weight != null) {
+      if (!mounted) return;
       setState(() {
         gender = widget.gender!;
         age = widget.age!;
@@ -159,6 +196,7 @@ class _TemperaturePageState extends State<TemperaturePage> {
       });
     } else {
       SharedPreferences prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
       setState(() {
         gender = prefs.getString("gender") ?? "-";
         age = prefs.getString("age") ?? "-";
@@ -188,7 +226,7 @@ class _TemperaturePageState extends State<TemperaturePage> {
 
   Future<void> _notifyContacts(String status) async {
     try {
-      final contactsList = await ApiClient().getTrustedContacts(); // already used in your screen
+      final contactsList = await ApiClient().getTrustedContacts(); 
       await notifyTrustedContacts(status, contactsList);
       print("✅ Contacts fetched: $contactsList");
     } catch (e) {
@@ -196,6 +234,24 @@ class _TemperaturePageState extends State<TemperaturePage> {
     }
   }
 
+  Color _statusColor(String status) {
+    switch (status) {
+      case "Fever":
+      case "Hyperthermia":
+      case "Hyperpyrexia":
+        return Colors.redAccent;
+      case "Hypothermia":
+        return Colors.blueAccent;
+      case "Below Normal":
+        return Colors.orangeAccent;
+      case "Normal":
+        return Colors.green;
+      case "Elevated (Monitor)":
+        return Colors.deepOrange;
+      default:
+        return const Color.fromARGB(255, 189, 107, 77); // default color
+    }
+  }
 
   @override
   void dispose() {
@@ -308,7 +364,7 @@ Widget build(BuildContext context) {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         _tempCard("< 95°F", "Too Low"),
-                        _tempCard("96.8–98.6°F", "Normal"),
+                        _tempCard("96.8-98.6°F", "Normal"),
                         _tempCard("≥ 100.4°F", "Fever"),
                       ],
                     ),
@@ -322,9 +378,9 @@ Widget build(BuildContext context) {
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const TempChartScreen()),
-                  );
+                      context,
+                      MaterialPageRoute(builder: (context) => const TempChartScreen()),
+                    );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color.fromARGB(255, 222, 155, 131),
@@ -378,10 +434,13 @@ Widget build(BuildContext context) {
 
   // Status Card Widget
   Widget _statusCard(String text) {
+    final isStabilizing = text.toLowerCase().contains("stabilizing");
+    final Color bgColor = isStabilizing ? Colors.brown : _statusColor(currentTempStatus);
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 189, 107, 77),
+        color: bgColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: Colors.white,

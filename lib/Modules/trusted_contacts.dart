@@ -154,7 +154,7 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: PatientDrawer(fullName: fullName, email: email),
-      backgroundColor: Colors.white,
+      backgroundColor: const Color.fromARGB(255, 239, 238, 229),
       body: Stack(
         children: [
           SafeArea(

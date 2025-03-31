@@ -35,9 +35,9 @@ class _AboutUsState extends State<AboutUs> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Set background to white
+      backgroundColor: const Color.fromARGB(255, 239, 238, 229),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(255, 239, 238, 229),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black), // Hamburger color
       ),
