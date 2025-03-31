@@ -56,9 +56,9 @@ class _PatientSettingsState extends State<PatientSettings> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF9F4),
+      backgroundColor: const Color.fromARGB(255, 239, 238, 229),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFAF9F4),
+        backgroundColor: const Color.fromARGB(255, 239, 238, 229),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black), // Hamburger color
       ),

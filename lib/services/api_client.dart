@@ -1,13 +1,15 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class ApiClient {
-  static final String _baseUrl = "https://vitalsense-backend.onrender.com";
+  static final String _baseUrl = "https://vitalsense-flask-backend.fly.dev";
   
   /// Get Base URL
   static String get baseUrl => _baseUrl;
-  // Fetch Sensor Data from Firebase via Flask API
+  
+   /// Fetch Sensor Data from database
   Future<Map<String, dynamic>> getSensorData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? patientId = prefs.getString("patient_id");
@@ -22,7 +24,15 @@ class ApiClient {
       final response = await http.get(url).timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final data = json.decode(response.body);
+        if (!prefs.containsKey("stabilization_start_time")) {
+          final temp = double.tryParse(data['temperature'].toString()) ?? -100;
+          if (temp != -100) {
+            await prefs.setInt("stabilization_start_time", DateTime.now().millisecondsSinceEpoch);
+          }
+        }
+        return data;
+
       } else {
         return {'error': 'Failed to fetch sensor data (HTTP ${response.statusCode})'};
       }
@@ -31,35 +41,17 @@ class ApiClient {
     }
   }
 
-//   /// Fetch Sensor Data from MySQL
-//   Future<Map<String, dynamic>> getSensorData() async {
+  Stream<String> getFirebaseECGStream(String patientId) {
+    final dbRef = FirebaseDatabase.instance.ref("ecg_data/$patientId");
 
-//     SharedPreferences prefs = await SharedPreferences.getInstance();
-//     String? patientId = prefs.getString("patient_id");
-
-//     if (patientId == null) {
-//       print("❌ Patient ID not found in storage.");
-//       return {'error': 'Patient ID not found in storage'};
-//     }
-
-//     final url = Uri.parse('$_baseUrl/get_sensor?patient_id=$patientId');
-
-//     try {
-//       final response = await http.get(url).timeout(const Duration(seconds: 3));
-
-//       print("🟢 API Response Code: ${response.statusCode}");
-//       print("🟢 API Response Body: ${response.body}");
-
-//       if (response.statusCode == 200) {
-//         return json.decode(response.body);
-//       } else {
-//         return {'error': 'Failed to fetch sensor data (HTTP ${response.statusCode})'};
-//       }
-//     } catch (e) {
-//       print("❌ Error in getSensorData(): $e");
-//       return {'error': 'Server unreachable. Check your connection.'};
-//     }
-// }
+    return dbRef
+        .limitToLast(1)
+        .onChildAdded
+        .map((DatabaseEvent event) {
+          final value = event.snapshot.value as Map;
+          return value['ecg'].toString();
+        });
+  }
 
   static Future<void> fetchAndSavePatientId(String email) async { 
     try {
@@ -642,5 +634,44 @@ class ApiClient {
     return {'error': 'Failed to fetch patient insights'};
   }
 }
+
+  Future<Map<String, dynamic>> classifyTemperature(double temperature) async {
+    final url = Uri.parse('$baseUrl/classify_temp_status');
+
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"temperature": temperature}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception("Failed to classify temperature: ${response.body}");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTemperatureTrends(String range) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
+
+    if (patientId == null) return [];
+
+    final url = Uri.parse('$_baseUrl/temperature_trends?patient_id=$patientId&range=$range');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(json.decode(response.body));
+      } else {
+        print("Error fetching temp trends: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("❌ Exception: $e");
+    }
+
+    return [];
+  }
+
 
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vitalsense/Modules/trends_type.dart';
 import '../Modules/welcome_page.dart';
 import '../Modules/patient_dashboard.dart';
 import '../Modules/patient_profile.dart';
@@ -116,10 +117,10 @@ class _PatientDrawerState extends State<PatientDrawer> {
                 _divider(),
 
                 // Add these when implemented
-                // _buildDrawerItem(Icons.timeline, "Trends and History", () {
-                //   _navigateTo(context, const PatientTrendsHistory());
-                // }),
-                // _divider(),
+                _buildDrawerItem(Icons.timeline, "Trends and History", () {
+                  _navigateTo(context, const PatientTrends());
+                }),
+                _divider(),
 
                 // _buildDrawerItem(Icons.insert_drive_file, "Reports", () {
                 //   _navigateTo(context, const PatientReportsScreen());

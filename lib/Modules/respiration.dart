@@ -83,11 +83,13 @@ class _RespirationPageState extends State<RespirationPage> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
       backgroundColor: const Color(0xFFF6F2E9),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(screenWidth * 0.04),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -98,28 +100,28 @@ class _RespirationPageState extends State<RespirationPage> {
                       onTap: () {
                         Navigator.pop(context);
                       },
-                      child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
+                      child: Icon(Icons.arrow_back, size: screenWidth * 0.06, color: Colors.black),
                     ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: screenWidth * 0.02),
                   Container(
-                    margin: const EdgeInsets.only(left: 15),
+                    margin: EdgeInsets.only(left: screenWidth * 0.038),
                     child: Text(
                       "RESPIRATION",
                       style: GoogleFonts.poppins(
-                        fontSize: 22,
+                        fontSize: screenWidth * 0.05,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+             SizedBox(height: screenHeight * 0.02),
 
               // BPM Card with Gradient Border
               Container(
-                width: double.infinity,
-                height: 150,
-                padding: const EdgeInsets.all(7),
+                width: screenWidth,
+                height: screenHeight*0.2,
+                padding: EdgeInsets.all(screenWidth*0.02),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [
@@ -127,13 +129,13 @@ class _RespirationPageState extends State<RespirationPage> {
                       Color.fromARGB(255, 201, 192, 183)
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(screenWidth*0.05),
                 ),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth*0.1, vertical: screenHeight*0.04),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(screenWidth*0.045),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -143,7 +145,7 @@ class _RespirationPageState extends State<RespirationPage> {
                           ? Text(
                               respirationRate,
                               style: GoogleFonts.poppins(
-                                fontSize: 30,
+                                fontSize: screenWidth*0.08,
                                 color: Colors.black,
                               ),
                             )
@@ -152,23 +154,23 @@ class _RespirationPageState extends State<RespirationPage> {
                               : Text(
                                   respirationRate,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 55,
+                                    fontSize: screenWidth*0.1,
                                     fontWeight: FontWeight.w300,
                                   ),
                                 ),
-                      const Icon(Icons.air, size: 60, color: Color.fromARGB(136, 0, 0, 0)),
+                      Icon(Icons.air, size: screenWidth*0.15, color: Color.fromARGB(136, 0, 0, 0)),
                     ],
                   ),
                 ),
               ),
 
-              const SizedBox(height: 20), // Increased spacing below
+              SizedBox(height: screenWidth * 0.05), // Increased spacing below
 
               // Gender, Age, Weight Section
               Container(
-                width: double.infinity, // Full width
-                height: 120, // Increased height
-                padding: const EdgeInsets.all(12), // Padding inside the main box
+                width: screenWidth, // Full width
+                height: screenWidth*0.25, // Increased height
+                padding: EdgeInsets.all(screenWidth* 0.03), // Padding inside the main box
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
@@ -179,7 +181,7 @@ class _RespirationPageState extends State<RespirationPage> {
                       Color.fromARGB(255, 156, 144, 123), // Muted brown for depth
                     ], // Mesh gradient effect
                   ),
-                  borderRadius: BorderRadius.circular(20), // Rounded corners
+                  borderRadius: BorderRadius.circular(screenWidth*0.05), // Rounded corners
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.2),
@@ -198,21 +200,21 @@ class _RespirationPageState extends State<RespirationPage> {
                 ),
               ),
 
-              const SizedBox(height: 20), // Increased spacing below
+              SizedBox(height: screenWidth * 0.05), // Increased spacing below
 
 
               // Status Card
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding:EdgeInsets.symmetric(vertical: screenHeight * 0.01),
                 decoration: BoxDecoration(
                   color: Colors.brown[300],
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(screenWidth*0.04),
                 ),
                 child: Center(
                   child: Text(
                     "Status: Normal/Rapid",
                     style: GoogleFonts.poppins(
-                      fontSize: 16,
+                      fontSize: screenWidth*0.04,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
@@ -228,7 +230,7 @@ class _RespirationPageState extends State<RespirationPage> {
                 padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(screenWidth*0.04),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.1),
@@ -256,14 +258,14 @@ class _RespirationPageState extends State<RespirationPage> {
                     backgroundColor: Colors.brown[300],
                     padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(screenWidth*0.04),
                     ),
                   ),
                   onPressed: () {},
                   child: Text(
                     "View Trends",
                     style: GoogleFonts.poppins(
-                      fontSize: 16,
+                      fontSize: screenWidth*0.04,
                       color: Colors.white,
                     ),
                   ),
@@ -278,13 +280,15 @@ class _RespirationPageState extends State<RespirationPage> {
 
   // Widget for Gender, Age, Weight Cards
   Widget _infoCard(String value, String label) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Expanded(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        margin:  EdgeInsets.symmetric(horizontal: screenWidth*0.01),
+        padding: EdgeInsets.symmetric(vertical: screenHeight*0.015),
         decoration: BoxDecoration(
           color: Colors.brown[100],
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(screenWidth*0.04),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
@@ -298,14 +302,14 @@ class _RespirationPageState extends State<RespirationPage> {
             Text(
               value,
               style: GoogleFonts.poppins(
-                fontSize: 18,
+                fontSize: screenWidth*0.045,
                 fontWeight: FontWeight.bold,
               ),
             ),
             Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 14,
+                fontSize: screenWidth*0.03,
                 color: Colors.grey[800],
               ),
             ),
@@ -317,13 +321,15 @@ class _RespirationPageState extends State<RespirationPage> {
 
   // Widget for BPM status info
   Widget _statusText(String title, String value) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: screenHeight*0.015),
       child: RichText(
         text: TextSpan(
           text: "$title ",
           style: GoogleFonts.poppins(
-            fontSize: 16,
+            fontSize: screenWidth*0.04,
             fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
@@ -331,7 +337,7 @@ class _RespirationPageState extends State<RespirationPage> {
             TextSpan(
               text: value,
               style: GoogleFonts.poppins(
-                fontSize: 16,
+                fontSize: screenWidth*0.04,
                 fontWeight: FontWeight.normal,
                 color: Colors.black54,
               ),
