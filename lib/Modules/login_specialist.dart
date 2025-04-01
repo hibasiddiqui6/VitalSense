@@ -106,9 +106,15 @@ class _SpecialistState extends State<SpecialistLogin> {
                   SizedBox(height: screenHeight * 0.07),
                   const LoginHeader(),
                   SizedBox(height: screenHeight * 0.02),
-                  LoginForm(
-                    emailController: _emailController,
-                    passwordController: _passwordController,
+                  Center(
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width *
+                          0.8, // Adjust width as needed
+                      child: LoginForm(
+                        emailController: _emailController,
+                        passwordController: _passwordController,
+                      ),
+                    ),
                   ),
                   SizedBox(height: screenHeight * 0.02),
                   if (_errorMessage != null) ...[
@@ -200,9 +206,9 @@ class LoginHeader extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(
-          left: screenWidth * 0.05), // Scales padding dynamically
+          left: screenWidth * 0.06), // Scales padding dynamically
       child: Text(
-        'Login as a Healthcare Secialist',
+        'Login as a Healthcare Specialist',
         style: TextStyle(
           color: const Color(0xFF373737),
           fontSize:
@@ -330,7 +336,8 @@ class _InputFieldState extends State<InputField> {
             ),
             focusedBorder: OutlineInputBorder(
               borderSide: const BorderSide(
-                  color: Color.fromARGB(255, 44, 59, 48), width: 2), // Focused border color
+                  color: Color.fromARGB(255, 44, 59, 48),
+                  width: 2), // Focused border color
               borderRadius: BorderRadius.circular(15),
             ),
             enabledBorder: OutlineInputBorder(

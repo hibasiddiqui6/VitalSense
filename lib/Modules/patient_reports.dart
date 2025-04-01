@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'specialist_dashboard.dart';
 import 'specialist_profile.dart';
 import 'specialist_patients.dart';
-import 'patient_trends.dart';
+import 'specialist_patient_trends.dart';
 import 'specialist_settings.dart'; 
 
 void main() {
@@ -218,7 +218,7 @@ class SideMenuDrawer extends StatelessWidget {
                   Navigator.pop(context);
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const PatientTrendsHistory()),
+                    MaterialPageRoute(builder: (context) => const Specialist_PatientsTrendsHistory()),
                   );
                 }),
                 _divider(),

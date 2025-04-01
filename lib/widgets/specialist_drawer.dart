@@ -6,7 +6,7 @@ import '../Modules/specialist_profile.dart';
 import '../Modules/specialist_patients.dart';
 import '../Modules/specialist_settings.dart';
 import '../Modules/about_us.dart';
-import '../Modules/patient_trends.dart';
+import '../Modules/specialist_patient_trends.dart';
 import '../Modules/patient_reports.dart';
 
 class SpecialistDrawer extends StatelessWidget {
@@ -21,42 +21,48 @@ class SpecialistDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Drawer(
       backgroundColor: Colors.white,
       child: Column(
         children: [
           // Drawer Header with user info
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+            width: screenWidth,
+            padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.04, vertical: screenHeight * 0.08),
             decoration: const BoxDecoration(
               color: Color.fromARGB(255, 193, 219, 188),
             ),
             child: Row(
               children: [
-                const CircleAvatar(
-                  radius: 40,
+                CircleAvatar(
+                  radius: screenWidth * 0.06,
                   backgroundColor: Colors.white,
-                  child: Icon(Icons.person, size: 40, color: Colors.black54),
+                  child: Icon(Icons.person,
+                      size: screenWidth * 0.08, color: Colors.black54),
                 ),
-                const SizedBox(width: 15),
+                SizedBox(width: screenWidth * 0.031),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         fullName,
-                        style: const TextStyle(
-                          fontSize: 18,
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.043,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: screenHeight * 0.012),
                       Text(
                         email,
-                        style: const TextStyle(fontSize: 14, color: Colors.white70),
+                        style: TextStyle(
+                            fontSize: screenWidth * 0.03,
+                            color: Colors.white70),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -65,29 +71,35 @@ class SpecialistDrawer extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 15),
+          SizedBox(height: screenHeight * 0.031),
 
           // Drawer Items
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildDrawerItem(Icons.dashboard, "Dashboard", context, const SpecialistDashboard()),
+                _buildDrawerItem(Icons.dashboard, "Dashboard", context,
+                    const SpecialistDashboard()),
                 _divider(),
 
-                _buildDrawerItem(Icons.person, "My Profile", context, const SpecialistProfileScreen()),
+                _buildDrawerItem(Icons.person, "My Profile", context,
+                    const SpecialistProfileScreen()),
                 _divider(),
 
-                _buildDrawerItem(Icons.people, "My Patients", context, const MyPatientsScreen()),
+                _buildDrawerItem(Icons.people, "My Patients", context,
+                    const MyPatientsScreen()),
                 _divider(),
 
-                _buildDrawerItem(Icons.timeline, "Trends and History", context, const PatientTrendsHistory()),
+                _buildDrawerItem(Icons.timeline, "Trends and History", context,
+                    const Specialist_PatientsTrendsHistory()),
                 _divider(),
 
-                _buildDrawerItem(Icons.insert_drive_file, "Reports", context, const PatientReportsScreen()),
+                _buildDrawerItem(Icons.insert_drive_file, "Reports", context,
+                    const PatientReportsScreen()),
                 _divider(),
 
-                _buildDrawerItem(Icons.settings, "Settings", context, SpecialistSettings()),
+                _buildDrawerItem(
+                    Icons.settings, "Settings", context, SpecialistSettings()),
                 _divider(),
 
                 _buildDrawerItem(Icons.info, "About", context, const AboutUs()),
@@ -98,7 +110,8 @@ class SpecialistDrawer extends StatelessWidget {
                   leading: const Icon(Icons.logout, color: Colors.redAccent),
                   title: const Text(
                     'Logout',
-                    style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        color: Colors.redAccent, fontWeight: FontWeight.w600),
                   ),
                   onTap: () => _handleLogout(context),
                 ),
@@ -111,17 +124,21 @@ class SpecialistDrawer extends StatelessWidget {
   }
 
   /// Drawer Item Widget
-  Widget _buildDrawerItem(IconData icon, String title, BuildContext context, Widget screen) {
+  Widget _buildDrawerItem(
+      IconData icon, String title, BuildContext context, Widget screen) {
+    final double screenWidth = MediaQuery.of(context).size.width;
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-      leading: Icon(icon, color: const Color.fromARGB(255, 82, 82, 82), size: 28),
+      contentPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
+      leading:
+          Icon(icon, color: const Color.fromARGB(255, 82, 82, 82), size: 28),
       title: Text(
         title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        style: TextStyle(fontSize: screenWidth * 0.035, fontWeight: FontWeight.w500),
       ),
       onTap: () {
         Navigator.pop(context); // Close drawer
-        Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
+        Navigator.push(
+            context, MaterialPageRoute(builder: (context) => screen));
       },
     );
   }

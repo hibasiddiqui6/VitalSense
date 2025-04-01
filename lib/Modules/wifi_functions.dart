@@ -10,41 +10,45 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// **Check if ESP32 is already connected to Home Wi-Fi**
 Future<bool> checkESP32Connection(BuildContext context) async {
-    print("Checking if ESP32 is already connected...");
+  print("Checking if ESP32 is already connected...");
 
-    int attempts = 5; // Retry up to 5 times
-    while (attempts-- > 0) {
+  final fetchIpUrl = Uri.parse("${ApiClient.baseUrl}/get_latest_mac_ip");
+
+  try {
+    final latest = await http.get(fetchIpUrl).timeout(const Duration(seconds: 3));
+    if (latest.statusCode == 200) {
+      final data = json.decode(latest.body);
+      final ip = data["ip_address"];
+      final pingUrl = Uri.parse("http://$ip/ping");
+
+      for (int i = 0; i < 5; i++) {
         try {
-            final response = await http.get(Uri.parse("${ApiClient.baseUrl}/get_sensor"))
-                .timeout(const Duration(seconds: 3));
-
-            if (response.statusCode == 200) {
-                final Map<String, dynamic> sensorData = json.decode(response.body);
-
-                if (sensorData.isNotEmpty) {
-                    print("ESP32 is online and sending data!");
-
-                    return true; // Successfully connected
-                }
-            }
+          final resp = await http.get(pingUrl).timeout(const Duration(seconds: 2));
+          if (resp.statusCode == 200) {
+            print("✅ ESP responded to /ping");
+            return true;
+          }
         } catch (e) {
-            print("Attempt ${5 - attempts}: ESP32 not responding. Retrying...");
+          print("Attempt ${i + 1}: Ping failed. Retrying...");
         }
-
-        await Future.delayed(const Duration(seconds: 2)); // Wait before retrying
-    }
-
-    print("ESP32 did not respond after multiple attempts. Checking if ESP32 SoftAP exists...");
-
-    // **Check if ESP32 SoftAP is available**
-    String? currentSSID = await WiFiForIoTPlugin.getSSID();
-    if (currentSSID == "ESP32_Setup") {
-        print("ESP32 SoftAP detected. Prompting user...");
-        return false; // Not connected, but SoftAP exists
+        await Future.delayed(const Duration(seconds: 2));
+      }
     } else {
-        print("ESP32 SoftAP not found.");
-        return false; // Neither connected nor SoftAP available
+      print("Failed to fetch IP from backend. Status: ${latest.statusCode}");
     }
+  } catch (e) {
+    print("❌ Ping check failed: $e");
+  }
+
+  // Fallback: check if we're connected to ESP32_Setup
+  final currentSSID = await WiFiForIoTPlugin.getSSID();
+  if (currentSSID == "ESP32_Setup") {
+    print("ESP32 SoftAP detected. Provisioning likely needed.");
+    return false;
+  }
+
+  print("ESP32 is not connected and SoftAP not found.");
+  return false;
 }
 
 /// **Connects to ESP32 SoftAP and handles Wi-Fi provisioning**
@@ -85,127 +89,121 @@ Future<void> connectToESP32WiFi(BuildContext context) async {
 
 /// **Handles Provisioning Process and Monitors for Wi-Fi Switch**
 void proceedToProvisioning(BuildContext context) async {
-    Uri provisionerUri = Uri.parse("http://192.168.0.51");
+  final Uri fetchIpUri = Uri.parse("${ApiClient.baseUrl}/get_latest_mac_ip");
 
-    if (await canLaunchUrl(provisionerUri)) {
+  try {
+    final response = await http.get(fetchIpUri).timeout(const Duration(seconds: 5));
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      String ip = data["ip_address"];
+      Uri provisionerUri = Uri.parse("http://$ip");
+
+      if (await canLaunchUrl(provisionerUri)) {
         await launchUrl(provisionerUri, mode: LaunchMode.externalApplication);
+      } else {
+        print("Could not open provisioning page at $ip");
+      }
     } else {
-        print("Could not open provisioning page");
+      print("Failed to get ESP32 IP from backend. Status code: ${response.statusCode}");
     }
+  } catch (e) {
+    print("Error fetching dynamic IP from backend: $e");
+    return;
+  }
 
-    // Monitor for reconnection to home Wi-Fi
-    Timer.periodic(const Duration(seconds: 5), (timer) async {
-        String? currentSSID = await WiFiForIoTPlugin.getSSID();
-        print("Checking Wi-Fi: Currently connected to: $currentSSID");
+  // Monitor for reconnection to home Wi-Fi
+  Timer.periodic(const Duration(seconds: 5), (timer) async {
+    String? currentSSID = await WiFiForIoTPlugin.getSSID();
+    print("Checking Wi-Fi: Currently connected to: $currentSSID");
 
-        if (currentSSID != null && currentSSID != "ESP32_Setup") {
-            timer.cancel();
-            print("Switched back to home Wi-Fi: $currentSSID");
+    if (currentSSID != null && currentSSID != "ESP32_Setup") {
+      timer.cancel();
+      print("Switched back to home Wi-Fi: $currentSSID");
 
-            // Resume normal internet usage
-            await WiFiForIoTPlugin.forceWifiUsage(false);
+      await WiFiForIoTPlugin.forceWifiUsage(false);
 
-            // Notify patient landing page
-            if (context.mounted) {
-                Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => PatientDashboard()),
-                );
-            }
-        }
-    });
+      if (context.mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => PatientDashboard()),
+        );
+      }
+    }
+  });
 }
+
 Future<String?> fetchESP32MacAddress() async {
-    const String esp32Ip = "http://192.168.0.51/get_mac_address";
-    int attempts = 5; // 🔼 Increased retry attempts from 3 to 5
+  final url = Uri.parse("${ApiClient.baseUrl}/get_latest_mac_ip");
 
-    for (int i = 0; i < attempts; i++) {
-        try {
-            final response = await http.get(Uri.parse(esp32Ip)).timeout(const Duration(seconds: 3));
-            if (response.statusCode == 200) {
-                return json.decode(response.body)["mac_address"];
-            }
-        } catch (e) {
-            print("Failed to fetch ESP32 MAC Address. Retrying... (${i + 1}/5)");
-            await Future.delayed(Duration(seconds: 3));
-        }
+  try {
+    // Step 1: Ask backend for latest known ESP32 IP & MAC
+    final response = await http.get(url).timeout(const Duration(seconds: 5));
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      String ip = data["ip_address"];
+
+      // Step 2: Ask ESP32 directly for MAC to confirm it's alive
+      final espResponse = await http
+          .get(Uri.parse("http://$ip/get_mac_address"))
+          .timeout(const Duration(seconds: 3));
+
+      if (espResponse.statusCode == 200) {
+        return json.decode(espResponse.body)["mac_address"];
+      }
     }
+  } catch (e) {
+    print("Failed to fetch MAC via backend dynamic IP: $e");
+  }
 
-    print("Failed to retrieve MAC Address after multiple attempts.");
-    return null;
+  print("Failed to retrieve MAC Address after trying backend + ESP32.");
+  return null;
 }
+
 
 /// **Check and Register ESP32 with Flask**
 Future<void> registerSmartShirt(BuildContext context) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? patientId = prefs.getString("patient_id");
-    SharedPreferences eprefs = await SharedPreferences.getInstance();
-    String? email = eprefs.getString("email");
+  final prefs = await SharedPreferences.getInstance();
+  String? patientId = prefs.getString("patient_id");
+  String? email = prefs.getString("email");
 
-    // 🔹 If patient ID is missing, try fetching it again
-    if (patientId == null || patientId.isEmpty) {
-        print("⚠ No patient ID found. Trying to fetch again...");
+  // 🔹 Fallback: fetch patient ID if missing
+  if ((patientId == null || patientId.isEmpty) && email != null) {
+    await ApiClient.fetchAndSavePatientId(email);
+    patientId = prefs.getString("patient_id");
+  }
 
-        if (email == null || email.isEmpty) {
-            print("⚠ No email found in SharedPreferences. Cannot fetch patient ID.");
-            return; // Exit function to prevent error
-        }
+  if (patientId == null || patientId.isEmpty) {
+    print("❌ No patient ID available.");
+    return;
+  }
 
-        await ApiClient.fetchAndSavePatientId(email);
-        patientId = prefs.getString("patient_id"); // Re-fetch after updating
+  print("Fetching ESP32 MAC Address...");
+  final macAddress = await fetchESP32MacAddress();
+
+  if (macAddress == null) {
+    print("❌ Could not fetch MAC address.");
+    return;
+  }
+
+  // 🔹 Check and register via ApiClient
+  final check = await ApiClient().checkSmartShirt(macAddress);
+  if (check["exists"] == true) {
+    print("✅ SmartShirt already registered.");
+  } else {
+    final register = await ApiClient().registerSmartShirt(macAddress, patientId);
+    print("Register API response: $register");
+    if (register.containsKey("error")) {
+      print("❌ Register failed: ${register['error']}");
+      return;
     }
+    print("✅ SmartShirt registered successfully.");
+  }
 
-    // 🔹 If still null, stop execution
-    if (patientId == null || patientId.isEmpty) {
-        print("❌ No patient ID found even after fetching. Cannot register SmartShirt.");
-        return;
-    }
-
-    print("Fetching ESP32 MAC Address...");
-    String? macAddress = await fetchESP32MacAddress();
-
-    if (macAddress == null) {
-        print("❌ Could not retrieve MAC Address.");
-        return;
-    }
-
-    // **Check if SmartShirt is already registered**
-    final checkUrl = Uri.parse("${ApiClient.baseUrl}/check_smartshirt?mac_address=$macAddress");
-    final checkResponse = await http.get(checkUrl).timeout(const Duration(seconds: 3));
-
-    if (checkResponse.statusCode == 200 && json.decode(checkResponse.body)["exists"] == true) {
-        print("✅ SmartShirt already registered! Navigating to Sensor Page.");
-
-        if (context.mounted) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => PatientDashboard()),
-            );
-        }
-        return;
-    }
-
-    // **Register SmartShirt**
-    final registerUrl = Uri.parse("${ApiClient.baseUrl}/register_mac");
-    final data = jsonEncode({"mac_address": macAddress, "patient_id": patientId});
-
-    final registerResponse = await http.post(
-        registerUrl,
-        headers: {"Content-Type": "application/json"},
-        body: data,
-    ).timeout(const Duration(seconds: 5));
-
-    if (registerResponse.statusCode == 201 || registerResponse.statusCode == 200) {
-        print("✅ SmartShirt registered successfully! Navigating to Sensor Page.");
-        
-        if (context.mounted) {
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => PatientDashboard()),
-            );
-        }
-    } else {
-        print("❌ Failed to register SmartShirt: ${registerResponse.body}");
-    }
-
+  // ✅ Proceed to dashboard
+  if (context.mounted) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => PatientDashboard()),
+    );
+  }
 }
