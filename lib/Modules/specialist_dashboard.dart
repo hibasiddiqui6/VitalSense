@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart';
 import '../widgets/specialist_drawer.dart';
 import 'specialist_patients.dart';
-import 'patient_insights.dart';
+import 'specialist_patient_insights.dart';
 
 class SpecialistDashboard extends StatefulWidget {
   const SpecialistDashboard({super.key});

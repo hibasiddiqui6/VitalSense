@@ -1,8 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:vitalsense/Modules/patient_dashboard.dart';
-import 'package:vitalsense/Modules/respiration_trends.dart';
-import 'package:vitalsense/Modules/temp_trends.dart';
-import 'ecg_trends.dart';
 
 void main() {
   runApp(const MyApp());
@@ -34,9 +30,9 @@ class PatientReportsScreen extends StatelessWidget {
     return Scaffold(
       appBar: const CustomAppBar(),
       body: Column(
-        children: [
-          const CurvedHeader(),
-          Expanded(child: ReportsScreen()),
+        children: const [
+          CurvedHeader(),
+          Expanded(child: ReportsList()),
         ],
       ),
     );
@@ -55,10 +51,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => PatientDashboard()),
-          );
+          Navigator.pop(context);
         },
       ),
       title: Padding(
@@ -123,49 +116,53 @@ class CurvedHeader extends StatelessWidget {
 }
 
 // Reports List
-class ReportsScreen extends StatelessWidget {
-  const ReportsScreen({super.key});
+class ReportsList extends StatelessWidget {
+  const ReportsList({super.key});
 
-  // const ReportsList({super.key});
+  @override
+  Widget build(BuildContext context) {
+    List<String> reportTitles = ["View Health Report", "View Disease Report"];
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: ListView.builder(
+        itemCount: reportTitles.length,
+        itemBuilder: (context, index) {
+          return ReportItem(title: reportTitles[index]);
+        },
+      ),
+    );
+  }
+}
+
+// Report Item
+class ReportItem extends StatelessWidget {
+  final String title;
+  const ReportItem({super.key, required this.title});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ECGChartScreen()),
-              );
-            },
-            child: const Text("ECG Trends / History"),
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Material(
+        elevation: 3,
+        borderRadius: BorderRadius.circular(15),
+        child: ListTile(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
           ),
-          const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => RespirationChartScreen()),
-              );
-            },
-            child: const Text("Respiration Trends / History"),
+          tileColor: Colors.white,
+          leading: const Icon(Icons.insert_drive_file, color: Colors.black54),
+          title: Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => TempChartScreen()),
-              );
-            },
-            child: const Text("Temperature Trends / History"),
-          ),
-        ],
+          trailing: const Icon(Icons.arrow_forward_ios,
+              size: 18, color: Colors.black54),
+          onTap: () {
+            // Add your onTap logic here
+          },
+        ),
       ),
     );
   }
