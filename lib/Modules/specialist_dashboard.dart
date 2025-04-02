@@ -104,99 +104,97 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
-      drawer: SpecialistDrawer(fullName: fullName, email: email),
-      backgroundColor: const Color.fromARGB(255, 255, 254, 250),
-      body: Stack(
-        children: [
-          // -Background Circles
-          Positioned(
-            top: MediaQuery.of(context).size.height *
-                -0.15, // 15% of screen height
-            left:
-                MediaQuery.of(context).size.width * 0.45, // 45% of screen width
-            child: Container(
-              width: MediaQuery.of(context).size.width *
-                  0.9, // 90% of screen width
-              height: MediaQuery.of(context).size.height *
-                  0.5, // 50% of screen height
-              decoration: const BoxDecoration(
-                color: Color.fromARGB(120, 219, 237, 219),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: MediaQuery.of(context).size.height *
-                -0.1, // 10% of screen height
-            left: MediaQuery.of(context).size.width *
-                -0.25, // 25% of screen width
-            child: Container(
-              width: MediaQuery.of(context).size.width *
-                  0.6, // 60% of screen width
-              height: MediaQuery.of(context).size.height *
-                  0.3, // 30% of screen height
-              decoration: const BoxDecoration(
-                color: Color.fromARGB(120, 219, 237, 219),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          // -Main Scrollable Content
-          _buildMainContent(context),
+      extendBodyBehindAppBar:
+          true, // This allows the body to go under the AppBar
 
-          // -Search Dropdown if Searching
-          if (isSearching) _buildSearchDropdown(),
-        ],
+      appBar: AppBar(
+        backgroundColor: const Color.fromARGB(0, 238, 64, 64),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
+      drawer: SizedBox(
+        width: screenWidth * 0.6,
+        child: SpecialistDrawer(
+          fullName: fullName, // fetched and stored in State
+          email: email, // fetched and stored in State
+        ),
+      ),
+      backgroundColor: const Color.fromARGB(255, 255, 254, 250),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Stack(
+              children: [
+                // -Background Circles
+                Positioned(
+                  top: screenHeight * -0.15, // 15% of screen height
+                  left: screenWidth * 0.45, // 45% of screen width
+                  child: Container(
+                    width: screenWidth * 0.9, // 90% of screen width
+                    height: screenHeight * 0.5, // 50% of screen height
+                    decoration: const BoxDecoration(
+                      color: Color.fromARGB(120, 219, 237, 219),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: screenHeight * -0.1, // 10% of screen height
+                  left: screenWidth * -0.25, // 25% of screen width
+                  child: Container(
+                    width: screenWidth * 0.6, // 60% of screen width
+                    height: screenHeight * 0.3, // 30% of screen height
+                    decoration: const BoxDecoration(
+                      color: Color.fromARGB(120, 219, 237, 219),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                // -Main Scrollable Content
+                _buildMainContent(context),
+              ],
+            ),
+            // -Search Dropdown if Searching
+            if (isSearching) _buildSearchDropdown(),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildMainContent(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return SizedBox(
-      height: MediaQuery.of(context).size.height,
+      height: screenHeight,
       child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(
-            horizontal: MediaQuery.of(context).size.width * 0.05,
-            vertical: MediaQuery.of(context).size.height * 0.05),
+            horizontal: screenWidth * 0.05, vertical: screenHeight * 0.05),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // -Menu Icon
-            Builder(
-              builder: (context) => Align(
-                alignment: Alignment.topLeft,
-                child: IconButton(
-                  icon: Icon(Icons.menu,
-                      color: Colors.black,
-                      size: MediaQuery.of(context).size.width * 0.08),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                ),
-              ),
-            ),
-            SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-
             // -Profile Header
             Text('Hi! $fullName',
                 style: TextStyle(
-                    fontSize: MediaQuery.of(context).size.width * 0.05,
-                    fontWeight: FontWeight.bold)),
+                    fontSize: screenWidth * 0.05, fontWeight: FontWeight.bold)),
             Text('$profession, $speciality',
                 style: TextStyle(
-                    fontSize: MediaQuery.of(context).size.width * 0.035,
-                    color: Colors.grey)),
+                    fontSize: screenWidth * 0.035, color: Colors.grey)),
 
-            SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+            SizedBox(height: screenHeight * 0.02),
 
             // -Search Bar
             _buildSearchBar(),
 
-            SizedBox(height: MediaQuery.of(context).size.height * 0.035),
+            SizedBox(height: screenHeight * 0.035),
 
             // -Total Patients Card with Count and Add Button
             _buildTotalPatientsCard(),
 
-            SizedBox(height: MediaQuery.of(context).size.height * 0.04),
+            SizedBox(height: screenHeight * 0.04),
 
             // -Recently Added Section (Only if not searching)
             if (!isSearching) ..._buildRecentlyAddedSection(),
@@ -207,14 +205,15 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
   }
 
   Widget _buildSearchBar() {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: MediaQuery.of(context).size.width *
-              0.025), // 2.5% of screen width
+          horizontal: screenWidth * 0.025), // 2.5% of screen width
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 186, 216, 186),
         borderRadius: BorderRadius.circular(
-          MediaQuery.of(context).size.width * 0.06,
+          screenWidth * 0.06,
         ),
       ),
       child: TextField(
@@ -224,14 +223,11 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
         decoration: InputDecoration(
           hintText: "Search patient",
           hintStyle: TextStyle(
-            fontSize:
-                MediaQuery.of(context).size.width * 0.04, // 4% of screen width
+            fontSize: screenWidth * 0.04, // 4% of screen width
           ),
           contentPadding: EdgeInsets.symmetric(
-            horizontal:
-                MediaQuery.of(context).size.width * 0.04, // 4% of screen width
-            vertical: MediaQuery.of(context).size.height *
-                0.015, // 1.5% of screen height
+            horizontal: screenWidth * 0.04, // 4% of screen width
+            vertical: screenHeight * 0.015, // 1.5% of screen height
           ),
           border: InputBorder.none,
           suffixIcon: Row(
@@ -242,8 +238,7 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
                     icon: const Icon(Icons.clear), onPressed: _clearSearch),
               IconButton(
                 icon: Icon(Icons.search,
-                    size: MediaQuery.of(context).size.width *
-                        0.06), // 6% of screen width
+                    size: screenWidth * 0.06), // 6% of screen width
                 onPressed: () {
                   _filterPatients(_searchController.text);
                   _searchFocusNode.unfocus();
@@ -253,22 +248,22 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
           ),
         ),
         style: TextStyle(
-          fontSize:
-              MediaQuery.of(context).size.width * 0.045, // 4.5% of screen width
+          fontSize: screenWidth * 0.045, // 4.5% of screen width
         ),
       ),
     );
   }
 
   Widget _buildTotalPatientsCard() {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Padding(
-      padding: EdgeInsets.symmetric(
-          vertical: MediaQuery.of(context).size.width * 0.050),
+      padding: EdgeInsets.symmetric(vertical: screenHeight * 0.050),
       child: Container(
-        padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.050),
+        padding: EdgeInsets.all(screenWidth * 0.050),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(
-              MediaQuery.of(context).size.width * 0.04), // 4% of screen width
+          borderRadius:
+              BorderRadius.circular(screenWidth * 0.04), // 4% of screen width
           gradient: const LinearGradient(
             colors: [
               Color.fromARGB(255, 224, 233, 217),
@@ -290,15 +285,15 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
                   Text(
                     "Total No. of Patients",
                     style: TextStyle(
-                        fontSize: MediaQuery.of(context).size.width * 0.045,
+                        fontSize: screenWidth * 0.045,
                         fontWeight: FontWeight.w500),
                     maxLines: 2,
                   ),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+                  SizedBox(height: screenHeight * 0.01),
                   Text(
                     "~${patients.length}", // Dynamic patient count
                     style: TextStyle(
-                        fontSize: MediaQuery.of(context).size.height * 0.3,
+                        fontSize: screenWidth * 0.07,
                         fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -314,12 +309,10 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
+                    borderRadius: BorderRadius.circular(screenWidth * 0.04)),
                 padding: EdgeInsets.symmetric(
-                    horizontal: MediaQuery.of(context).size.width *
-                        0.045, // 4.5% of screen width
-                    vertical: MediaQuery.of(context).size.height *
-                        0.012), // 1.2% of screen height
+                    horizontal: screenWidth * 0.045, // 4.5% of screen width
+                    vertical: screenHeight * 0.012), // 1.2% of screen height
               ),
               child: const Text("+ Add Patient",
                   style: TextStyle(fontWeight: FontWeight.w600)),
@@ -331,12 +324,13 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
   }
 
   List<Widget> _buildRecentlyAddedSection() {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return [
       Text("Recently Added Patients:",
           style: TextStyle(
-              fontSize: MediaQuery.of(context).size.width * 0.05,
-              fontWeight: FontWeight.bold)),
-      SizedBox(height: MediaQuery.of(context).size.height * 0.01),
+              fontSize: screenWidth * 0.05, fontWeight: FontWeight.bold)),
+      SizedBox(height: screenHeight * 0.01),
       if (isLoading)
         const CircularProgressIndicator()
       else if (filteredPatients.isEmpty)
@@ -353,17 +347,18 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
   }
 
   Widget _buildSearchDropdown() {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Positioned(
-      top: MediaQuery.of(context).size.height * 0.3, // 30% of screen height
-      left: MediaQuery.of(context).size.width * 0.05, // 5% of screen width
-      right: MediaQuery.of(context).size.width * 0.05, // 5% of screen width
+      top: screenHeight * 0.3, // 30% of screen height
+      left: screenWidth * 0.05, // 5% of screen width
+      right: screenWidth * 0.05, // 5% of screen width
       child: Container(
-        padding: EdgeInsets.all(
-            MediaQuery.of(context).size.width * 0.02), // 2% of screen width
+        padding: EdgeInsets.all(screenWidth * 0.02), // 2% of screen width
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(
-              MediaQuery.of(context).size.width * 0.03), // 3% of screen width
+          borderRadius:
+              BorderRadius.circular(screenWidth * 0.03), // 3% of screen width
           boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
         ),
         child: filteredPatients.isEmpty
@@ -393,14 +388,15 @@ class PatientCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Container(
       margin: EdgeInsets.only(
-          bottom: MediaQuery.of(context).size.height *
-              0.015), // 1.5% of screen height
-      padding: EdgeInsets.all(MediaQuery.of(context).size.height * 0.02),
+          bottom: screenHeight * 0.015), // 1.5% of screen height
+      padding: EdgeInsets.all(screenHeight * 0.02),
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 172, 202, 172),
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(screenWidth * 0.031),
         boxShadow: const [
           BoxShadow(color: Colors.black12, blurRadius: 5, offset: Offset(0, 3))
         ],
@@ -411,8 +407,7 @@ class PatientCard extends StatelessWidget {
             child: Text(
               patientName,
               style: TextStyle(
-                  fontSize: MediaQuery.of(context).size.width *
-                      0.045, // 4.5% of screen width
+                  fontSize: screenWidth * 0.045, // 4.5% of screen width
                   fontWeight: FontWeight.w600),
             ),
           ),
@@ -430,7 +425,7 @@ class PatientCard extends StatelessWidget {
               backgroundColor: Colors.white,
               foregroundColor: Colors.black,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
+                  borderRadius: BorderRadius.circular(screenWidth * 0.04)),
             ),
             child: const Text("View Insights"),
           ),
@@ -495,40 +490,36 @@ class _AddPatientPopupState extends State<AddPatientPopup> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return AlertDialog(
       backgroundColor: const Color.fromARGB(255, 204, 215, 188),
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(
-        MediaQuery.of(context).size.width * 0.04,
+        screenWidth * 0.04,
       )), // 4% of screen width
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text("Enter Patient ID",
               style: TextStyle(
-                  fontSize: MediaQuery.of(context).size.width * 0.045,
-                  fontWeight: FontWeight.bold)),
-          SizedBox(
-              height: MediaQuery.of(context).size.height *
-                  0.025), // 2.5% of screen height
+                  fontSize: screenWidth * 0.045, fontWeight: FontWeight.bold)),
+          SizedBox(height: screenHeight * 0.025), // 2.5% of screen height
           TextField(
             controller: _idController,
             decoration: InputDecoration(
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.all(Radius.circular(
-                      MediaQuery.of(context).size.width *
-                          0.03))), // 3% of screen width
+                      screenWidth * 0.03))), // 3% of screen width
             ),
           ),
-          SizedBox(
-              height: MediaQuery.of(context).size.height *
-                  0.02), // 2% of screen height
+          SizedBox(height: screenHeight * 0.02), // 2% of screen height
           ElevatedButton(
             onPressed: isLoading ? null : _handleAddPatient,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color.fromARGB(255, 119, 147, 120),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(17)),
+                  borderRadius: BorderRadius.circular(screenWidth * 0.033)),
               minimumSize: const Size(110, 40),
             ),
             child: isLoading
@@ -536,8 +527,7 @@ class _AddPatientPopupState extends State<AddPatientPopup> {
                     color: Colors.white, strokeWidth: 2)
                 : Text("Add",
                     style: TextStyle(
-                        fontSize: MediaQuery.of(context).size.width * 0.016,
-                        color: Colors.white)),
+                        fontSize: screenWidth * 0.031, color: Colors.white)),
           ),
         ],
       ),

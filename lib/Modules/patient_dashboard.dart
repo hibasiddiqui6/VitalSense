@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../services/api_client.dart';
@@ -44,10 +46,17 @@ class _PatientDashboardState extends State<PatientDashboard> {
   bool finalMessageShown = false;
   Timer? disconnectionTimer;
   Timer? dataFetchTimer;
+  List<Offset> points = [];
+
+  double x = 0;
+  Timer? timer;
+  int time = 0;
 
   @override
   void initState() {
     super.initState();
+
+    startECGStreaming();
 
     // **Start continuous data fetching**
     dataFetchTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -61,6 +70,42 @@ class _PatientDashboardState extends State<PatientDashboard> {
     // **Fetch user details**
     fetchUserProfile();
     _loadUserDetails();
+  }
+
+  void startECGStreaming() {
+    timer = Timer.periodic(Duration(milliseconds: 20), (Timer t) async {
+      double newY = fetchECGData(); // Simulated ECG data
+
+      if (mounted) {
+        setState(() {
+          // Add new point based on the current x position and new y value
+          points.add(Offset(x.toDouble(), newY));
+          x += 1; // Move x-axis to simulate real-time scrolling
+
+          // Once x reaches the end, wait for a brief delay and reset x to 0
+          if (x >= 380) {
+            Future.delayed(Duration(milliseconds: 5), () {
+              setState(() {
+                
+                x = 0; // Start from the origin again after delay
+                points.clear();// Or clear a few points, don't clear all!
+              });
+            });
+          }
+
+          // Limit the number of points for the graph (for smooth scrolling)
+          if (points.length > 380) {
+            points.removeAt(
+                0); // Remove the oldest point to keep the graph manageable
+          }
+        });
+      }
+    });
+  }
+
+  double fetchECGData() {
+    time++;
+    return 150 + 30 * sin(time / 10); // Simulated ECG signal
   }
 
   /// **Fetch sensor data from Flask server**
@@ -184,6 +229,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
   void dispose() {
     dataFetchTimer?.cancel();
     disconnectionTimer?.cancel();
+    timer?.cancel();
     super.dispose();
   }
 
@@ -501,7 +547,8 @@ class _PatientDashboardState extends State<PatientDashboard> {
                         height: screenHeight * 0.375, // Adjusted height
                         width: screenWidth,
                         child: CustomPaint(
-                          painter: ECGLinePainter(),
+                          painter: ECGLinePainter(points),
+                          size: Size(double.infinity, 200),
                         ),
                       ),
                     ),
@@ -596,10 +643,14 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
 // **Fixed ECGLinePainter**
 class ECGLinePainter extends CustomPainter {
+  final List<Offset> points;
+
+  ECGLinePainter(this.points);
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.red
+      ..color = const Color.fromARGB(255, 91, 139, 36)
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
 
@@ -610,7 +661,7 @@ class ECGLinePainter extends CustomPainter {
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
 
     // **Grid**
-    double gridSize = 20;
+    double gridSize = 15;
     for (double i = 0; i < size.width; i += gridSize) {
       canvas.drawLine(Offset(i, 0), Offset(i, size.height), gridPaint);
     }
@@ -618,22 +669,26 @@ class ECGLinePainter extends CustomPainter {
       canvas.drawLine(Offset(0, i), Offset(size.width, i), gridPaint);
     }
 
-    // **ECG waveform with adjusted height**
-    final path = Path();
-    path.moveTo(0, size.height * 0.5); // Start from 70% height
+    // **Draw ECG waveform from data points**
+    if (points.isNotEmpty) {
+      Path path = Path();
+      path.moveTo(points[0].dx, points[0].dy); // Start path at first point
 
-    double x = 0;
-    while (x < size.width) {
-      path.relativeLineTo(4, -15); // Adjusted peak height
-      path.relativeLineTo(4, 30);
-      path.relativeLineTo(4, -15);
-      path.relativeLineTo(4, 0);
-      x += 16;
+      // Draw smooth lines between points, connecting the dots smoothly
+      for (int i = 1; i < points.length; i++) {
+        path.quadraticBezierTo(
+          points[i - 1].dx,
+          points[i - 1].dy,
+          points[i].dx,
+          points[i].dy,
+        );
+      }
+      canvas.drawPath(path, paint);
     }
-
-    canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true; // Always repaint to refresh the canvas
+  }
 }

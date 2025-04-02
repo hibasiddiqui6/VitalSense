@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,19 +29,62 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
   String weight = "-";
   String lastUpdated = "-";
   bool isOnline = false;
+  Timer? disconnectionTimer;
+  Timer? dataFetchTimer;
+  List<Offset> points = [];
 
+  double x = 0;
+  Timer? timer;
+  int time = 0;
   @override
   void initState() {
     super.initState();
+    startECGStreaming();
     fetchPatientInsights();
     fetchUserProfile();
     _loadUserDetails();
   }
 
+  void startECGStreaming() {
+    timer = Timer.periodic(Duration(milliseconds: 20), (Timer t) async {
+      double newY = fetchECGData(); // Simulated ECG data
+
+      if (mounted) {
+        setState(() {
+          // Add new point based on the current x position and new y value
+          points.add(Offset(x.toDouble(), newY));
+          x += 1; // Move x-axis to simulate real-time scrolling
+
+          // Once x reaches the end, wait for a brief delay and reset x to 0
+          if (x >= 380) {
+            Future.delayed(Duration(milliseconds: 5), () {
+              setState(() {
+                x = 0; // Start from the origin again after delay
+                points.clear(); // Or clear a few points, don't clear all!
+              });
+            });
+          }
+
+          // Limit the number of points for the graph (for smooth scrolling)
+          if (points.length > 380) {
+            points.removeAt(
+                0); // Remove the oldest point to keep the graph manageable
+          }
+        });
+      }
+    });
+  }
+
+  double fetchECGData() {
+    time++;
+    return 150 + 30 * sin(time / 10); // Simulated ECG signal
+  }
+
   /// Fetch patient insights
   Future<void> fetchPatientInsights() async {
     try {
-      final data = await ApiClient().getSpecificPatientInsights(widget.patientId);
+      final data =
+          await ApiClient().getSpecificPatientInsights(widget.patientId);
 
       if (mounted) {
         DateTime? updatedAt;
@@ -47,7 +93,8 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
           final now = DateTime.now();
           final diff = now.difference(updatedAt);
           lastUpdated = _formatTimeDifference(diff);
-          isOnline = diff.inMinutes <= 10; // Online if updated within last 10 mins
+          isOnline =
+              diff.inMinutes <= 10; // Online if updated within last 10 mins
         } else {
           lastUpdated = "No recent data";
           isOnline = false;
@@ -55,8 +102,11 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
 
         setState(() {
           pFullName = data['fullname'] ?? "Unknown";
-          respiration = data['respiration_rate'] != null ? "${data['respiration_rate']} BPM" : "-";
-          temperature = data['temperature'] != null ? "${data['temperature']} °F" : "-";
+          respiration = data['respiration_rate'] != null
+              ? "${data['respiration_rate']} BPM"
+              : "-";
+          temperature =
+              data['temperature'] != null ? "${data['temperature']} °F" : "-";
           gender = data['gender'] ?? "-";
           age = data['age']?.toString() ?? "-";
           weight = data['weight']?.toString() ?? "-";
@@ -72,7 +122,8 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
     if (diff.inMinutes < 1) return "Just now";
     if (diff.inMinutes < 60) return "${diff.inMinutes} mins ago";
     if (diff.inHours < 24) return "${diff.inHours} hrs ago";
-    return DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.now().subtract(diff));
+    return DateFormat('dd/MM/yyyy hh:mm a')
+        .format(DateTime.now().subtract(diff));
   }
 
   /// Fetch Specialist Profile for Drawer
@@ -105,6 +156,12 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
   }
 
   @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 239, 238, 229),
@@ -112,11 +169,11 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: GestureDetector(
-        onTap: () {
-          Navigator.pop(context); // Go back to previous screen
-        },
-        child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
-      ),
+          onTap: () {
+            Navigator.pop(context); // Go back to previous screen
+          },
+          child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -124,30 +181,37 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Title and Online status
-            Text('Patient Insights: $pFullName', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text('Patient Insights: $pFullName',
+                style:
+                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.circle, color: isOnline ? Colors.green : Colors.red, size: 12),
+                Icon(Icons.circle,
+                    color: isOnline ? Colors.green : Colors.red, size: 12),
                 const SizedBox(width: 8),
                 Text(
                   isOnline ? "Online" : "Offline (No data in last 10 mins)",
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w500),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            Text("Last updated: $lastUpdated", style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            Text("Last updated: $lastUpdated",
+                style: const TextStyle(fontSize: 12, color: Colors.black54)),
             const SizedBox(height: 15),
 
             // Gender, Age, Weight
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildInfoCard(gender, 'Gender', const Color.fromARGB(255, 218, 151, 167)),
+                _buildInfoCard(
+                    gender, 'Gender', const Color.fromARGB(255, 218, 151, 167)),
                 const SizedBox(width: 7),
-                _buildInfoCard(age, 'Age', const Color.fromARGB(255, 218, 189, 151)),
+                _buildInfoCard(
+                    age, 'Age', const Color.fromARGB(255, 218, 189, 151)),
                 const SizedBox(width: 7),
                 _buildInfoCard(weight, 'Weight', const Color(0xFF9CCC65)),
               ],
@@ -174,7 +238,8 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
                     ),
                   );
                 }),
-                _buildInfoCard2(temperature, "Temperature", Colors.redAccent, () {
+                _buildInfoCard2(temperature, "Temperature", Colors.redAccent,
+                    () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -256,79 +321,84 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
   }
 
   Widget _buildInfoCard2(
-    String value, String label, Color color, VoidCallback onPressed) {
-  return Padding(
-    padding: const EdgeInsets.all(8.0), // Adds padding around each card
-    child: Container(
-      width: 172,
-      height: 180,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            color.withOpacity(0.5),
-            color.withOpacity(0.0)
-          ], // Gradient effect
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8.0,
-            offset: Offset(3, 3),
+      String value, String label, Color color, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0), // Adds padding around each card
+      child: Container(
+        width: 172,
+        height: 180,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              color.withOpacity(0.5),
+              color.withOpacity(0.0)
+            ], // Gradient effect
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87),
-          ),
-          SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-                fontSize: 28, fontWeight: FontWeight.w300, color: Colors.black),
-          ),
-          SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: onPressed, // Calls the provided callback function
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  const Color.fromARGB(255, 176, 85, 85), // Matches your UI
-              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(50),
-              ),
+          borderRadius: BorderRadius.circular(12.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 8.0,
+              offset: Offset(3, 3),
             ),
-            child: Text("Details", style: TextStyle(color: Colors.white)),
-          ),
-        ],
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87),
+            ),
+            SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w300,
+                  color: Colors.black),
+            ),
+            SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: onPressed, // Calls the provided callback function
+              style: ElevatedButton.styleFrom(
+                backgroundColor:
+                    const Color.fromARGB(255, 176, 85, 85), // Matches your UI
+                padding: EdgeInsets.symmetric(horizontal: 40, vertical: 0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(50),
+                ),
+              ),
+              child: Text("Details", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
+
   /// ECG Card Widget
   Widget _buildECGCard(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Container(
-      height: 160, // Increased height
-      width: double.infinity,
+      width: screenWidth,
+      height: screenHeight * 0.455, // Increased height
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(screenWidth * 0.04),
         boxShadow: [
           BoxShadow(
             color: Colors.black12,
-            blurRadius: 8.0,
+            blurRadius: screenWidth * 0.002,
             offset: Offset(4, 4),
           ),
         ],
-        border: Border.all(width: 0, color: Colors.transparent),
+        border: Border.all(color: Colors.transparent),
         gradient: LinearGradient(
           colors: [Color(0xFF99B88D), Color.fromARGB(255, 193, 219, 188)],
           begin: Alignment.topLeft,
@@ -336,34 +406,35 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.all(6.0),
+        padding: EdgeInsets.all(screenWidth * 0.015),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(screenWidth * 0.04),
           ),
           child: Stack(
             children: [
               Padding(
-                padding: EdgeInsets.all(10.0),
+                padding: EdgeInsets.all(screenWidth * 0.01),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'ECG',
                       style: TextStyle(
-                          fontSize: 18,
+                          fontSize: screenWidth * 0.045,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87),
                     ),
                     SizedBox(height: 5),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(screenWidth * 0.01),
                       child: SizedBox(
-                        height: 80, // Adjusted height
-                        width: double.infinity,
+                        height: screenHeight * 0.375, // Adjusted height
+                        width: screenWidth,
                         child: CustomPaint(
-                          painter: ECGLinePainter(),
+                          painter: ECGLinePainter(points),
+                          size: Size(double.infinity, 200),
                         ),
                       ),
                     ),
@@ -371,31 +442,27 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
                 ),
               ),
               Positioned(
-                top: 10,
-                right: 10,
+                top: screenHeight * 0.0035,
+                right: screenWidth * 0.02,
                 child: GestureDetector(
                   onTap: () {
                     Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ECGScreen(
-                        gender: gender,
-                        age: age,
-                        weight: weight,
-                      ),
-                    ),
-                  );
+                      context,
+                      MaterialPageRoute(builder: (context) => ECGScreen()),
+                    );
                   },
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.014,
+                        vertical: screenHeight * 0.004),
                     decoration: BoxDecoration(
                       color: Colors.green.shade100,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(screenWidth * 0.02),
                     ),
                     child: Text(
                       'Details',
                       style: TextStyle(
-                          fontSize: 14,
+                          fontSize: screenWidth * 0.035,
                           fontWeight: FontWeight.w500,
                           color: Colors.black54),
                     ),
@@ -408,7 +475,6 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
       ),
     );
   }
-
 
   // Health Performance Card Widget
   Widget _buildHealthPerformanceCard() {
@@ -455,12 +521,16 @@ class _PatientInsightsScreenState extends State<PatientInsightsScreen> {
   }
 }
 
-
+// **Fixed ECGLinePainter**
 class ECGLinePainter extends CustomPainter {
+  final List<Offset> points;
+
+  ECGLinePainter(this.points);
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.red
+      ..color = const Color.fromARGB(255, 91, 139, 36)
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
 
@@ -471,7 +541,7 @@ class ECGLinePainter extends CustomPainter {
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
 
     // **Grid**
-    double gridSize = 20;
+    double gridSize = 15;
     for (double i = 0; i < size.width; i += gridSize) {
       canvas.drawLine(Offset(i, 0), Offset(i, size.height), gridPaint);
     }
@@ -479,22 +549,26 @@ class ECGLinePainter extends CustomPainter {
       canvas.drawLine(Offset(0, i), Offset(size.width, i), gridPaint);
     }
 
-    // **ECG waveform with adjusted height**
-    final path = Path();
-    path.moveTo(0, size.height * 0.7); // Start from 70% height
+    // **Draw ECG waveform from data points**
+    if (points.isNotEmpty) {
+      Path path = Path();
+      path.moveTo(points[0].dx, points[0].dy); // Start path at first point
 
-    double x = 0;
-    while (x < size.width) {
-      path.relativeLineTo(4, -15); // Adjusted peak height
-      path.relativeLineTo(4, 30);
-      path.relativeLineTo(4, -15);
-      path.relativeLineTo(4, 0);
-      x += 16;
+      // Draw smooth lines between points, connecting the dots smoothly
+      for (int i = 1; i < points.length; i++) {
+        path.quadraticBezierTo(
+          points[i - 1].dx,
+          points[i - 1].dy,
+          points[i].dx,
+          points[i].dy,
+        );
+      }
+      canvas.drawPath(path, paint);
     }
-
-    canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true; // Always repaint to refresh the canvas
+  }
 }

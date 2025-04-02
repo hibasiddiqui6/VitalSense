@@ -5,6 +5,7 @@ import 'package:vitalsense/Modules/patient_profile.dart';
 import 'package:vitalsense/Modules/respiration.dart';
 import 'package:vitalsense/Modules/specialist_dashboard.dart';
 import 'package:vitalsense/Modules/specialist_patient_trends.dart';
+import 'package:vitalsense/Modules/specialist_profile.dart';
 import 'package:vitalsense/Modules/temp_trends.dart';
 import 'package:vitalsense/Modules/temperature.dart';
 import 'package:vitalsense/Modules/patient_trends_type.dart';
@@ -26,7 +27,7 @@ class VitalSenseApp extends StatelessWidget {
     return MaterialApp(
       title: 'VitalSense',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const Specialist_PatientsTrendsHistory(),
+      home: const TemperaturePage(),
     );
   }
 }
