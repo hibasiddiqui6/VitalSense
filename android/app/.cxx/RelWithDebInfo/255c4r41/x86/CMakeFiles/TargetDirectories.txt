@@ -1,0 +1,2 @@
+C:/Users/Pc/Desktop/Raaif/FYP/VitalSense/android/app/.cxx/RelWithDebInfo/255c4r41/x86/CMakeFiles/edit_cache.dir
+C:/Users/Pc/Desktop/Raaif/FYP/VitalSense/android/app/.cxx/RelWithDebInfo/255c4r41/x86/CMakeFiles/rebuild_cache.dir
