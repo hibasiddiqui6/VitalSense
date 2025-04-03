@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import bcrypt  # For secure password hashing
@@ -74,6 +75,7 @@ def insert_postgres_only(sensor_data, ids):
         print(f"[DEBUG] Spawning classification for hv_id {hv_id}")
         # Immediately classify and insert temperature
         gevent.spawn_later(2, partial(classify_and_insert_temp_status, sensor_data["temperature"], hv_id))
+        gevent.spawn_later(2, partial(classify_and_insert_resp_status, sensor_data["respiration"], hv_id))
 
     except Exception as e:
         print(f"❌ insert_postgres_only failed: {e}")
@@ -835,11 +837,15 @@ def classify_and_insert_temp_status(temp_str, hv_id):
         status = result['status']
         disease = result['disease']
 
+        if status == "Sensor Disconnected":
+            print(f"[SKIP] Temperature status '{status}' — not inserting")
+            return
+
         insert_query = """
             INSERT INTO temperature (healthvitalsid, temperature, temperaturestatus, detecteddisease)
             VALUES (%s, %s, %s, %s)
         """
-        modify_data(insert_query, (hv_id, temp, status, disease)) 
+        modify_data(insert_query, (hv_id, temp, status, disease))
         print(f"[SUCCESS] Inserted temperature for hv_id {hv_id}")
 
     except Exception as e:
@@ -849,6 +855,7 @@ def classify_and_insert_temp_status(temp_str, hv_id):
 def get_temperature_trends():
     patient_id = request.args.get("patient_id")
     range_type = request.args.get("range", "24h")
+    
 
     if not patient_id:
         return jsonify({"error": "Patient ID is required"}), 400
@@ -876,6 +883,40 @@ def get_temperature_trends():
         row["timestamp"] = row["timestamp"].astimezone(timezone("Asia/Karachi")).isoformat()
 
     return jsonify(result)
+
+@app.route("/classify_respiration_status", methods=["POST"])
+def classify_respiration_status():
+    data = request.get_json()
+    resp = float(data.get("respiration", -1))
+    classification = classify_respiration(resp)
+    return jsonify(classification)
+
+def classify_and_insert_resp_status(resp_str, hv_id):
+    try:
+        print(f"[CHECK] Validating hv_id={hv_id}")
+        query = "SELECT 1 FROM health_vitals WHERE id = %s"
+        if not fetch_data(query, (hv_id,)):
+            print(f"[WARN] Skipping respiration classification: hv_id {hv_id} not found")
+            return
+
+        resp = float(resp_str)
+        result = classify_respiration(resp)
+        status = result['status']
+        disease = result['disease']
+
+        if status == "Sensor Disconnected":
+            print(f"[SKIP] Respiration status '{status}' — not inserting")
+            return
+
+        insert_query = """
+            INSERT INTO respiration (healthvitalsid, respiration, respirationstatus, detecteddisease)
+            VALUES (%s, %s, %s, %s)
+        """
+        modify_data(insert_query, (hv_id, resp, status, disease))
+        print(f"[SUCCESS] Inserted respiration for hv_id {hv_id}")
+
+    except Exception as e:
+        print(f"❌ classify_and_insert_resp_status failed: {e}")
 
 @app.route('/testhook', methods=['POST'])
 def testhook():

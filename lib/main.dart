@@ -27,7 +27,7 @@ class VitalSenseApp extends StatelessWidget {
     return MaterialApp(
       title: 'VitalSense',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const TemperaturePage(),
+      home: const SplashScreen(),
     );
   }
 }

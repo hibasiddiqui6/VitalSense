@@ -48,19 +48,19 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    //final screenHeight = MediaQuery.of(context).size.height;
+    final screenHeight = MediaQuery.of(context).size.height;
     // TODO: implement build
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color.fromRGBO(8, 71, 0, 1), // Slightly bluish vibrant green (left)
-              Color.fromRGBO(56, 143, 45, 1), // Brighter medium green
-              Color.fromRGBO(173, 255, 173, 1), // Light green
-              Color.fromRGBO(
-                  240, 255, 240, 1), // Very light green/almost white (right)
-            ],
+                Color.fromRGBO(76, 86, 66, 1),    // Dark sage green
+                Color.fromRGBO(132, 145, 120, 1), // Medium sage green
+                Color.fromRGBO(189, 201, 179, 1), // Light sage green
+                Color.fromRGBO(232, 235, 225, 1), // Very light sage green (almost white)
+              ],
+
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -70,8 +70,8 @@ class _SplashScreenState extends State<SplashScreen>
           children: [
             Center(
               child: SizedBox(
-                width: 700, // Fixed container width
-                height: 700, // Fixed container height
+                width: screenWidth*0.75, // Fixed container width
+                height: screenHeight*0.75, // Fixed container height
                 child: Lottie.asset(
                   'assets/animation/Flow1.json',
                   controller: _controller,
@@ -124,7 +124,7 @@ class _SplashScreenState extends State<SplashScreen>
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromARGB(255, 90, 131, 91),
+                      backgroundColor: const Color.fromARGB(255, 151, 185, 125),
                       padding:
                           EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                       shape: RoundedRectangleBorder(
@@ -133,7 +133,10 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                     child: Text(
                       'Continue',
-                      style: TextStyle(color: Colors.white, fontSize: 18),
+                      style: TextStyle(
+                        color: Colors.white, 
+                        fontSize: 18
+                        ),
                     ),
                   ),
                 ),

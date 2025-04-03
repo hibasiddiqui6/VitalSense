@@ -142,7 +142,7 @@ class WelcomePage extends StatelessWidget {
               role,
               style: TextStyle(
                 color: Colors.black,
-                fontSize: screenWidth * 0.04,
+                fontSize: screenWidth * 0.03,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.bold,
               ),

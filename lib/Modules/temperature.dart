@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/api_client.dart'; // Import API client
 import '../services/alert.dart'; // Import API client
 import 'dart:async'; // Import Timer
@@ -157,7 +155,7 @@ class _TemperaturePageState extends State<TemperaturePage> {
 
         // Alert if needed (UI only)
         if (newDisease != null && !hasShownAlert) {
-          _showAlertNotification(newDisease);
+          _showAlertNotification(context, newDisease);
           hasShownAlert = true;
         }
 
@@ -208,73 +206,34 @@ class _TemperaturePageState extends State<TemperaturePage> {
     }
   }
 
-  void _showAlertNotification(String status) async {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("⚠️ Health Alert"),
-        content: Text(
-            "Abnormal temperature detected: $status.\nNotifying trusted contacts."),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _notifyContacts(status); // 👈 call it here
-            },
-            child: const Text("OK"),
-          )
-        ],
+  void _showAlertNotification(BuildContext context, String status) async {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text("⚠️ Health Alert"),
+      content: Text(
+        "Abnormal temperature detected: $status.\nNotifying trusted contacts."
       ),
-    );
-  }
+      actions: [
+        TextButton(
+          onPressed: () async {
+            Navigator.pop(context);
 
-  Future<void> _notifyContacts(String status) async {
-  try {
-    final contactsList = await ApiClient().getTrustedContacts();
-    print("✅ Contacts fetched: $contactsList");
+            try {
+              final contactsList = await ApiClient().getTrustedContacts();
+              print("✅ Contacts fetched: $contactsList");
 
-    for (var contact in contactsList) {
-      final String phoneNumber = contact['contactnumber'];
-      final String message = "Alert: Your contact's health status is $status.";
-
-      await sendSMS(phoneNumber, message);
-    }
-  } catch (e) {
-    print("❌ Error sending alert: $e");
-  }
+              await notifyContacts(status, contactsList);
+            } catch (e) {
+              print("❌ Error fetching contacts or notifying: $e");
+            }
+          },
+          child: const Text("OK"),
+        )
+      ],
+    ),
+  );
 }
-  Future<void> sendSMS(String phoneNumber, String message) async {
-    try {
-      final Uri smsUri = Uri.parse('sms:$phoneNumber?body=$message');
-      if (await canLaunchUrl(smsUri)) {
-        await launchUrl(smsUri);
-      } else {
-        print("❌ No SMS app available. Opening settings...");
-        openDefaultSMSSettings();
-      }
-    } catch (e) {
-      print("❌ Error launching SMS: $e");
-      openDefaultSMSSettings();
-    }
-  }
-
-  Future<void> requestSMSPermission() async {
-    var status = await Permission.sms.status;
-    if (!status.isGranted) {
-      await Permission.sms.request();
-    }
-  }
-
-  Future<void> openDefaultSMSSettings() async {
-    final Uri settingsUri =
-        Uri.parse('android.settings.MANAGE_DEFAULT_APPS_SETTINGS');
-
-    if (await canLaunchUrl(settingsUri)) {
-      await launchUrl(settingsUri);
-    } else {
-      print("❌ Could not open SMS settings.");
-    }
-  }
 
   Color _statusColor(String status) {
     switch (status) {
@@ -445,32 +404,6 @@ class _TemperaturePageState extends State<TemperaturePage> {
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
-                      fontSize: screenWidth * 0.032,
-                    ),
-                  ),
-                ),
-
-                SizedBox(height: screenHeight * 0.024),
-
-                // Test Alert Button
-                ElevatedButton(
-                  onPressed: () async {
-                    await _notifyContacts("🔥 Manual Test - Hyperpyrexia");
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 14),
-                    minimumSize: Size(screenWidth * 0.9, 50), // 👈 Responsive
-                  ),
-                  child: Text(
-                    "⚠️ Send Test Alert",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
                       fontSize: screenWidth * 0.032,
                     ),
                   ),

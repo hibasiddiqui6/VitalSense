@@ -1,7 +1,7 @@
 import 'package:location/location.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-Future<void> notifyTrustedContacts(String alertStatus, List<Map<String, dynamic>> contacts) async {
+Future<void> notifyContacts(String alertStatus, List<Map<String, dynamic>> contacts) async {
   try {
     final Location location = Location();
 
@@ -15,32 +15,35 @@ Future<void> notifyTrustedContacts(String alertStatus, List<Map<String, dynamic>
       }
     }
 
-    // 2. Check permissions
+    // 2. Check location permissions
     PermissionStatus permissionGranted = await location.hasPermission();
     if (permissionGranted == PermissionStatus.denied) {
       permissionGranted = await location.requestPermission();
     }
 
-    // 3. Abort if not granted
+    // 3. Abort if location permission not granted
     if (permissionGranted != PermissionStatus.granted) {
       print("❌ Location permission denied.");
       return;
     }
 
-    // 4. Get location
+    // 4. Get current location
     LocationData position = await location.getLocation();
-
     String locationUrl = "https://maps.google.com/?q=${position.latitude},${position.longitude}";
+
+    // 5. Build the message
     String message = Uri.encodeComponent(
       "⚠️ Health Alert: $alertStatus detected.\n"
       "Patient’s location: $locationUrl"
     );
 
-    // 5. Format contact list
+    // 6. Combine contact numbers
     String contactNumbers = contacts.map((c) => c['contactnumber']).join(',');
 
+    // 7. Create SMS URI
     final Uri smsUri = Uri.parse("sms:$contactNumbers?body=$message");
 
+    // 8. Launch SMS app
     if (await canLaunchUrl(smsUri)) {
       await launchUrl(smsUri);
     } else {

@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,11 +6,11 @@ import 'package:firebase_database/firebase_database.dart';
 
 class ApiClient {
   static final String _baseUrl = "https://vitalsense-flask-backend.fly.dev";
-
+  
   /// Get Base URL
   static String get baseUrl => _baseUrl;
-
-  /// Fetch Sensor Data from database
+  
+   /// Fetch Sensor Data from database
   Future<Map<String, dynamic>> getSensorData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? patientId = prefs.getString("patient_id");
@@ -28,15 +29,13 @@ class ApiClient {
         if (!prefs.containsKey("stabilization_start_time")) {
           final temp = double.tryParse(data['temperature'].toString()) ?? -100;
           if (temp != -100) {
-            await prefs.setInt("stabilization_start_time",
-                DateTime.now().millisecondsSinceEpoch);
+            await prefs.setInt("stabilization_start_time", DateTime.now().millisecondsSinceEpoch);
           }
         }
         return data;
+
       } else {
-        return {
-          'error': 'Failed to fetch sensor data (HTTP ${response.statusCode})'
-        };
+        return {'error': 'Failed to fetch sensor data (HTTP ${response.statusCode})'};
       }
     } catch (e) {
       return {'error': 'Server unreachable. Check your connection.'};
@@ -46,182 +45,170 @@ class ApiClient {
   Stream<String> getFirebaseECGStream(String patientId) {
     final dbRef = FirebaseDatabase.instance.ref("ecg_data/$patientId");
 
-    return dbRef.limitToLast(1).onChildAdded.map((DatabaseEvent event) {
-      final value = event.snapshot.value as Map;
-      return value['ecg'].toString();
-    });
+    return dbRef
+        .limitToLast(1)
+        .onChildAdded
+        .map((DatabaseEvent event) {
+          final value = event.snapshot.value as Map;
+          return value['ecg'].toString();
+        });
   }
 
-  static Future<void> fetchAndSavePatientId(String email) async {
+  static Future<void> fetchAndSavePatientId(String email) async { 
     try {
-      final url = Uri.parse("${ApiClient.baseUrl}/get_patient_id?email=$email");
-      final response = await http
-          .get(url)
-          .timeout(const Duration(seconds: 10)); // ⏳ Increased timeout
+        final url = Uri.parse("${ApiClient.baseUrl}/get_patient_id?email=$email");
+        final response = await http.get(url).timeout(const Duration(seconds: 10)); // ⏳ Increased timeout
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        if (response.statusCode == 200) {
+            final data = json.decode(response.body);
 
-        if (data != null && data.containsKey("patient_id")) {
-          String patientId = data["patient_id"].toString();
-          String role = data["role"].toString();
+            if (data != null && data.containsKey("patient_id")) {
+                String patientId = data["patient_id"].toString();
+                String role = data["role"].toString();
 
-          if (patientId.isNotEmpty) {
-            SharedPreferences prefs = await SharedPreferences.getInstance();
-            await prefs.setString("patient_id", patientId);
-            await prefs.setString("role", role);
-            print("Patient ID saved: $patientId");
-            print("Role saved: $role");
-          } else {
-            print("⚠ No patient ID found in response.");
-          }
+                if (patientId.isNotEmpty) {
+                    SharedPreferences prefs = await SharedPreferences.getInstance();
+                    await prefs.setString("patient_id", patientId);
+                    await prefs.setString("role", role);
+                    print("Patient ID saved: $patientId");
+                    print("Role saved: $role");
+                } else {
+                    print("⚠ No patient ID found in response.");
+                }
+            } else {
+                print("⚠ Response does not contain patient_id.");
+            }
         } else {
-          print("⚠ Response does not contain patient_id.");
+            print("⚠ Failed to fetch patient ID (HTTP ${response.statusCode}).");
         }
-      } else {
-        print("⚠ Failed to fetch patient ID (HTTP ${response.statusCode}).");
-      }
     } catch (e) {
-      print("⚠ Error fetching patient ID: $e");
+        print("⚠ Error fetching patient ID: $e");
     }
   }
 
   Future<Map<String, dynamic>> registerPatient(
-      String fullName,
-      String gender,
-      int age,
-      String email,
-      String password,
-      String contact,
-      double weight) async {
-    final url = Uri.parse('${ApiClient.baseUrl}/register/patient');
-    final data = {
-      'fullname': fullName,
-      'gender': gender,
-      'age': age,
-      'email': email.toLowerCase(),
-      'password': password,
-      'contact': contact,
-      'weight': weight
-    };
+      String fullName, String gender, int age, String email, String password, String contact, double weight) async {
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(data),
-      );
+      final url = Uri.parse('${ApiClient.baseUrl}/register/patient');
+      final data = {
+          'fullname': fullName,
+          'gender': gender,
+          'age': age,
+          'email': email.toLowerCase(),
+          'password': password,
+          'contact': contact,
+          'weight': weight
+      };
 
-      if (response.statusCode == 201) {
-        print("Patient registered successfully! Fetching patient ID...");
+      try {
+          final response = await http.post(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: json.encode(data),
+          );
 
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString("email", email.toLowerCase());
-        // 🔹 Ensure DB commit before fetching patient ID
-        await Future.delayed(const Duration(seconds: 1));
-        await fetchAndSavePatientId(email.toLowerCase());
+          if (response.statusCode == 201) {
+              print("Patient registered successfully! Fetching patient ID...");
 
-        return json.decode(response.body);
-      } else if (response.statusCode == 400) {
-        return {'error': 'Invalid input data. Please check your details.'};
-      } else if (response.statusCode == 500) {
-        final responseBody = json.decode(response.body);
-        final errorMessage =
-            responseBody['error'] ?? 'Server error. Please try again later.';
+              SharedPreferences prefs = await SharedPreferences.getInstance();
+              await prefs.setString("email", email.toLowerCase());
+              // 🔹 Ensure DB commit before fetching patient ID
+              await Future.delayed(const Duration(seconds: 1));
+              await fetchAndSavePatientId(email.toLowerCase());
 
-        // Check for PostgreSQL duplicate error patterns
-        if (errorMessage.contains('duplicate key value') ||
-            errorMessage.contains('unique constraint')) {
-          return {'error': 'A patient with this email already exists.'};
-        }
+              return json.decode(response.body);
+          } else if (response.statusCode == 400) {
+              return {'error': 'Invalid input data. Please check your details.'};
+          } else if (response.statusCode == 500) {
+            final responseBody = json.decode(response.body);
+            final errorMessage = responseBody['error'] ?? 'Server error. Please try again later.';
 
-        return {'error': errorMessage}; // Generic fallback
-      } else {
-        return {'error': 'Unexpected error: ${response.statusCode}'};
+            // Check for PostgreSQL duplicate error patterns
+            if (errorMessage.contains('duplicate key value') || errorMessage.contains('unique constraint')) {
+                return {'error': 'A patient with this email already exists.'};
+            }
+
+            return {'error': errorMessage}; // Generic fallback
+
+          } else {
+              return {'error': 'Unexpected error: ${response.statusCode}'}; 
+          }
+      } catch (e) {
+          return {'error': 'An error occurred: $e'};
       }
-    } catch (e) {
-      return {'error': 'An error occurred: $e'};
-    }
   }
 
   /// Login a Patient
-  Future<Map<String, dynamic>> loginPatient(
-      String email, String password) async {
-    final url = Uri.parse('$baseUrl/login/patient');
-    final data = {'email': email.toLowerCase(), 'password': password};
+  Future<Map<String, dynamic>> loginPatient(String email, String password) async {
+      final url = Uri.parse('$baseUrl/login/patient');
+      final data = {'email': email.toLowerCase(), 'password': password};
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(data),
-      );
+      try {
+          final response = await http.post(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: json.encode(data),
+          );
 
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
+          if (response.statusCode == 200) {
+              final responseData = json.decode(response.body);
+              
+              SharedPreferences prefs = await SharedPreferences.getInstance();
+              await prefs.setString("email", email.toLowerCase());
 
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString("email", email.toLowerCase());
+              // Fetch and Save patient_id
+              await Future.delayed(const Duration(seconds: 1));
+              await fetchAndSavePatientId(email.toLowerCase());
 
-        // Fetch and Save patient_id
-        await Future.delayed(const Duration(seconds: 1));
-        await fetchAndSavePatientId(email.toLowerCase());
-
-        return responseData;
-      } else if (response.statusCode == 401) {
-        return {'error': 'Invalid email or password.'};
-      } else if (response.statusCode == 500) {
-        final errorResponse = json.decode(response.body);
-        return {
-          'error':
-              errorResponse['error'] ?? 'Server error. Please try again later.'
-        };
-      } else {
-        return {'error': 'Unexpected error: ${response.statusCode}'};
-      }
-    } catch (e) {
-      return {'error': 'An error occurred: $e'};
-    }
-  }
-
-  static Future<void> fetchAndSaveSpecialistId(String email) async {
-    try {
-      final url =
-          Uri.parse("${ApiClient.baseUrl}/get_specialist_id?email=$email");
-      final response = await http
-          .get(url)
-          .timeout(const Duration(seconds: 10)); // ⏳ Increased timeout
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
-        if (data != null && data.containsKey("specialist_id")) {
-          String specialistId = data["specialist_id"].toString();
-          String role = data["role"].toString();
-
-          if (specialistId.isNotEmpty) {
-            SharedPreferences prefs = await SharedPreferences.getInstance();
-            await prefs.setString("specialist_id", specialistId);
-            await prefs.setString("role", role);
-            print("Specialist ID saved: $specialistId");
-            print("Role saved: $role");
+              return responseData;
+          } else if (response.statusCode == 401) {
+              return {'error': 'Invalid email or password.'};
+          } else if (response.statusCode == 500) {
+              final errorResponse = json.decode(response.body);
+              return {'error': errorResponse['error'] ?? 'Server error. Please try again later.'};
           } else {
-            print("⚠ No specialist ID found in response.");
+              return {'error': 'Unexpected error: ${response.statusCode}'}; 
           }
-        } else {
-          print("⚠ Response does not contain specialist_id.");
-        }
-      } else {
-        print("⚠ Failed to fetch specialist ID (HTTP ${response.statusCode}).");
+      } catch (e) {
+          return {'error': 'An error occurred: $e'};
       }
-    } catch (e) {
-      print("⚠ Error fetching specialist ID: $e");
-    }
   }
 
+  static Future<void> fetchAndSaveSpecialistId(String email) async { 
+    try {
+        final url = Uri.parse("${ApiClient.baseUrl}/get_specialist_id?email=$email");
+        final response = await http.get(url).timeout(const Duration(seconds: 10)); // ⏳ Increased timeout
+
+        if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+
+            if (data != null && data.containsKey("specialist_id")) {
+                String specialistId = data["specialist_id"].toString();
+                String role = data["role"].toString();
+
+                if (specialistId.isNotEmpty) {
+                    SharedPreferences prefs = await SharedPreferences.getInstance();
+                    await prefs.setString("specialist_id", specialistId);
+                    await prefs.setString("role", role);
+                    print("Specialist ID saved: $specialistId");
+                    print("Role saved: $role");
+                } else {
+                    print("⚠ No specialist ID found in response.");
+                }
+            } else {
+                print("⚠ Response does not contain specialist_id.");
+            }
+        } else {
+            print("⚠ Failed to fetch specialist ID (HTTP ${response.statusCode}).");
+        }
+    } catch (e) {
+        print("⚠ Error fetching specialist ID: $e");
+    }
+  }
+  
   /// Register a Specialist
-  Future<Map<String, dynamic>> registerSpecialist(String fullName, String email,
-      String password, String profession, String speciality) async {
+  Future<Map<String, dynamic>> registerSpecialist(
+      String fullName, String email, String password, String profession, String speciality) async {
     final url = Uri.parse('$baseUrl/register/specialist');
 
     final data = {
@@ -252,17 +239,15 @@ class ApiClient {
       } else if (response.statusCode == 409) {
         return {'error': 'A health specialist with this email already exists.'};
       } else if (response.statusCode == 500) {
-        final responseBody = json.decode(response.body);
-        final errorMessage =
-            responseBody['error'] ?? 'Server error. Please try again later.';
+          final responseBody = json.decode(response.body);
+          final errorMessage = responseBody['error'] ?? 'Server error. Please try again later.';
 
-        // Check for PostgreSQL duplicate error patterns
-        if (errorMessage.contains('duplicate key value') ||
-            errorMessage.contains('unique constraint')) {
-          return {'error': 'A patient with this email already exists.'};
-        }
+          // Check for PostgreSQL duplicate error patterns
+          if (errorMessage.contains('duplicate key value') || errorMessage.contains('unique constraint')) {
+              return {'error': 'A patient with this email already exists.'};
+          }
 
-        return {'error': errorMessage}; // Generic fallback
+          return {'error': errorMessage}; // Generic fallback
       } else {
         return {'error': 'Unexpected error: ${response.statusCode}'};
       }
@@ -272,8 +257,7 @@ class ApiClient {
   }
 
   /// Login a Specialist
-  Future<Map<String, dynamic>> loginSpecialist(
-      String email, String password) async {
+  Future<Map<String, dynamic>> loginSpecialist(String email, String password) async {
     final url = Uri.parse('$baseUrl/login/specialist');
 
     final data = {'email': email.toLowerCase(), 'password': password};
@@ -298,10 +282,7 @@ class ApiClient {
         return {'error': 'Invalid email or password.'};
       } else if (response.statusCode == 500) {
         final errorResponse = json.decode(response.body);
-        return {
-          'error':
-              errorResponse['error'] ?? 'Server error. Please try again later.'
-        };
+        return {'error': errorResponse['error'] ?? 'Server error. Please try again later.'};
       } else {
         return {'error': 'Unexpected error: ${response.statusCode}'};
       }
@@ -327,8 +308,7 @@ class ApiClient {
   }
 
   /// Register SmartShirt for a Patient
-  Future<Map<String, dynamic>> registerSmartShirt(
-      String macAddress, String patientId) async {
+  Future<Map<String, dynamic>> registerSmartShirt(String macAddress, String patientId) async {
     final url = Uri.parse('${ApiClient.baseUrl}/register_mac');
 
     final data = {'mac_address': macAddress, 'patient_id': patientId};
@@ -387,10 +367,7 @@ class ApiClient {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        return {
-          'error':
-              'Failed to fetch patient profile (HTTP ${response.statusCode})'
-        };
+        return {'error': 'Failed to fetch patient profile (HTTP ${response.statusCode})'};
       }
     } catch (e) {
       print("❌ Error in getPatientProfile(): $e");
@@ -408,8 +385,7 @@ class ApiClient {
       return {'error': 'Specialist ID not found in storage'};
     }
 
-    final url = Uri.parse(
-        "$baseUrl/get_specialist_profile?specialist_id=$specialistId");
+    final url = Uri.parse("$baseUrl/get_specialist_profile?specialist_id=$specialistId");
 
     try {
       final response = await http.get(url).timeout(const Duration(seconds: 8));
@@ -420,20 +396,16 @@ class ApiClient {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        return {
-          'error':
-              'Failed to fetch specialist profile (HTTP ${response.statusCode})'
-        };
+        return {'error': 'Failed to fetch specialist profile (HTTP ${response.statusCode})'};
       }
     } catch (e) {
       print("❌ Error in getSpecialistProfile(): $e");
       return {'error': 'Server unreachable. Check your connection.'};
     }
   }
-
+  
   /// Update User Profile API
-  Future<Map<String, dynamic>> updatePatientProfile(
-      Map<String, String> updatedData) async {
+  Future<Map<String, dynamic>> updatePatientProfile(Map<String, String> updatedData) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? patientId = prefs.getString("patient_id");
@@ -463,9 +435,7 @@ class ApiClient {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        return {
-          "error": "Failed to update profile (HTTP ${response.statusCode})"
-        };
+        return {"error": "Failed to update profile (HTTP ${response.statusCode})"};
       }
     } catch (e) {
       print("❌ Error in updatePatientProfile(): $e");
@@ -473,44 +443,41 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> updateSpecialistProfile(
-      Map<String, String> updatedData) async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? specialistId = prefs.getString("specialist_id");
+  Future<Map<String, dynamic>> updateSpecialistProfile(Map<String, String> updatedData) async {
+  try {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? specialistId = prefs.getString("specialist_id");
 
-      if (specialistId == null) {
-        return {"error": "Specialist ID not found in storage"};
-      }
-
-      final url = Uri.parse("$baseUrl/update_specialist_profile");
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "specialist_id": specialistId,
-          "full_name": updatedData["fullname"],
-          "email": updatedData["email"],
-          "profession": updatedData["profession"],
-          "speciality": updatedData["speciality"],
-        }),
-      );
-
-      print("🟢 API Response Code: ${response.statusCode}");
-      print("🟢 API Response Body: ${response.body}");
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        return {
-          "error": "Failed to update profile (HTTP ${response.statusCode})"
-        };
-      }
-    } catch (e) {
-      print("❌ Error in updateSpecialistProfile(): $e");
-      return {"error": "Server unreachable. Check your connection."};
+    if (specialistId == null) {
+      return {"error": "Specialist ID not found in storage"};
     }
+
+    final url = Uri.parse("$baseUrl/update_specialist_profile");
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "specialist_id": specialistId,
+        "full_name": updatedData["fullname"],
+        "email": updatedData["email"],
+        "profession": updatedData["profession"],
+        "speciality": updatedData["speciality"],
+      }),
+    );
+
+    print("🟢 API Response Code: ${response.statusCode}");
+    print("🟢 API Response Body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      return {"error": "Failed to update profile (HTTP ${response.statusCode})"};
+    }
+  } catch (e) {
+    print("❌ Error in updateSpecialistProfile(): $e");
+    return {"error": "Server unreachable. Check your connection."};
   }
+}
 
   Future<List<Map<String, dynamic>>> getTrustedContacts() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -521,9 +488,8 @@ class ApiClient {
       return [];
     }
 
-    final url =
-        Uri.parse("$baseUrl/get_trusted_contacts?patient_id=$patientId");
-
+    final url = Uri.parse("$baseUrl/get_trusted_contacts?patient_id=$patientId");
+    
     try {
       final response = await http.get(url);
 
@@ -572,8 +538,7 @@ class ApiClient {
     return response.statusCode == 201;
   }
 
-  Future<bool> updateTrustedContact(
-      int contactId, String name, String number) async {
+  Future<bool> updateTrustedContact(int contactId, String name, String number) async {
     final url = Uri.parse("$baseUrl/update_trusted_contact");
     final response = await http.post(
       url,
@@ -600,8 +565,7 @@ class ApiClient {
   }
 
   /// Add a patient to specialist using Patient ID (shortened UUID)
-  static Future<Map<String, dynamic>> addPatientById(
-      String patientShortId) async {
+  static Future<Map<String, dynamic>> addPatientById(String patientShortId) async {
     try {
       // Get specialist_id from SharedPreferences
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -628,10 +592,7 @@ class ApiClient {
         return {'error': resBody['message'] ?? 'Patient not found.'};
       } else if (response.statusCode == 500) {
         final errorResponse = json.decode(response.body);
-        return {
-          'error':
-              errorResponse['error'] ?? 'Server error. Please try again later.'
-        };
+        return {'error': errorResponse['error'] ?? 'Server error. Please try again later.'};
       } else {
         return {'error': 'Unexpected error: ${response.statusCode}'};
       }
@@ -650,8 +611,7 @@ class ApiClient {
         throw Exception('Specialist ID not found. Please login again.');
       }
 
-      final url =
-          Uri.parse('${ApiClient.baseUrl}/specialist/patients/$specialistId');
+      final url = Uri.parse('${ApiClient.baseUrl}/specialist/patients/$specialistId');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -666,17 +626,15 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> getSpecificPatientInsights(
-      String patientId) async {
-    final response =
-        await http.get(Uri.parse('$baseUrl/patient_insights/$patientId'));
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      return {'error': 'Failed to fetch patient insights'};
-    }
+  Future<Map<String, dynamic>> getSpecificPatientInsights(String patientId) async {
+  final response = await http.get(Uri.parse('$baseUrl/patient_insights/$patientId'));
+  
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    return {'error': 'Failed to fetch patient insights'};
   }
+}
 
   Future<Map<String, dynamic>> classifyTemperature(double temperature) async {
     final url = Uri.parse('$baseUrl/classify_temp_status');
@@ -697,15 +655,12 @@ class ApiClient {
   Future<List<Map<String, dynamic>>> getTemperatureTrends(String range) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? patientId = prefs.getString("patient_id");
+    print(patientId);
 
-    if (patientId == null) {
-      print("No");
-      return [];
-    }
-    print("Yes");
-    final url = Uri.parse(
-        '$_baseUrl/temperature_trends?patient_id=$patientId&range=$range');
-    print(url);
+    if (patientId == null) return [];
+
+    final url = Uri.parse('$_baseUrl/temperature_trends?patient_id=$patientId&range=$range');
+
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -719,4 +674,21 @@ class ApiClient {
 
     return [];
   }
+
+Future<Map<String, dynamic>> classifyRespiration(double respiration) async {
+  final url = Uri.parse('$baseUrl/classify_respiration_status');
+
+  final response = await http.post(
+    url,
+    headers: {"Content-Type": "application/json"},
+    body: jsonEncode({"respiration": respiration}),
+  );
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    throw Exception("Failed to classify respiration: ${response.body}");
+  }
+}
+
 }

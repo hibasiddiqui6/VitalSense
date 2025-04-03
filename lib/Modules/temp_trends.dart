@@ -46,41 +46,40 @@ class _TempChartScreenState extends State<TempChartScreen> {
   }
 
   Future<void> fetchTrends() async {
-    setState(() => isLoading = true);
-    final data = await ApiClient().getTemperatureTrends(selectedTime);
-    setState(() {
-      trendData = data;
-      trendData.sort((a, b) => DateTime.parse(a['timestamp']).compareTo(DateTime.parse(b['timestamp'])));
-      isLoading = false;
-    });
+  setState(() => isLoading = true);
+  final data = await ApiClient().getTemperatureTrends(selectedTime);
+  print("Fetched ${data.length} temperature records for $selectedTime");
+  for (var d in data) {
+    print("→ ${d['timestamp']} | ${d['temperature']}");
   }
+  setState(() {
+    trendData = data;
+    trendData.sort((a, b) => DateTime.parse(a['timestamp']).compareTo(DateTime.parse(b['timestamp'])));
+    isLoading = false;
+  });
+  
+}
+
 
   List<Map<String, dynamic>> getFilteredData() {
-    final now = DateTime.now().toUtc();
-    Duration cutoff;
-
-    switch (selectedTime.toLowerCase()) {
-      case "week":
-        cutoff = const Duration(days: 7);
-        break;
-      case "month":
-        cutoff = const Duration(days: 30);
-        break;
-      default:
-        cutoff = const Duration(hours: 24);
-    }
-
-    return trendData.where((e) {
-      final timestamp = DateTime.parse(e['timestamp']);
-      final temp = double.tryParse(e['temperature'] ?? '') ?? 0.0;
-      return isValidTemperature(temp) && now.difference(timestamp) <= cutoff;
-    }).toList();
-  }
+  return trendData.where((e) {
+    final temp = double.tryParse(e['temperature']?.toString().trim() ?? '') ?? 0.0;
+    return isValidTemperature(temp);
+  }).toList();
+}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F2EE),
+      drawer: widget.showDrawer
+          ? SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              child: role == 'specialist'
+                  ? SpecialistDrawer(fullName: fullName, email: email)
+                  : PatientDrawer(fullName: fullName, email: email),
+            )
+          : null,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
