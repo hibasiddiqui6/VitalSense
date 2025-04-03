@@ -64,7 +64,8 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
         }
         setState(() => isSaving = true);
         bool success = await ApiClient().addTrustedContact(
-          nameController.text, numberController.text,
+          nameController.text,
+          numberController.text,
         );
         setState(() => isSaving = false);
         if (success) {
@@ -77,8 +78,10 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
 
   /// Show Edit Contact Dialog
   void _showEditDialog(Map<String, dynamic> contact) {
-    TextEditingController nameController = TextEditingController(text: contact['contactname']);
-    TextEditingController numberController = TextEditingController(text: contact['contactnumber']);
+    TextEditingController nameController =
+        TextEditingController(text: contact['contactname']);
+    TextEditingController numberController =
+        TextEditingController(text: contact['contactnumber']);
 
     _showContactDialog(
       title: "Edit Contact",
@@ -91,7 +94,9 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
         }
         setState(() => isSaving = true);
         bool success = await ApiClient().updateTrustedContact(
-          contact['contactid'], nameController.text, numberController.text,
+          contact['contactid'],
+          nameController.text,
+          numberController.text,
         );
         setState(() => isSaving = false);
         if (success) {
@@ -124,7 +129,9 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameController, decoration: InputDecoration(labelText: "Name")),
+            TextField(
+                controller: nameController,
+                decoration: InputDecoration(labelText: "Name")),
             SizedBox(height: 10),
             TextField(
               controller: numberController,
@@ -135,7 +142,8 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancel")),
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: Text("Cancel")),
           ElevatedButton(onPressed: onSave, child: Text("Save")),
         ],
       ),
@@ -145,15 +153,22 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
   /// Show Error Snackbar
   void _showErrorSnackbar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message, style: TextStyle(color: Colors.white)), backgroundColor: Colors.red),
+      SnackBar(
+          content: Text(message, style: TextStyle(color: Colors.white)),
+          backgroundColor: Colors.red),
     );
   }
 
   /// Build UI
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
-      drawer: PatientDrawer(fullName: fullName, email: email),
+      drawer: SizedBox(
+        width: screenWidth * 0.6,
+        child: PatientDrawer(fullName: fullName, email: email),
+      ),
       backgroundColor: Colors.white,
       body: Stack(
         children: [
@@ -163,10 +178,10 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
               children: [
                 // Menu Icon instead of back button
                 Padding(
-                  padding: const EdgeInsets.all(10.0),
+                  padding: EdgeInsets.all(screenWidth*0.02),
                   child: Builder(
                     builder: (context) => IconButton(
-                      icon: Icon(Icons.menu, color: Colors.black54, size: 28),
+                      icon: Icon(Icons.menu, color: Colors.black54, size: screenWidth*0.048),
                       onPressed: () => Scaffold.of(context).openDrawer(),
                     ),
                   ),
@@ -174,19 +189,22 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
                 Center(
                   child: Text(
                     'Trusted Contacts',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
+                    style: TextStyle(
+                        fontSize: screenWidth*0.045,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black),
                   ),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: screenHeight*0.01),
 
                 // Add Button
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth*0.04),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       IconButton(
-                        icon: Icon(Icons.add, color: Colors.black54, size: 28),
+                        icon: Icon(Icons.add, color: Colors.black54, size: screenWidth*0.048),
                         onPressed: _addContact,
                       ),
                     ],
@@ -202,18 +220,21 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.contacts_outlined, size: 50, color: Colors.grey[400]),
-                                  const Text(
+                                  Icon(Icons.contacts_outlined,
+                                      size: screenWidth*0.9, color: Colors.grey[400]),
+                                  Text(
                                     "No trusted contacts added.",
-                                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                                    style: TextStyle(
+                                        fontSize: screenWidth*0.032, color: Colors.grey),
                                   ),
                                 ],
                               ),
                             )
                           : ListView.builder(
-                              padding: const EdgeInsets.all(16.0),
+                              padding: EdgeInsets.all(screenWidth*0.032),
                               itemCount: contacts.length,
-                              itemBuilder: (context, index) => _buildContactRow(contacts[index]),
+                              itemBuilder: (context, index) =>
+                                  _buildContactRow(contacts[index]),
                             ),
                 ),
               ],
@@ -223,7 +244,8 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
             Container(
               color: Colors.black.withOpacity(0.5),
               child: const Center(
-                child: CircularProgressIndicator(color: Colors.green, strokeWidth: 5),
+                child: CircularProgressIndicator(
+                    color: Colors.green, strokeWidth: 5),
               ),
             ),
         ],
@@ -233,47 +255,50 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
 
   /// Build Contact Row
   Widget _buildContactRow(Map<String, dynamic> contact) {
-  return Card(
-    color: const Color.fromARGB(255, 224, 233, 217), // Light green background
-    elevation: 3, // Elevation for subtle shadow
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(15), // Rounded corners
-    ),
-    margin: const EdgeInsets.symmetric(vertical: 8),
-    child: ListTile(
-      title: Text(
-        contact['contactname'],
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 16,
-          color: Colors.black,
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
+    return Card(
+      color: const Color.fromARGB(255, 224, 233, 217), // Light green background
+      elevation: 3, // Elevation for subtle shadow
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(screenWidth*0.03), // Rounded corners
+      ),
+      margin: EdgeInsets.symmetric(vertical: screenHeight*0.01),
+      child: ListTile(
+        title: Text(
+          contact['contactname'],
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: screenWidth*0.032,
+            color: Colors.black,
+          ),
+        ),
+        subtitle: Text(
+          contact['contactnumber'],
+          style:  TextStyle(
+            color: Colors.black54,
+            fontSize: screenWidth*0.028,
+          ),
+        ),
+        trailing: PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert,
+              color: Colors.black87), // Black icon for consistency
+          onSelected: (value) {
+            if (value == 'Edit') _showEditDialog(contact);
+            if (value == 'Delete') _deleteContact(contact['contactid']);
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'Edit',
+              child: Text("Edit"),
+            ),
+            const PopupMenuItem(
+              value: 'Delete',
+              child: Text("Delete"),
+            ),
+          ],
         ),
       ),
-      subtitle: Text(
-        contact['contactnumber'],
-        style: const TextStyle(
-          color: Colors.black54,
-          fontSize: 14,
-        ),
-      ),
-      trailing: PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert, color: Colors.black87), // Black icon for consistency
-        onSelected: (value) {
-          if (value == 'Edit') _showEditDialog(contact);
-          if (value == 'Delete') _deleteContact(contact['contactid']);
-        },
-        itemBuilder: (context) => [
-          const PopupMenuItem(
-            value: 'Edit',
-            child: Text("Edit"),
-          ),
-          const PopupMenuItem(
-            value: 'Delete',
-            child: Text("Delete"),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+    );
+  }
 }

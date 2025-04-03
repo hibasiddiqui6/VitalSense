@@ -7,7 +7,8 @@ class SpecialistProfileScreen extends StatefulWidget {
   const SpecialistProfileScreen({super.key});
 
   @override
-  _SpecialistProfileScreenState createState() => _SpecialistProfileScreenState();
+  _SpecialistProfileScreenState createState() =>
+      _SpecialistProfileScreenState();
 }
 
 class _SpecialistProfileScreenState extends State<SpecialistProfileScreen> {
@@ -57,10 +58,13 @@ class _SpecialistProfileScreenState extends State<SpecialistProfileScreen> {
 
   /// Edit dialog
   void _showEditDialog() {
-    TextEditingController nameController = TextEditingController(text: fullName);
+    TextEditingController nameController =
+        TextEditingController(text: fullName);
     TextEditingController emailController = TextEditingController(text: email);
-    TextEditingController professionController = TextEditingController(text: profession);
-    TextEditingController specialityController = TextEditingController(text: speciality);
+    TextEditingController professionController =
+        TextEditingController(text: profession);
+    TextEditingController specialityController =
+        TextEditingController(text: speciality);
 
     showDialog(
       context: context,
@@ -77,7 +81,9 @@ class _SpecialistProfileScreenState extends State<SpecialistProfileScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel")),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
@@ -96,7 +102,8 @@ class _SpecialistProfileScreenState extends State<SpecialistProfileScreen> {
   }
 
   /// Save profile
-  Future<void> _saveProfile(String name, String email, String profession, String speciality) async {
+  Future<void> _saveProfile(
+      String name, String email, String profession, String speciality) async {
     setState(() => isSaving = true);
     try {
       final response = await ApiClient().updateSpecialistProfile({
@@ -137,13 +144,16 @@ class _SpecialistProfileScreenState extends State<SpecialistProfileScreen> {
 
   /// Text field builder
   Widget _buildTextField(String label, TextEditingController controller) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: EdgeInsets.symmetric(vertical: screenHeight * 0.016),
       child: TextField(
         controller: controller,
         decoration: InputDecoration(
           labelText: label,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(screenWidth * 0.024)),
           filled: true,
           fillColor: Colors.grey[100],
         ),
@@ -153,25 +163,29 @@ class _SpecialistProfileScreenState extends State<SpecialistProfileScreen> {
 
   /// Info row builder
   Widget _buildInfoRow(String label, String value, IconData icon) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: EdgeInsets.symmetric(
+          vertical: screenHeight * 0.024, horizontal: screenWidth * 0.032),
+      margin: EdgeInsets.symmetric(vertical: screenHeight * 0.012),
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 240, 244, 241),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(screenWidth * 0.024),
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.green[700], size: 24),
-          const SizedBox(width: 12),
+          Icon(icon, color: Colors.green[700], size: screenWidth * 0.048),
+          SizedBox(width: screenWidth * 0.024),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(value, style: const TextStyle(fontSize: 16)),
+                Text(label,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(height: screenHeight * 0.008),
+                Text(value, style: TextStyle(fontSize: screenWidth * 0.032)),
               ],
             ),
           ),
@@ -182,41 +196,49 @@ class _SpecialistProfileScreenState extends State<SpecialistProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
+      
       backgroundColor: const Color.fromARGB(255, 250, 250, 250),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(0, 175, 175, 175),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       drawer: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.8,
+        width: screenWidth * 0.6,
         child: SpecialistDrawer(fullName: fullName, email: email),
       ),
       body: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.all(20.0),
+            padding: EdgeInsets.all(screenWidth * 0.04),
             child: Column(
               children: [
                 CircleAvatar(
-                  radius: 60,
+                  radius: screenWidth * 0.12,
                   backgroundColor: Colors.grey[300],
-                  child: const Icon(Icons.person, size: 60, color: Colors.white),
+                  child: Icon(Icons.person,
+                      size: screenWidth * 0.1, color: Colors.white),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: screenHeight * 0.024),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(fullName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 8),
+                    Text(fullName,
+                        style: TextStyle(
+                            fontSize: screenWidth * 0.04,
+                            fontWeight: FontWeight.bold)),
+                    SizedBox(width: screenWidth * 0.016),
                     GestureDetector(
                       onTap: _showEditDialog,
-                      child: const Icon(Icons.edit, color: Colors.blueGrey, size: 20),
+                      child: Icon(Icons.edit,
+                          color: Colors.blueGrey, size: screenWidth * 0.04),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: screenHeight * 0.04),
                 _buildInfoRow('Email', email, Icons.email_outlined),
                 _buildInfoRow('Profession', profession, Icons.badge_outlined),
                 _buildInfoRow('Speciality', speciality, Icons.star_outline),
@@ -226,7 +248,9 @@ class _SpecialistProfileScreenState extends State<SpecialistProfileScreen> {
           if (isSaving)
             Container(
               color: Colors.black54.withOpacity(0.5),
-              child: const Center(child: CircularProgressIndicator(color: Colors.green, strokeWidth: 5)),
+              child: const Center(
+                  child: CircularProgressIndicator(
+                      color: Colors.green, strokeWidth: 5)),
             ),
         ],
       ),

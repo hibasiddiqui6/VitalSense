@@ -98,8 +98,9 @@ class _PatientLoginState extends State<PatientLogin> {
           });
           return;
         } else {
-          print("⚠ No SmartShirt found. Proceeding to SmartShirt connection screen...");
-          await prefs.setBool('smartshirt_registered', false); 
+          print(
+              "⚠ No SmartShirt found. Proceeding to SmartShirt connection screen...");
+          await prefs.setBool('smartshirt_registered', false);
 
           Future.delayed(const Duration(seconds: 2), () {
             Navigator.pushReplacement(
@@ -140,9 +141,15 @@ class _PatientLoginState extends State<PatientLogin> {
                   SizedBox(height: screenHeight * 0.07),
                   const LoginHeader(),
                   SizedBox(height: screenHeight * 0.02),
-                  LoginForm(
-                    emailController: _emailController,
-                    passwordController: _passwordController,
+                  Center(
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width *
+                          0.8, // Adjust width as needed
+                      child: LoginForm(
+                        emailController: _emailController,
+                        passwordController: _passwordController,
+                      ),
+                    ),
                   ),
                   SizedBox(height: screenHeight * 0.02),
                   if (_errorMessage != null) ...[
@@ -231,9 +238,9 @@ class LoginHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Padding(
-      padding: EdgeInsets.only(
-          left: screenWidth * 0.05), // Scales padding dynamically
+    return Container(
+      margin: EdgeInsets.only(
+          left: screenWidth * 0.17), // Scales margin dynamically
       child: Text(
         'Login as a Patient',
         style: TextStyle(
@@ -267,7 +274,8 @@ class LoginForm extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05), // Responsive padding
+            padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.05), // Responsive padding
             child: InputField(
               controller: emailController,
               labelText: 'Email',
@@ -361,7 +369,8 @@ class _InputFieldState extends State<InputField> {
             ),
             focusedBorder: OutlineInputBorder(
               borderSide: const BorderSide(
-                  color: Color.fromARGB(255, 44, 59, 48), width: 2), // Focused border color
+                  color: Color.fromARGB(255, 44, 59, 48),
+                  width: 2), // Focused border color
               borderRadius: BorderRadius.circular(15),
             ),
             enabledBorder: OutlineInputBorder(

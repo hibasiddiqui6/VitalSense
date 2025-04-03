@@ -77,12 +77,16 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
 
   /// Show Edit Dialog
   void _showEditDialog() {
-    TextEditingController nameController = TextEditingController(text: fullName);
-    TextEditingController genderController = TextEditingController(text: gender);
+    TextEditingController nameController =
+        TextEditingController(text: fullName);
+    TextEditingController genderController =
+        TextEditingController(text: gender);
     TextEditingController ageController = TextEditingController(text: age);
     TextEditingController emailController = TextEditingController(text: email);
-    TextEditingController contactController = TextEditingController(text: contact);
-    TextEditingController weightController = TextEditingController(text: weight);
+    TextEditingController contactController =
+        TextEditingController(text: contact);
+    TextEditingController weightController =
+        TextEditingController(text: weight);
 
     showDialog(
       context: context,
@@ -102,18 +106,18 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancel")),
+            TextButton(
+                onPressed: () => Navigator.pop(context), child: Text("Cancel")),
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context); // Close dialog
                 await _saveProfile(
-                  nameController.text,
-                  genderController.text,
-                  ageController.text,
-                  emailController.text,
-                  contactController.text,
-                  double.parse(weightController.text)
-                );
+                    nameController.text,
+                    genderController.text,
+                    ageController.text,
+                    emailController.text,
+                    contactController.text,
+                    double.parse(weightController.text));
               },
               child: Text("Save"),
             ),
@@ -124,16 +128,17 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
   }
 
   /// Save Updated Profile with loading indicator
-  Future<void> _saveProfile(String name, String gender, String age, String email, String contact, double weight) async {
+  Future<void> _saveProfile(String name, String gender, String age,
+      String email, String contact, double weight) async {
     setState(() => isSaving = true); // Show loading
     try {
       final response = await ApiClient().updatePatientProfile({
-        "full_name": name,   
-        "gender": gender,    
-        "age": age,          
-        "email": email,      
-        "contact": contact,  
-        "weight": weight.toString(), 
+        "full_name": name,
+        "gender": gender,
+        "age": age,
+        "email": email,
+        "contact": contact,
+        "weight": weight.toString(),
       });
 
       if (response.containsKey("error")) {
@@ -166,7 +171,8 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
     } catch (e) {
       print("❌ Error updating profile: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Server unreachable. Check your connection.")),
+        const SnackBar(
+            content: Text("Server unreachable. Check your connection.")),
       );
     } finally {
       setState(() => isSaving = false); // Hide loading
@@ -189,6 +195,8 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -197,36 +205,42 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       drawer: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.8,
+        width: screenWidth * 0.6,
         child: PatientDrawer(fullName: fullName, email: email),
       ),
       body: Stack(
         children: [
           Center(
             child: Padding(
-              padding: const EdgeInsets.all(20.0),
+              padding: EdgeInsets.all(screenWidth * 0.04),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   CircleAvatar(
-                    radius: 60,
+                    radius: screenWidth * 0.15,
                     backgroundColor: Colors.grey[300],
-                    backgroundImage: _getAvatarImage(gender), // Set custom image
-                    ),
-                  const SizedBox(height: 10),
+                    backgroundImage:
+                        _getAvatarImage(gender), // Set custom image
+                  ),
+                  SizedBox(height: screenHeight * 0.02),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(fullName, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 8),
+                      Text(fullName,
+                          style: TextStyle(
+                              fontSize: screenWidth * 0.04,
+                              fontWeight: FontWeight.bold)),
+                      SizedBox(width: screenWidth * 0.02),
                       GestureDetector(
                         onTap: _showEditDialog,
-                        child: Icon(Icons.edit, size: 20, color: Colors.blueGrey),
+                        child: Icon(Icons.edit,
+                            size: screenWidth * 0.04, color: Colors.blueGrey),
                       ),
                     ],
                   ),
-                  Text('ID: ${patientId.split('-').take(2).join('-')}', style: TextStyle(color: Colors.grey)),
-                  const SizedBox(height: 20),
+                  Text('ID: ${patientId.split('-').take(2).join('-')}',
+                      style: TextStyle(color: Colors.grey)),
+                  SizedBox(height: screenWidth * 0.04),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -234,14 +248,18 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(screenWidth * 0.034),
                       boxShadow: [
-                        BoxShadow(color: Colors.grey.withOpacity(0.5), spreadRadius: 2, blurRadius: 5, offset: Offset(0, 3)),
+                        BoxShadow(
+                            color: Colors.grey.withOpacity(0.5),
+                            spreadRadius: 2,
+                            blurRadius: 5,
+                            offset: Offset(0, 3)),
                       ],
                     ),
-                    padding: const EdgeInsets.all(16.0),
+                    padding: EdgeInsets.all(screenWidth * 0.035),
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                      //mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildInfoRow('Gender', gender),
@@ -260,7 +278,8 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
             Container(
               color: Colors.black.withOpacity(0.5),
               child: const Center(
-                child: CircularProgressIndicator(color: Colors.green, strokeWidth: 5),
+                child: CircularProgressIndicator(
+                    color: Colors.green, strokeWidth: 5),
               ),
             ),
         ],
@@ -268,27 +287,31 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
     );
   }
 
- ImageProvider _getAvatarImage(String gender) {
-  gender = gender.toLowerCase().trim(); // Normalize input
+  ImageProvider _getAvatarImage(String gender) {
+    gender = gender.toLowerCase().trim(); // Normalize input
 
-  if (gender == "male") {
-    return AssetImage("assets/male_avatar.png"); // Male Avatar
-  } else if (gender == "female") {
-    return AssetImage("assets/female_avatar.png"); // Female Avatar
-  } else {
-    return AssetImage("assets/default_avatar.png"); // Default Avatar
+    if (gender == "male") {
+      return AssetImage("assets/male_avatar.png"); // Male Avatar
+    } else if (gender == "female") {
+      return AssetImage("assets/female_avatar.png"); // Female Avatar
+    } else {
+      return AssetImage("assets/default_avatar.png"); // Default Avatar
+    }
   }
-}
 
   Widget _buildInfoRow(String label, String value) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: EdgeInsets.symmetric(vertical: screenHeight * 0.005),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$label:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 16)),
+          Text('$label:',
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: screenWidth * 0.035)),
+          //SizedBox(height: screenHeight*0.01),
+          Text(value, style: TextStyle(fontSize: screenWidth*0.035)),
           Divider(color: Colors.grey.shade400),
         ],
       ),
