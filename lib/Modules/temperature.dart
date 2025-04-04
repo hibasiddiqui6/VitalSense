@@ -36,6 +36,8 @@ class _TemperaturePageState extends State<TemperaturePage> {
   bool hasStabilized = false;
   bool hasShownAlert = false;
   DateTime? lastTempFetch;
+  DateTime? lastSuccessfulFetch;
+  double? lastValidTemp; 
 
   @override
   void initState() {
@@ -114,8 +116,7 @@ class _TemperaturePageState extends State<TemperaturePage> {
           startTime = now;
         });
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt(
-            "stabilization_start_time", now.millisecondsSinceEpoch);
+        await prefs.setInt("stabilization_start_time", now.millisecondsSinceEpoch);
       }
 
       lastTempFetch = now;
@@ -123,6 +124,21 @@ class _TemperaturePageState extends State<TemperaturePage> {
       final data = await ApiClient().getSensorData();
 
       if (data.containsKey("error") || data['temperature'] == null) {
+        // Use last successful value if it's within 30s
+        if (lastSuccessfulFetch != null &&
+            now.difference(lastSuccessfulFetch!).inSeconds <= 30 &&
+            lastValidTemp != null) {
+          final fallbackTemp = "${lastValidTemp!.toStringAsFixed(1)} °F";
+          if (!mounted) return;
+          setState(() {
+            temperature = fallbackTemp;
+            currentTempStatus = hasStabilized ? currentTempStatus : "Stabilizing...";
+            isFetching = false;
+            showError = false;
+          });
+          return;
+        }
+
         if (!mounted) return;
         setState(() {
           showError = true;
@@ -135,6 +151,21 @@ class _TemperaturePageState extends State<TemperaturePage> {
       final rawTemp = double.tryParse(data['temperature'].toString()) ?? -100;
 
       if (rawTemp == -100) {
+        // Same fallback mechanism for rawTemp invalid case
+        if (lastSuccessfulFetch != null &&
+            now.difference(lastSuccessfulFetch!).inSeconds <= 30 &&
+            lastValidTemp != null) {
+          final fallbackTemp = "${lastValidTemp!.toStringAsFixed(1)} °F";
+          if (!mounted) return;
+          setState(() {
+            temperature = fallbackTemp;
+            currentTempStatus = hasStabilized ? currentTempStatus : "Stabilizing...";
+            isFetching = false;
+            showError = false;
+          });
+          return;
+        }
+
         if (!mounted) return;
         setState(() {
           temperature = "Sensor Disconnected";
@@ -145,15 +176,17 @@ class _TemperaturePageState extends State<TemperaturePage> {
         return;
       }
 
+      // Save valid data for fallback
+      lastValidTemp = rawTemp;
+      lastSuccessfulFetch = now;
+
       final formattedTemp = "${rawTemp.toStringAsFixed(1)} °F";
 
       if (hasStabilized) {
-        // Just classify to show status in UI
         final classification = await ApiClient().classifyTemperature(rawTemp);
         final newStatus = classification['status'] ?? "Unknown";
         final newDisease = classification['disease'];
 
-        // Alert if needed (UI only)
         if (newDisease != null && !hasShownAlert) {
           _showAlertNotification(context, newDisease);
           hasShownAlert = true;
@@ -177,6 +210,22 @@ class _TemperaturePageState extends State<TemperaturePage> {
       }
     } catch (e) {
       print("❌ Failed to fetch temperature: $e");
+
+      final now = DateTime.now();
+      if (lastSuccessfulFetch != null &&
+          now.difference(lastSuccessfulFetch!).inSeconds <= 30 &&
+          lastValidTemp != null) {
+        final fallbackTemp = "${lastValidTemp!.toStringAsFixed(1)} °F";
+        if (!mounted) return;
+        setState(() {
+          temperature = fallbackTemp;
+          currentTempStatus = hasStabilized ? currentTempStatus : "Stabilizing...";
+          isFetching = false;
+          showError = false;
+        });
+        return;
+      }
+
       if (!mounted) return;
       setState(() {
         showError = true;

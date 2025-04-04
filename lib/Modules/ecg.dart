@@ -53,12 +53,12 @@ class ECGPainter extends CustomPainter {
 
     Path path = Path();
     if (points.isNotEmpty) {
-      double minValue = 1900; // ECG Min
-      double maxValue = 2200; // ECG Max
+      double minValue = 1500; // ECG Min
+      double maxValue = 2400; // ECG Max
       double canvasHeight = size.height * 0.8;
       double normalize(double value) {
         if (maxValue == minValue) {
-          return size.height / 2; // Prevent division by zero
+          return size.height / 4; // Prevent division by zero
         }
         return size.height -
             ((value - minValue) / (maxValue - minValue)) * canvasHeight;

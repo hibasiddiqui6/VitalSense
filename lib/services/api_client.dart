@@ -34,8 +34,10 @@ class ApiClient {
         }
         return data;
 
-      } else {
-        return {'error': 'Failed to fetch sensor data (HTTP ${response.statusCode})'};
+      } else if (response.statusCode == 410) {
+          return {'error': 'Stale data'};
+        } else {
+          return {'error': 'Failed to fetch sensor data (HTTP ${response.statusCode})'};
       }
     } catch (e) {
       return {'error': 'Server unreachable. Check your connection.'};
@@ -675,20 +677,43 @@ class ApiClient {
     return [];
   }
 
-Future<Map<String, dynamic>> classifyRespiration(double respiration) async {
-  final url = Uri.parse('$baseUrl/classify_respiration_status');
+  Future<Map<String, dynamic>> classifyRespiration(double respiration) async {
+    final url = Uri.parse('$baseUrl/classify_respiration_status');
 
-  final response = await http.post(
-    url,
-    headers: {"Content-Type": "application/json"},
-    body: jsonEncode({"respiration": respiration}),
-  );
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"respiration": respiration}),
+    );
 
-  if (response.statusCode == 200) {
-    return jsonDecode(response.body);
-  } else {
-    throw Exception("Failed to classify respiration: ${response.body}");
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception("Failed to classify respiration: ${response.body}");
+    }
   }
-}
+
+  Future<List<Map<String, dynamic>>> getRespirationTrends(String range) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
+    print(patientId);
+
+    if (patientId == null) return [];
+
+    final url = Uri.parse('$_baseUrl/respiration_trends?patient_id=$patientId&range=$range');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(json.decode(response.body));
+      } else {
+        print("Error fetching respiration trends: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("❌ Exception: $e");
+    }
+
+    return [];
+  }
 
 }

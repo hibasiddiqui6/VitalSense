@@ -62,11 +62,23 @@ class _TempChartScreenState extends State<TempChartScreen> {
 
 
   List<Map<String, dynamic>> getFilteredData() {
-  return trendData.where((e) {
-    final temp = double.tryParse(e['temperature']?.toString().trim() ?? '') ?? 0.0;
-    return isValidTemperature(temp);
-  }).toList();
-}
+    final cutoff = () {
+      final now = DateTime.now();
+      if (selectedTime.toLowerCase() == "week") {
+        return now.subtract(Duration(days: 7));
+      } else if (selectedTime.toLowerCase() == "month") {
+        return now.subtract(Duration(days: 30));
+      } else {
+        return now.subtract(Duration(hours: 24));
+      }
+    }();
+
+    return trendData.where((e) {
+      final temp = double.tryParse(e['temperature']?.toString().trim() ?? '') ?? 0.0;
+      final time = DateTime.tryParse(e['timestamp'] ?? '');
+      return isValidTemperature(temp) && time != null && time.isAfter(cutoff);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -88,6 +100,7 @@ class _TempChartScreenState extends State<TempChartScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const SizedBox(height: 45),
                     IconButton(
                       icon: const Icon(Icons.arrow_back, color: Colors.black),
                       onPressed: () => Navigator.pop(context),
@@ -404,7 +417,7 @@ String _formatTimeLabel(String timestamp) {
     case "month":
       return DateFormat.MMMd().format(dt); // Mar 31
     default:
-      return DateFormat('hh:mm a').format(dt); // 04:46 AM
+      return DateFormat('MMM d, hh:mm a').format(dt); // Apr 3, 01:55 AM
   }
 }
 

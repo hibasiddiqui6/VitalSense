@@ -6,10 +6,10 @@ def classify_temp(tempF):
         return {"status": "Low", "disease": "Hypothermia"}
     if tempF < 96.8:
         return {"status": "Below Normal", "disease": None}
-    if tempF <= 98.6:
+    if tempF <= 99:
         return {"status": "Normal", "disease": None}
     if tempF < 100.4:
-        return {"status": "Elevated (Monitor)", "disease": None}
+        return {"status": "Elevated", "disease": None}
     if tempF < 104.0:
         return {"status": "High", "disease": "Fever"}
     if tempF < 107.0:
