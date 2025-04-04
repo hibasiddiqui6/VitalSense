@@ -1,10 +1,12 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../services/api_client.dart';
 import 'ecg.dart';
 import 'temperature.dart';
 import 'respiration.dart';
-import '../widgets/patient_drawer.dart'; 
+import '../widgets/patient_drawer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -44,10 +46,22 @@ class _PatientDashboardState extends State<PatientDashboard> {
   bool finalMessageShown = false;
   Timer? disconnectionTimer;
   Timer? dataFetchTimer;
+  List<Offset> points = [];
+  DateTime? lastSuccessfulFetch;
+  int secondsRemaining = 30;
+  bool hasStabilized = false;
+  DateTime? stabilizationStartTime;
+  bool isValidSensorConnected = false;
+
+  double x = 0;
+  Timer? timer;
+  int time = 0;
 
   @override
   void initState() {
     super.initState();
+
+    startECGStreaming();
 
     // **Start continuous data fetching**
     dataFetchTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -55,47 +69,130 @@ class _PatientDashboardState extends State<PatientDashboard> {
     });
 
     // **Start the disconnection timeout**
-    disconnectionTimer = Timer(const Duration(seconds: 10), _handleDataFetchFailure);
+    disconnectionTimer =
+        Timer(const Duration(seconds: 20), _handleDataFetchFailure);
 
     // **Fetch user details**
     fetchUserProfile();
     _loadUserDetails();
   }
 
-  /// **Fetch sensor data from Flask server**
-  Future<void> fetchSensorData() async {
-    try {
-      final data = await ApiClient().getSensorData();
-
-      if (data.containsKey("error")) {
-        print("⚠ No sensor data available.");
-        setState(() {
-          showNoReadings = true;
-          showReconnecting = false;
-          finalMessageShown = false;
-        });
-        return;
-      }
+  void startECGStreaming() {
+    timer = Timer.periodic(Duration(milliseconds: 20), (Timer t) async {
+      double newY = fetchECGData(); // Simulated ECG data
 
       if (mounted) {
         setState(() {
-          respiration = "${data['respiration_rate']} BPM";
-          temperature = "${data['temperature']} °F";
-          isFetching = false;
-          showNoReadings = false;
+          // Add new point based on the current x position and new y value
+          points.add(Offset(x.toDouble(), newY));
+          x += 1; // Move x-axis to simulate real-time scrolling
+
+          // Once x reaches the end, wait for a brief delay and reset x to 0
+          if (x >= 380) {
+            Future.delayed(Duration(milliseconds: 5), () {
+              setState(() {
+                
+                x = 0; // Start from the origin again after delay
+                points.clear();// Or clear a few points, don't clear all!
+              });
+            });
+          }
+
+          // Limit the number of points for the graph (for smooth scrolling)
+          if (points.length > 380) {
+            points.removeAt(
+                0); // Remove the oldest point to keep the graph manageable
+          }
+        });
+      }
+    });
+  }
+
+  double fetchECGData() {
+    time++;
+    return 100 + 30 * sin(time / 10); // Simulated ECG signal
+  }
+
+  /// **Fetch sensor data from Flask server**
+  Future<void> fetchSensorData() async {
+  try {
+    final data = await ApiClient().getSensorData();
+    final now = DateTime.now();
+    final prefs = await SharedPreferences.getInstance();
+
+    if (data.containsKey("error")) {
+      print("❌ Sensor error: ${data['error']}");
+      isValidSensorConnected = false;
+
+      final millis = prefs.getInt("stabilization_start_time");
+      if (millis != null) {
+        final lastStable = DateTime.fromMillisecondsSinceEpoch(millis);
+        final gap = now.difference(lastStable).inSeconds;
+
+        // Only reset stabilization if sensor stayed offline more than 30s
+        if (gap > 30) {
+          await prefs.remove("stabilization_start_time");
+          hasStabilized = false;
+          secondsRemaining = 30;
+        } else {
+          final diff = now.difference(lastStable).inSeconds;
+          hasStabilized = diff >= 30;
+          secondsRemaining = hasStabilized ? 0 : 30 - diff;
+        }
+      } else {
+        hasStabilized = false;
+        secondsRemaining = 30;
+      }
+
+      if (data['error'] == "Stale data" || lastSuccessfulFetch == null || now.difference(lastSuccessfulFetch!).inSeconds > 10) {
+        setState(() {
+          showNoReadings = true;
           showReconnecting = false;
-          finalMessageShown = false;
+        });
+      } else {
+        setState(() {
+          showNoReadings = false;
+          showReconnecting = true;
         });
       }
 
-      // Reset the disconnection timer when new data is received
-      disconnectionTimer?.cancel();
-      disconnectionTimer = Timer(const Duration(seconds: 10), _handleDataFetchFailure);
-    } catch (e) {
-      print("Failed to fetch sensor data: $e");
-      _handleDataFetchFailure();
+      return;
     }
+
+    // ✅ Valid reading — reset watchdog
+    lastSuccessfulFetch = now;
+    isValidSensorConnected = true;
+
+    if (!prefs.containsKey("stabilization_start_time")) {
+      await prefs.setInt("stabilization_start_time", now.millisecondsSinceEpoch);
+      hasStabilized = false;
+      secondsRemaining = 30;
+    } else {
+      final millis = prefs.getInt("stabilization_start_time")!;
+      final savedStart = DateTime.fromMillisecondsSinceEpoch(millis);
+      final diff = now.difference(savedStart).inSeconds;
+      hasStabilized = diff >= 30;
+      secondsRemaining = hasStabilized ? 0 : 30 - diff;
+    }
+
+    setState(() {
+      respiration = "${data['respiration_rate']} BPM";
+      temperature = "${data['temperature']} °F";
+      isFetching = false;
+      showNoReadings = false;
+      showReconnecting = false;
+      finalMessageShown = false;
+    });
+
+    disconnectionTimer?.cancel();
+    disconnectionTimer = Timer(const Duration(seconds: 10), _handleDataFetchFailure);
+
+  } catch (e) {
+    print("❌ Exception fetching data: $e");
+    isValidSensorConnected = false;
+    _handleDataFetchFailure();
   }
+}
 
   /// **Fetch user profile data**
   Future<void> fetchUserProfile() async {
@@ -125,7 +222,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
       print("Failed to fetch user profile: $e");
     }
   }
-  
+
   /// **Load Details from SharedPreferences**
   Future<void> _loadUserDetails() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -148,31 +245,18 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
   /// **Handle data fetch failure with smooth transition**
   void _handleDataFetchFailure() {
-    if (mounted && !finalMessageShown) {
+    if (!mounted) return;
+    final now = DateTime.now();
+
+    if (lastSuccessfulFetch != null && now.difference(lastSuccessfulFetch!).inSeconds < 10) {
       setState(() {
-        isFetching = false;
-        showNoReadings = true;
-        showReconnecting = false; // Ensure 'Reconnecting' does not replace the message
-        finalMessageShown = true;
+        showNoReadings = false;
+        showReconnecting = true;
       });
-
-      // **After 3 seconds, show "Reconnecting..."**
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted && !finalMessageShown) {
-          setState(() {
-            showReconnecting = true;
-          });
-
-          // **After another 5 seconds, show the final message**
-          Future.delayed(const Duration(seconds: 5), () {
-            if (mounted) {
-              setState(() {
-                showReconnecting = false;
-                finalMessageShown = true; // Prevent further updates
-              });
-            }
-          });
-        }
+    } else {
+      setState(() {
+        showNoReadings = true;
+        showReconnecting = false;
       });
     }
   }
@@ -181,11 +265,14 @@ class _PatientDashboardState extends State<PatientDashboard> {
   void dispose() {
     dataFetchTimer?.cancel();
     disconnectionTimer?.cancel();
+    timer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 239, 238, 229),
       appBar: AppBar(
@@ -194,67 +281,85 @@ class _PatientDashboardState extends State<PatientDashboard> {
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       drawer: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.8,
+        width: screenWidth * 0.6,
         child: PatientDrawer(
           fullName: fullName, // fetched and stored in State
-          email: email,       // fetched and stored in State
+          email: email, // fetched and stored in State
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Dynamic User Greeting
             Text(
               'Hi! $fullName',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  fontSize: screenWidth * 0.05, // 5% of screen width
+                  fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: screenHeight * 0.01), // 1% of screen height
 
             // Show persistent message if no valid readings are available
-            if (showNoReadings || finalMessageShown) 
-              Column(
-                children: [
-                  const Text(
-                    "No readings to display!",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  if (showReconnecting)
-                    const Column(
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 10),
-                        Text("Reconnecting...", style: TextStyle(fontSize: 16)),
-                      ],
-                    )
-                  else
-                    const Text(
-                      "Check if your ESP32 is active.",
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red),
-                    ),
-                ],
-              ),
-            const SizedBox(height: 15),
+if (isValidSensorConnected && !hasStabilized && secondsRemaining > 0)
+  Column(children: [
+    CircularProgressIndicator(),
+    SizedBox(height: screenHeight * 0.01),
+    Text("Sensor Stabilizing... ($secondsRemaining s left)",
+        style: TextStyle(
+            fontSize: screenWidth * 0.035, fontWeight: FontWeight.bold)),
+              ])
+            else if (isValidSensorConnected && hasStabilized)
+              SizedBox.shrink() // readings will be shown below
+            else if (showReconnecting)
+              Column(children: [
+                CircularProgressIndicator(),
+                SizedBox(height: screenHeight * 0.01),
+                Text("Waiting for next reading...",
+                    style: TextStyle(fontSize: 16)),
+              ])
+            else if (showNoReadings)
+              Column(children: [
+                Text("No readings to display!",
+                    style: TextStyle(
+                        fontSize: screenWidth * 0.035, fontWeight: FontWeight.bold)),
+                SizedBox(height: screenHeight * 0.01),
+                Text("Check if your ESP32 is active.",
+                    style: TextStyle(
+                        fontSize: screenWidth * 0.03,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red)),
+              ]),
+            SizedBox(height: screenHeight * 0.01), //15
 
             // Gender, Age, Weight Cards
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildInfoCard(gender, 'Gender', const Color.fromARGB(255, 218, 151, 167)),
-                const SizedBox(width: 7),
-                _buildInfoCard(age, 'Age', const Color.fromARGB(255, 218, 189, 151)),
-                const SizedBox(width: 7),
-                _buildInfoCard(weight, 'Weight', const Color(0xFF9CCC65)), // Keep weight static for now
-              ],
+            Container(
+              padding: EdgeInsets.fromLTRB(10, 0, 0, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildInfoCard(gender, 'Gender',
+                      const Color.fromARGB(255, 218, 151, 167)),
+                  SizedBox(
+                      width: MediaQuery.of(context).size.width * 0.02), //7size
+                  _buildInfoCard(
+                      age, 'Age', const Color.fromARGB(255, 218, 189, 151)),
+                  SizedBox(width: MediaQuery.of(context).size.width * 0.02), //7
+                  _buildInfoCard(weight, 'Weight', const Color(0xFF9CCC65)),
+                  SizedBox(
+                      width: MediaQuery.of(context).size.width *
+                          0.02), //7 // Keep weight static for now
+                ],
+              ),
             ),
-
-            const SizedBox(height: 15),
+            SizedBox(height: screenHeight * 0.03), //height: 15
 
             // ECG Section
-            _buildECGCard(context),
-            const SizedBox(height: 15),
+            Padding(
+              padding: EdgeInsets.all(screenWidth * 0.04), // Responsive padding
+              child: _buildECGCard(context),
+            ),
+            SizedBox(height: screenHeight * 0.01), //height: 15
 
             // Respiration and Temperature Cards with Live Data
             Row(
@@ -263,35 +368,47 @@ class _PatientDashboardState extends State<PatientDashboard> {
                 _buildInfoCard2(respiration, "Respiration", Colors.orange, () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const RespirationPage()),
+                    MaterialPageRoute(
+                        builder: (context) => const RespirationPage()),
                   );
                 }),
-                _buildInfoCard2(temperature, "Temperature", Colors.redAccent, () {
+                _buildInfoCard2(temperature, "Temperature", Colors.redAccent,
+                    () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const TemperaturePage()),
+                    MaterialPageRoute(
+                        builder: (context) => const TemperaturePage()),
                   );
                 }),
               ],
             ),
 
-            const SizedBox(height: 15),
-
             // Health Performance (Static for now)
-            _buildHealthPerformanceCard(),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                screenWidth * 0.04,
+                screenHeight * 0.05,
+                screenWidth * 0.04,
+                screenHeight * 0.05,
+              ), // Responsive padding
+              child: _buildHealthPerformanceCard(),
+            )
           ],
         ),
       ),
     );
   }
+
   // Function to build small information cards
   Widget _buildInfoCard(String value, String label, Color color) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Container(
-      width: 120,
-      height: 120,
+      width: screenWidth * 0.3, //120
+      height: screenHeight * 0.15, //120
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12.0),
+        borderRadius: BorderRadius.circular(screenWidth * 0.03),
         boxShadow: [
           BoxShadow(
             color: Colors.black12,
@@ -306,16 +423,16 @@ class _PatientDashboardState extends State<PatientDashboard> {
           // Circular background with blur effect
           Positioned(
             child: Container(
-              width: 50,
-              height: 50,
+              width: screenWidth * 0.05,
+              height: screenHeight * 0.05,
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1), // Lightened version of the color
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
                     color: color.withOpacity(0.5),
-                    blurRadius: 28.0,
-                    spreadRadius: 23.0,
+                    blurRadius: screenWidth * 0.07,
+                    spreadRadius: screenWidth * 0.06,
                   ),
                 ],
               ),
@@ -327,12 +444,14 @@ class _PatientDashboardState extends State<PatientDashboard> {
             children: [
               Text(
                 value,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    fontSize: screenWidth * 0.035, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 4),
               Text(
                 label,
-                style: TextStyle(fontSize: 14, color: Colors.black54),
+                style: TextStyle(
+                    fontSize: screenWidth * 0.025, color: Colors.black54),
               ),
             ],
           ),
@@ -342,79 +461,92 @@ class _PatientDashboardState extends State<PatientDashboard> {
   }
 
   Widget _buildInfoCard2(
-    String value, String label, Color color, VoidCallback onPressed) {
-  return Padding(
-    padding: const EdgeInsets.all(8.0), // Adds padding around each card
-    child: Container(
-      width: 172,
-      height: 180,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            color.withOpacity(0.5),
-            color.withOpacity(0.0)
-          ], // Gradient effect
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8.0,
-            offset: Offset(3, 3),
+      String value, String label, Color color, VoidCallback onPressed) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
+    return Padding(
+      padding:
+          EdgeInsets.all(screenWidth * 0.01), // Adds padding around each card
+      child: Container(
+        width: screenWidth * 0.45,
+        height: screenHeight * 0.25,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              color.withOpacity(0.5),
+              color.withOpacity(0.0)
+            ], // Gradient effect
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87),
-          ),
-          SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-                fontSize: 28, fontWeight: FontWeight.w300, color: Colors.black),
-          ),
-          SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: onPressed, // Calls the provided callback function
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  const Color.fromARGB(255, 176, 85, 85), // Matches your UI
-              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(50),
-              ),
+          borderRadius: BorderRadius.circular(screenWidth * 0.03), //12.0
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: screenWidth * 0.02,
+              offset: Offset(3, 3),
             ),
-            child: Text("Details", style: TextStyle(color: Colors.white)),
-          ),
-        ],
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                  fontSize: screenWidth * 0.05,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87),
+            ),
+            SizedBox(height: screenHeight * 0.005),
+            Text(
+              value,
+              style: TextStyle(
+                  fontSize: screenWidth * 0.055,
+                  fontWeight: FontWeight.w300,
+                  color: Colors.black),
+            ),
+            SizedBox(height: screenHeight * 0.01),
+            ElevatedButton(
+              onPressed: onPressed, // Calls the provided callback function
+              style: ElevatedButton.styleFrom(
+                backgroundColor:
+                    const Color.fromARGB(255, 176, 85, 85), // Matches your UI
+                padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(screenWidth * 0.5),
+                ),
+                minimumSize: Size(screenWidth * 0.1,
+                    screenHeight * 0.045), // Set width and height
+              ),
+              child: Text("Details",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: screenWidth * 0.035, // Responsive font size
+                  )),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildECGCard(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Container(
-      height: 160, // Increased height
-      width: double.infinity,
+      width: screenWidth,
+      height: screenHeight * 0.345, // Increased height
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(screenWidth * 0.04),
         boxShadow: [
           BoxShadow(
             color: Colors.black12,
-            blurRadius: 8.0,
+            blurRadius: screenWidth * 0.002,
             offset: Offset(4, 4),
           ),
         ],
-        border: Border.all(width: 0, color: Colors.transparent),
+        border: Border.all(color: Colors.transparent),
         gradient: LinearGradient(
           colors: [Color(0xFF99B88D), Color.fromARGB(255, 193, 219, 188)],
           begin: Alignment.topLeft,
@@ -422,34 +554,37 @@ class _PatientDashboardState extends State<PatientDashboard> {
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.all(6.0),
+        padding: EdgeInsets.all(screenWidth * 0.015),
         child: Container(
+          
           decoration: BoxDecoration(
+            
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(screenWidth * 0.04),
           ),
           child: Stack(
             children: [
               Padding(
-                padding: EdgeInsets.all(10.0),
+                padding: EdgeInsets.all(screenWidth * 0.01),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'ECG',
                       style: TextStyle(
-                          fontSize: 18,
+                          fontSize: screenWidth * 0.045,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87),
                     ),
-                    SizedBox(height: 5),
+                    SizedBox(height: screenHeight*0.02),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(screenWidth * 0.01),
                       child: SizedBox(
-                        height: 80, // Adjusted height
-                        width: double.infinity,
+                        height: screenHeight * 0.25, // Adjusted height
+                        width: screenWidth,
                         child: CustomPaint(
-                          painter: ECGLinePainter(),
+                          painter: ECGLinePainter(points),
+                          size: Size(double.infinity, screenHeight*0.1),
                         ),
                       ),
                     ),
@@ -457,8 +592,8 @@ class _PatientDashboardState extends State<PatientDashboard> {
                 ),
               ),
               Positioned(
-                top: 10,
-                right: 10,
+                top: screenHeight * 0.0075,
+                right: screenWidth * 0.02,
                 child: GestureDetector(
                   onTap: () {
                     Navigator.push(
@@ -467,15 +602,17 @@ class _PatientDashboardState extends State<PatientDashboard> {
                     );
                   },
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.014,
+                        vertical: screenHeight * 0.004),
                     decoration: BoxDecoration(
                       color: Colors.green.shade100,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(screenWidth * 0.02),
                     ),
                     child: Text(
                       'Details',
                       style: TextStyle(
-                          fontSize: 14,
+                          fontSize: screenWidth * 0.035,
                           fontWeight: FontWeight.w500,
                           color: Colors.black54),
                     ),
@@ -491,16 +628,19 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
   // Health Performance Card Widget
   Widget _buildHealthPerformanceCard() {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(16.0),
+      width: screenWidth * 0.9,
+      height: screenHeight * 0.2,
+      padding: EdgeInsets.all(screenWidth * 0.04),
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 154, 142, 142),
-        borderRadius: BorderRadius.circular(12.0),
+        borderRadius: BorderRadius.circular(screenWidth * 0.02),
         boxShadow: [
           BoxShadow(
             color: Colors.black12,
-            blurRadius: 8.0,
+            blurRadius: screenWidth * 0.008,
             offset: Offset(3, 3),
           ),
         ],
@@ -509,23 +649,26 @@ class _PatientDashboardState extends State<PatientDashboard> {
         children: [
           Text(
             'Current Health Performance',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                fontSize: screenWidth * 0.045, fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 10),
+          SizedBox(height: screenHeight * 0.01),
           Text(
             '70%',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                fontSize: screenWidth * 0.06, fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 5),
+          SizedBox(height: screenHeight * 0.01),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.05, vertical: screenHeight * 0.015),
             decoration: BoxDecoration(
               color: Colors.greenAccent,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(screenWidth * 0.025),
             ),
             child: Text(
               'Moderate',
-              style: TextStyle(fontSize: 14),
+              style: TextStyle(fontSize: screenWidth * 0.035),
             ),
           ),
         ],
@@ -536,10 +679,14 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
 // **Fixed ECGLinePainter**
 class ECGLinePainter extends CustomPainter {
+  final List<Offset> points;
+
+  ECGLinePainter(this.points);
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.red
+      ..color = const Color.fromARGB(255, 91, 139, 36)
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
 
@@ -550,7 +697,7 @@ class ECGLinePainter extends CustomPainter {
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
 
     // **Grid**
-    double gridSize = 20;
+    double gridSize = 15;
     for (double i = 0; i < size.width; i += gridSize) {
       canvas.drawLine(Offset(i, 0), Offset(i, size.height), gridPaint);
     }
@@ -558,22 +705,26 @@ class ECGLinePainter extends CustomPainter {
       canvas.drawLine(Offset(0, i), Offset(size.width, i), gridPaint);
     }
 
-    // **ECG waveform with adjusted height**
-    final path = Path();
-    path.moveTo(0, size.height * 0.7); // Start from 70% height
+    // **Draw ECG waveform from data points**
+    if (points.isNotEmpty) {
+      Path path = Path();
+      path.moveTo(points[0].dx, points[0].dy); // Start path at first point
 
-    double x = 0;
-    while (x < size.width) {
-      path.relativeLineTo(4, -15); // Adjusted peak height
-      path.relativeLineTo(4, 30);
-      path.relativeLineTo(4, -15);
-      path.relativeLineTo(4, 0);
-      x += 16;
+      // Draw smooth lines between points, connecting the dots smoothly
+      for (int i = 1; i < points.length; i++) {
+        path.quadraticBezierTo(
+          points[i - 1].dx,
+          points[i - 1].dy,
+          points[i].dx,
+          points[i].dy,
+        );
+      }
+      canvas.drawPath(path, paint);
     }
-
-    canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true; // Always repaint to refresh the canvas
+  }
 }

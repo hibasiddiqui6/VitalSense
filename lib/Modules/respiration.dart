@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_client.dart';
+import '../services/alert.dart'; 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 
 class RespirationPage extends StatefulWidget {
   final String? gender;
@@ -10,9 +12,9 @@ class RespirationPage extends StatefulWidget {
 
   const RespirationPage({
     super.key,
-    this.gender, // optional param
-    this.age,    // optional param
-    this.weight, // optional param
+    this.gender,
+    this.age,
+    this.weight,
   });
 
   @override
@@ -21,73 +23,215 @@ class RespirationPage extends StatefulWidget {
 
 class _RespirationPageState extends State<RespirationPage> {
   String respirationRate = "Loading...";
+  String respirationStatus = "Loading...";
   bool isFetching = true;
   bool showError = false;
   String gender = "-";
   String age = "-";
   String weight = "-";
+  Timer? dataFetchTimer;
+  DateTime? startTime;
+  DateTime? lastSuccessfulFetch;
+  DateTime? lastRespFetch;
+  double? lastValidResp;
+  int secondsRemaining = 30;
+  bool hasStabilized = false;
+  bool hasShownAlert = false; 
 
   @override
   void initState() {
     super.initState();
-    fetchRespirationRate();
-    _loadUserDetailsOrUseParams(); // Load from shared preferences or use passed params
+    _loadUserDetailsOrUseParams();
+    _loadStabilizationTime();
+    _startRespirationFetchingLoop();
   }
 
-  /// **Fetch latest respiration rate**
+  Future<void> _loadUserDetailsOrUseParams() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      gender = widget.gender ?? prefs.getString("gender") ?? "-";
+      age = widget.age ?? prefs.getString("age") ?? "-";
+      weight = widget.weight ?? prefs.getString("weight") ?? "-";
+    });
+  }
+
+  Future<void> _loadStabilizationTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.containsKey("resp_stabilization_start_time")) {
+      final millis = prefs.getInt("resp_stabilization_start_time")!;
+      final savedTime = DateTime.fromMillisecondsSinceEpoch(millis);
+      final diff = DateTime.now().difference(savedTime).inSeconds;
+
+      if (diff >= 30) {
+        setState(() {
+          hasStabilized = true;
+          startTime = savedTime;
+          secondsRemaining = 0;
+        });
+      } else {
+        setState(() {
+          hasStabilized = false;
+          startTime = savedTime;
+          secondsRemaining = 30 - diff;
+        });
+      }
+    } else {
+      final now = DateTime.now();
+      await prefs.setInt("resp_stabilization_start_time", now.millisecondsSinceEpoch);
+      setState(() {
+        startTime = now;
+      });
+    }
+  }
+
+  void _startRespirationFetchingLoop() {
+    dataFetchTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      await fetchRespirationRate();
+
+      // ⏱ Inactivity check (5 min gap)
+      if (lastRespFetch != null &&
+          DateTime.now().difference(lastRespFetch!).inSeconds > 300) {
+        setState(() {
+          hasStabilized = false;
+          hasShownAlert = false;
+          secondsRemaining = 30;
+          startTime = DateTime.now();
+        });
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt("resp_stabilization_start_time", DateTime.now().millisecondsSinceEpoch);
+      }
+
+      if (!hasStabilized && startTime != null) {
+        final diff = DateTime.now().difference(startTime!).inSeconds;
+        if (diff >= 30) {
+          setState(() {
+            hasStabilized = true;
+            secondsRemaining = 0;
+          });
+        } else {
+          setState(() {
+            secondsRemaining = 30 - diff;
+          });
+        }
+      }
+    });
+  }
+
   Future<void> fetchRespirationRate() async {
     try {
-      final data = await ApiClient().getSensorData();
+      final now = DateTime.now();
+      lastRespFetch = now;
 
-      if (data.containsKey("error")) {
-        setState(() {
-          showError = true;
-          respirationRate = "-";
-        });
-        return;
+      final data = await ApiClient().getSensorData();
+      final rawResp = double.tryParse(data['respiration_rate'].toString()) ?? 0.0;
+
+      if (rawResp == 0.0) {
+        if (lastSuccessfulFetch != null &&
+            now.difference(lastSuccessfulFetch!).inSeconds <= 60 &&
+            lastValidResp != null) {
+          setState(() {
+            respirationRate = "${lastValidResp!.toStringAsFixed(1)} BPM";
+            respirationStatus = hasStabilized ? respirationStatus : "Stabilizing...";
+            isFetching = false;
+            showError = false;
+          });
+          return;
+        } else {
+          setState(() {
+            showError = true;
+            respirationRate = "-";
+            respirationStatus = "Sensor Error";
+          });
+          return;
+        }
+      }
+
+      lastSuccessfulFetch = now;
+      lastValidResp = rawResp;
+      final classification = await ApiClient().classifyRespiration(rawResp);
+      final status = classification['status'] ?? "Unknown";
+      final disease = classification['disease'];
+
+      // 🚨 Trigger alert if needed
+      if (disease != null && !hasShownAlert && hasStabilized) {
+        _showAlertNotification(context, disease);
+        hasShownAlert = true;
       }
 
       setState(() {
-        respirationRate = "${data['respiration_rate']} BPM";
+        respirationRate = "${rawResp.toStringAsFixed(1)} BPM";
+        respirationStatus = hasStabilized ? status : "Stabilizing...";
         isFetching = false;
         showError = false;
       });
     } catch (e) {
       print("❌ Failed to fetch respiration rate: $e");
+
+      final now = DateTime.now();
+      if (lastSuccessfulFetch != null &&
+          now.difference(lastSuccessfulFetch!).inSeconds <= 60 &&
+          lastValidResp != null) {
+        setState(() {
+          respirationRate = "${lastValidResp!.toStringAsFixed(1)} BPM";
+          respirationStatus = hasStabilized ? respirationStatus : "Stabilizing...";
+          isFetching = false;
+          showError = false;
+        });
+        return;
+      }
+
       setState(() {
         showError = true;
         respirationRate = "Error";
+        respirationStatus = "Unknown";
       });
     }
   }
 
-  /// Load gender, age, weight
-  Future<void> _loadUserDetailsOrUseParams() async {
-    if (widget.gender != null && widget.age != null && widget.weight != null) {
-      // ✅ Case: Viewing from Specialist Insights - use passed parameters
-      setState(() {
-        gender = widget.gender!;
-        age = widget.age!;
-        weight = widget.weight!;
-      });
-    } else {
-      // ✅ Case: Patient Dashboard - load from SharedPreferences
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      setState(() {
-        gender = prefs.getString("gender") ?? "-";
-        age = prefs.getString("age") ?? "-";
-        weight = prefs.getString("weight") ?? "-";
-      });
-    }
+  void _showAlertNotification(BuildContext context, String disease) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("⚠️ Health Alert"),
+        content: Text(
+            "Abnormal respiration detected: $disease.\nNotifying trusted contacts."),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+
+              try {
+                final contactsList = await ApiClient().getTrustedContacts();
+                print("✅ Contacts fetched: $contactsList");
+
+                await notifyContacts(disease, contactsList);
+              } catch (e) {
+                print("❌ Error fetching contacts or notifying: $e");
+              }
+            },
+            child: const Text("OK"),
+          )
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    dataFetchTimer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F2E9),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(screenWidth * 0.04),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -95,31 +239,29 @@ class _RespirationPageState extends State<RespirationPage> {
               Row(
                 children: [
                   GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
-                    ),
-                  const SizedBox(width: 8),
+                    onTap: () => Navigator.pop(context),
+                    child: Icon(Icons.arrow_back, size: screenWidth * 0.06, color: Colors.black),
+                  ),
+                  SizedBox(width: screenWidth * 0.02),
                   Container(
-                    margin: const EdgeInsets.only(left: 15),
+                    margin: EdgeInsets.only(left: screenWidth * 0.038),
                     child: Text(
                       "RESPIRATION",
                       style: GoogleFonts.poppins(
-                        fontSize: 22,
+                        fontSize: screenWidth * 0.05,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: screenHeight * 0.02),
 
               // BPM Card with Gradient Border
               Container(
-                width: double.infinity,
-                height: 150,
-                padding: const EdgeInsets.all(7),
+                width: screenWidth,
+                height: screenHeight * 0.2,
+                padding: EdgeInsets.all(screenWidth * 0.02),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [
@@ -127,13 +269,13 @@ class _RespirationPageState extends State<RespirationPage> {
                       Color.fromARGB(255, 201, 192, 183)
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(screenWidth * 0.05),
                 ),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.1, vertical: screenHeight * 0.04),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(screenWidth * 0.045),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -143,43 +285,43 @@ class _RespirationPageState extends State<RespirationPage> {
                           ? Text(
                               respirationRate,
                               style: GoogleFonts.poppins(
-                                fontSize: 30,
+                                fontSize: screenWidth * 0.08,
                                 color: Colors.black,
                               ),
                             )
                           : isFetching
-                              ? const CircularProgressIndicator() // Show loading while fetching
+                              ? const CircularProgressIndicator()
                               : Text(
                                   respirationRate,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 55,
+                                    fontSize: screenWidth * 0.1,
                                     fontWeight: FontWeight.w300,
                                   ),
                                 ),
-                      const Icon(Icons.air, size: 60, color: Color.fromARGB(136, 0, 0, 0)),
+                      Icon(Icons.air, size: screenWidth * 0.15, color: const Color.fromARGB(136, 0, 0, 0)),
                     ],
                   ),
                 ),
               ),
 
-              const SizedBox(height: 20), // Increased spacing below
+              SizedBox(height: screenWidth * 0.05),
 
-              // Gender, Age, Weight Section
+              // Gender, Age, Weight
               Container(
-                width: double.infinity, // Full width
-                height: 120, // Increased height
-                padding: const EdgeInsets.all(12), // Padding inside the main box
+                width: screenWidth,
+                height: screenWidth * 0.25,
+                padding: EdgeInsets.all(screenWidth * 0.03),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color.fromARGB(255, 219, 215, 208), // Soft greenish-white
-                      Color.fromARGB(255, 193, 177, 158), // Light beige
-                      Color.fromARGB(255, 156, 144, 123), // Muted brown for depth
-                    ], // Mesh gradient effect
+                      Color.fromARGB(255, 219, 215, 208),
+                      Color.fromARGB(255, 193, 177, 158),
+                      Color.fromARGB(255, 156, 144, 123),
+                    ],
                   ),
-                  borderRadius: BorderRadius.circular(20), // Rounded corners
+                  borderRadius: BorderRadius.circular(screenWidth * 0.05),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.2),
@@ -189,7 +331,7 @@ class _RespirationPageState extends State<RespirationPage> {
                   ],
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Space between info cards
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _infoCard(gender, "Gender"),
                     _infoCard(age, "Age"),
@@ -198,21 +340,22 @@ class _RespirationPageState extends State<RespirationPage> {
                 ),
               ),
 
-              const SizedBox(height: 20), // Increased spacing below
-
+              SizedBox(height: screenWidth * 0.05),
 
               // Status Card
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: EdgeInsets.symmetric(vertical: screenHeight * 0.01),
                 decoration: BoxDecoration(
                   color: Colors.brown[300],
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(screenWidth * 0.04),
                 ),
                 child: Center(
                   child: Text(
-                    "Status: Normal/Rapid",
+                    secondsRemaining > 0
+                        ? "Sensor Stabilizing... ($secondsRemaining s left)"
+                        : "Status: $respirationStatus",
                     style: GoogleFonts.poppins(
-                      fontSize: 16,
+                      fontSize: screenWidth * 0.04,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
@@ -222,13 +365,13 @@ class _RespirationPageState extends State<RespirationPage> {
 
               const SizedBox(height: 16),
 
-              // BPM Range Info (Fixed Size)
+              // BPM Range Info
               Container(
-                width: double.infinity, // Ensure full width
+                width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(screenWidth * 0.04),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.1),
@@ -256,14 +399,14 @@ class _RespirationPageState extends State<RespirationPage> {
                     backgroundColor: Colors.brown[300],
                     padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(screenWidth * 0.04),
                     ),
                   ),
                   onPressed: () {},
                   child: Text(
                     "View Trends",
                     style: GoogleFonts.poppins(
-                      fontSize: 16,
+                      fontSize: screenWidth * 0.04,
                       color: Colors.white,
                     ),
                   ),
@@ -276,15 +419,16 @@ class _RespirationPageState extends State<RespirationPage> {
     );
   }
 
-  // Widget for Gender, Age, Weight Cards
   Widget _infoCard(String value, String label) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
     return Expanded(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.01),
+        padding: EdgeInsets.symmetric(vertical: screenHeight * 0.015),
         decoration: BoxDecoration(
           color: Colors.brown[100],
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(screenWidth * 0.04),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
@@ -298,14 +442,14 @@ class _RespirationPageState extends State<RespirationPage> {
             Text(
               value,
               style: GoogleFonts.poppins(
-                fontSize: 18,
+                fontSize: screenWidth * 0.045,
                 fontWeight: FontWeight.bold,
               ),
             ),
             Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 14,
+                fontSize: screenWidth * 0.03,
                 color: Colors.grey[800],
               ),
             ),
@@ -315,15 +459,16 @@ class _RespirationPageState extends State<RespirationPage> {
     );
   }
 
-  // Widget for BPM status info
   Widget _statusText(String title, String value) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: screenHeight * 0.015),
       child: RichText(
         text: TextSpan(
           text: "$title ",
           style: GoogleFonts.poppins(
-            fontSize: 16,
+            fontSize: screenWidth * 0.04,
             fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
@@ -331,7 +476,7 @@ class _RespirationPageState extends State<RespirationPage> {
             TextSpan(
               text: value,
               style: GoogleFonts.poppins(
-                fontSize: 16,
+                fontSize: screenWidth * 0.04,
                 fontWeight: FontWeight.normal,
                 color: Colors.black54,
               ),

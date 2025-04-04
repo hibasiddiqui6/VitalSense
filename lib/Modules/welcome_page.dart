@@ -22,72 +22,68 @@ class WelcomePage extends StatelessWidget {
           Center(
             child: SingleChildScrollView(
               child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: MediaQuery.of(context).size.width * 0.08,
-                  ),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      double screenWidth = MediaQuery.of(context).size.width;
-                      bool isLargeScreen = screenWidth > 700;
+                padding: EdgeInsets.symmetric(
+                  horizontal: MediaQuery.of(context).size.width * 0.08,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Text Widgets (Placed Outside LayoutBuilder)
+                    Text(
+                      'Welcome to VitalSense',
+                      style: GoogleFonts.lato(
+                        fontSize: MediaQuery.of(context).size.width * 0.07,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Your personal health companion for a healthier you!',
+                      style: TextStyle(
+                        color: const Color(0xFF343434),
+                        fontSize: MediaQuery.of(context).size.width * 0.04,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w400,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 50),
 
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Welcome to VitalSense',
-                                  style: GoogleFonts.lato(
-                                    fontSize: screenWidth * 0.07,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  'Your personal health companion for a healthier you!',
-                                  style: TextStyle(
-                                    color: const Color(0xFF343434),
-                                    fontSize: screenWidth * 0.04,
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 50),
-                                Row(
-                                  mainAxisAlignment: isLargeScreen
-                                      ? MainAxisAlignment.spaceBetween
-                                      : MainAxisAlignment.center,
-                                  children: [
-                                    Expanded(
-                                      child: _roleSelectionBox(
-                                        context,
-                                        'Patient',
-                                        const PatientLogin(),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: _roleSelectionBox(
-                                        context,
-                                        'Health Specialist',
-                                        const SpecialistLogin(),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                    // LayoutBuilder (Only for Buttons)
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        double screenWidth = MediaQuery.of(context).size.width;
+                        bool isLargeScreen = screenWidth > 800;
+
+                        return Row(
+                          mainAxisAlignment: isLargeScreen
+                              ? MainAxisAlignment.spaceBetween
+                              : MainAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: _roleSelectionBox(
+                                context,
+                                'Patient',
+                                const PatientLogin(),
+                              ),
                             ),
-                          ),
-                        ],
-                      );
-                    },
-                  )),
+                            SizedBox(width: 30),
+                            Expanded(
+                              child: _roleSelectionBox(
+                                context,
+                                'Health Specialist',
+                                const SpecialistLogin(),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -96,6 +92,7 @@ class WelcomePage extends StatelessWidget {
   }
 
   Widget _roleSelectionBox(BuildContext context, String role, Widget page) {
+    final double screenWidth = MediaQuery.of(context).size.width;
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -114,9 +111,9 @@ class WelcomePage extends StatelessWidget {
         );
       },
       child: Container(
-        width: double.infinity, // Makes sure it takes full available space
+        width: screenWidth * 0.5, // Makes sure it takes full available space
         padding: EdgeInsets.symmetric(
-          vertical: MediaQuery.of(context).size.width * 0.09,
+          vertical: screenWidth * 0.09,
         ),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.6),
@@ -135,7 +132,7 @@ class WelcomePage extends StatelessWidget {
               'Continue as',
               style: TextStyle(
                 color: const Color(0xFF343434),
-                fontSize: MediaQuery.of(context).size.width * 0.04,
+                fontSize: screenWidth * 0.04,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w400,
               ),
@@ -145,7 +142,7 @@ class WelcomePage extends StatelessWidget {
               role,
               style: TextStyle(
                 color: Colors.black,
-                fontSize: MediaQuery.of(context).size.width * 0.04,
+                fontSize: screenWidth * 0.03,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.bold,
               ),

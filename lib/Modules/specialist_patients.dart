@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart';
 import '../widgets/specialist_drawer.dart';
-import 'patient_insights.dart'; // Import the insights screen
+import 'specialist_patient_insights.dart'; // Import the insights screen
 
 class MyPatientsScreen extends StatefulWidget {
   const MyPatientsScreen({super.key});

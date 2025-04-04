@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vitalsense/Modules/report_types.dart';
+import 'package:vitalsense/Modules/patient_trends_type.dart';
 import '../Modules/welcome_page.dart';
 import '../Modules/patient_dashboard.dart';
 import '../Modules/patient_profile.dart';
@@ -41,42 +43,47 @@ class _PatientDrawerState extends State<PatientDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Drawer(
       backgroundColor: Colors.white,
       child: Column(
         children: [
           // Drawer Header with user info
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+            width: screenWidth,
+            padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.04, vertical: screenHeight * 0.08),
             decoration: const BoxDecoration(
               color: Color.fromARGB(255, 193, 219, 188),
             ),
             child: Row(
               children: [
-                const CircleAvatar(
-                  radius: 40,
+                CircleAvatar(
+                  radius: screenWidth * 0.06,
                   backgroundColor: Colors.white,
-                  child: Icon(Icons.person, size: 40, color: Colors.black54),
+                  child: Icon(Icons.person,
+                      size: screenWidth * 0.08, color: Colors.black54),
                 ),
-                const SizedBox(width: 15),
+                SizedBox(width: screenWidth * 0.031),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         widget.fullName,
-                        style: const TextStyle(
-                            fontSize: 18,
+                        style: TextStyle(
+                            fontSize: screenWidth * 0.043,
                             fontWeight: FontWeight.bold,
                             color: Colors.white),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: screenHeight * 0.012),
                       Text(
                         widget.email,
-                        style: const TextStyle(
-                            fontSize: 14, color: Colors.white70),
+                        style: TextStyle(
+                            fontSize: screenWidth * 0.03,
+                            color: Colors.white70),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -85,7 +92,7 @@ class _PatientDrawerState extends State<PatientDrawer> {
               ],
             ),
           ),
-          const SizedBox(height: 15),
+          SizedBox(height: screenHeight * 0.031),
 
           // Drawer Items
           Expanded(
@@ -116,15 +123,15 @@ class _PatientDrawerState extends State<PatientDrawer> {
                 _divider(),
 
                 // Add these when implemented
-                // _buildDrawerItem(Icons.timeline, "Trends and History", () {
-                //   _navigateTo(context, const PatientTrendsHistory());
-                // }),
-                // _divider(),
+                _buildDrawerItem(Icons.timeline, "Trends and History", () {
+                  _navigateTo(context, const PatientTrends());
+                }),
+                _divider(),
 
-                // _buildDrawerItem(Icons.insert_drive_file, "Reports", () {
-                //   _navigateTo(context, const PatientReportsScreen());
-                // }),
-                // _divider(),
+                _buildDrawerItem(Icons.insert_drive_file, "Reports", () {
+                  _navigateTo(context, const PatientReportsScreen());
+                }),
+                _divider(),
 
                 _buildDrawerItem(Icons.settings, "Settings", () {
                   _navigateTo(context, PatientSettings());
@@ -157,13 +164,15 @@ class _PatientDrawerState extends State<PatientDrawer> {
 
   /// Drawer Item Widget
   Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap) {
+    final double screenWidth = MediaQuery.of(context).size.width;
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+      contentPadding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
       leading:
           Icon(icon, color: const Color.fromARGB(255, 82, 82, 82), size: 28),
       title: Text(
         title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        style: TextStyle(
+            fontSize: screenWidth * 0.035, fontWeight: FontWeight.w500),
       ),
       onTap: () {
         Navigator.pop(context); // Close drawer first

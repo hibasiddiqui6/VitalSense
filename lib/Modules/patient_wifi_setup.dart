@@ -76,24 +76,39 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
     if (isMonitoringESP) return;
     isMonitoringESP = true;
 
-    Timer.periodic(const Duration(seconds: 3), (timer) async {
+    final maxWait = Duration(minutes: 10);
+    final startTime = DateTime.now();
+
+    while (true) {
+      final elapsed = DateTime.now().difference(startTime);
+      if (elapsed > maxWait) {
+        print("⏱ Timed out waiting for ESP32 connection after ${elapsed.inSeconds} seconds.");
+        isMonitoringESP = false;
+        return;
+      }
+
       try {
-        bool espOnline = await checkESP32Connection(context);
-        if (espOnline) {
+        print("🔄 Checking if ESP32 is already connected...");
+        final connected = await checkESP32Connection(context); 
+        if (connected) {
+          print("✅ ESP32 online! Registering SmartShirt...");
           await registerSmartShirt(context);
+
           if (context.mounted) {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => PatientDashboard()),
             );
           }
-          timer.cancel();
           isMonitoringESP = false;
+          return;
         }
       } catch (e) {
-        print("ESP32 not responding, will retry...");
+        print("❌ ESP32 not responding: $e");
       }
-    });
+
+      await Future.delayed(const Duration(seconds: 3));
+    }
   }
 
   /// Open Wi-Fi Settings
@@ -119,7 +134,7 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
         content: const Text("1️⃣ Open Wi-Fi settings.\n"
             "2️⃣ Connect to 'ESP32_Setup'.\n"
             "3️⃣ Select your home Wi-Fi and enter the password.\n"
-            "4️⃣ Return to the app after setup."),
+            "4️⃣ Return to the app after setup. You will be navigated to the dashboard shortly."),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx), child: const Text("OK")),
