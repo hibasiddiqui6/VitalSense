@@ -2,11 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vitalsense/Modules/specialist_patient_insights.dart';
 import 'package:vitalsense/widgets/specialist_drawer.dart';
-import 'specialist_dashboard.dart';
-import 'specialist_profile.dart';
-import 'specialist_patients.dart';
-import 'patient_reports.dart';
-import 'specialist_settings.dart';
 import '../services/api_client.dart';
 
 void main() {
@@ -68,19 +63,6 @@ class _Specialist_PatientsTrendsHistoryState
       patients = fetchedPatients;
       filteredPatients = List.from(fetchedPatients);
       isLoading = false;
-    });
-  }
-
-  /// Filter patients as per search input
-  void _filterPatients(String query) {
-    final lowerQuery = query.toLowerCase();
-    setState(() {
-      filteredPatients = query.isEmpty
-          ? List.from(patients)
-          : patients.where((patient) {
-              final name = patient['fullname'].toString().toLowerCase();
-              return name.contains(lowerQuery);
-            }).toList();
     });
   }
 

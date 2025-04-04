@@ -4,7 +4,6 @@ import 'package:vitalsense/Modules/ecg_trends.dart';
 import 'package:vitalsense/Modules/respiration_trends.dart';
 import 'package:vitalsense/Modules/temp_trends.dart';
 import '../widgets/patient_drawer.dart';
-import '../widgets/specialist_drawer.dart';
 
 void main() {
   runApp(const MyApp());

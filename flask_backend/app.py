@@ -70,9 +70,9 @@ def insert_postgres_only(sensor_data, ids):
         hv_id_result = modify_and_return(insert_query, values)
         hv_id = hv_id_result["id"]
 
-        print(f"[INSERT] ✅ health_vitals inserted with ID {hv_id}")
+        # print(f"[INSERT] ✅ health_vitals inserted with ID {hv_id}")
 
-        print(f"[DEBUG] Spawning classification for hv_id {hv_id}")
+        # print(f"[DEBUG] Spawning classification for hv_id {hv_id}")
         # Immediately classify and insert temperature
         gevent.spawn_later(2, partial(classify_and_insert_temp_status, sensor_data["temperature"], hv_id))
         gevent.spawn_later(2, partial(classify_and_insert_resp_status, sensor_data["respiration"], hv_id))
@@ -210,7 +210,7 @@ def get_sensor_data():
 
             if now_pkt - timestamp.astimezone(timezone("Asia/Karachi")) > timedelta(minutes=5):
                 print(f"[INFO] Data is older than 5 minutes. Timestamp: {timestamp}")
-                return jsonify({"error": "No recent sensor data available"}), 404
+                return jsonify({"error": "No recent sensor data available"}), 410
 
         return jsonify(latest_data), 200
 
@@ -826,7 +826,7 @@ def classify_temp_status():
 
 def classify_and_insert_temp_status(temp_str, hv_id):
     try:
-        print(f"[CHECK] Validating hv_id={hv_id}")
+        # print(f"[CHECK] Validating hv_id={hv_id}")
         query = "SELECT 1 FROM health_vitals WHERE id = %s"
         if not fetch_data(query, (hv_id,)):
             print(f"[WARN] Skipping classification: hv_id {hv_id} not found")
@@ -838,7 +838,7 @@ def classify_and_insert_temp_status(temp_str, hv_id):
         disease = result['disease']
 
         if status == "Sensor Disconnected":
-            print(f"[SKIP] Temperature status '{status}' — not inserting")
+            # print(f"[SKIP] Temperature status '{status}' — not inserting")
             return
 
         insert_query = """
@@ -855,7 +855,6 @@ def classify_and_insert_temp_status(temp_str, hv_id):
 def get_temperature_trends():
     patient_id = request.args.get("patient_id")
     range_type = request.args.get("range", "24h")
-    
 
     if not patient_id:
         return jsonify({"error": "Patient ID is required"}), 400
@@ -884,6 +883,38 @@ def get_temperature_trends():
 
     return jsonify(result)
 
+@app.route('/respiration_trends', methods=['GET'])
+def get_respiration_trends():
+    patient_id = request.args.get("patient_id")
+    range_type = request.args.get("range", "24h")
+
+    if not patient_id:
+        return jsonify({"error": "Patient ID is required"}), 400
+
+    now = datetime.now(timezone("Asia/Karachi"))  # Use PKT timezone
+
+    if range_type == "week":
+        start_time = now - timedelta(days=7)
+    elif range_type == "month":
+        start_time = now - timedelta(days=30)
+    else:
+        start_time = now - timedelta(hours=24)
+
+    query = """
+        SELECT hv.timestamp, r.respiration, r.respirationstatus
+        FROM health_vitals hv
+        JOIN respiration r ON hv.id = r.healthvitalsid
+        WHERE hv.patientID = %s AND hv.timestamp >= %s
+        ORDER BY hv.timestamp ASC
+    """
+    result = fetch_all_data(query, (patient_id, start_time))
+
+    # Convert timestamps to ISO format
+    for row in result:
+        row["timestamp"] = row["timestamp"].astimezone(timezone("Asia/Karachi")).isoformat()
+
+    return jsonify(result)
+
 @app.route("/classify_respiration_status", methods=["POST"])
 def classify_respiration_status():
     data = request.get_json()
@@ -893,7 +924,7 @@ def classify_respiration_status():
 
 def classify_and_insert_resp_status(resp_str, hv_id):
     try:
-        print(f"[CHECK] Validating hv_id={hv_id}")
+        # print(f"[CHECK] Validating hv_id={hv_id}")
         query = "SELECT 1 FROM health_vitals WHERE id = %s"
         if not fetch_data(query, (hv_id,)):
             print(f"[WARN] Skipping respiration classification: hv_id {hv_id} not found")

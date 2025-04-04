@@ -47,6 +47,11 @@ class _PatientDashboardState extends State<PatientDashboard> {
   Timer? disconnectionTimer;
   Timer? dataFetchTimer;
   List<Offset> points = [];
+  DateTime? lastSuccessfulFetch;
+  int secondsRemaining = 30;
+  bool hasStabilized = false;
+  DateTime? stabilizationStartTime;
+  bool isValidSensorConnected = false;
 
   double x = 0;
   Timer? timer;
@@ -65,7 +70,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
     // **Start the disconnection timeout**
     disconnectionTimer =
-        Timer(const Duration(seconds: 10), _handleDataFetchFailure);
+        Timer(const Duration(seconds: 20), _handleDataFetchFailure);
 
     // **Fetch user details**
     fetchUserProfile();
@@ -105,44 +110,89 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
   double fetchECGData() {
     time++;
-    return 150 + 30 * sin(time / 10); // Simulated ECG signal
+    return 100 + 30 * sin(time / 10); // Simulated ECG signal
   }
 
   /// **Fetch sensor data from Flask server**
   Future<void> fetchSensorData() async {
-    try {
-      final data = await ApiClient().getSensorData();
+  try {
+    final data = await ApiClient().getSensorData();
+    final now = DateTime.now();
+    final prefs = await SharedPreferences.getInstance();
 
-      if (data.containsKey("error")) {
-        print("⚠ No sensor data available.");
+    if (data.containsKey("error")) {
+      print("❌ Sensor error: ${data['error']}");
+      isValidSensorConnected = false;
+
+      final millis = prefs.getInt("stabilization_start_time");
+      if (millis != null) {
+        final lastStable = DateTime.fromMillisecondsSinceEpoch(millis);
+        final gap = now.difference(lastStable).inSeconds;
+
+        // Only reset stabilization if sensor stayed offline more than 30s
+        if (gap > 30) {
+          await prefs.remove("stabilization_start_time");
+          hasStabilized = false;
+          secondsRemaining = 30;
+        } else {
+          final diff = now.difference(lastStable).inSeconds;
+          hasStabilized = diff >= 30;
+          secondsRemaining = hasStabilized ? 0 : 30 - diff;
+        }
+      } else {
+        hasStabilized = false;
+        secondsRemaining = 30;
+      }
+
+      if (data['error'] == "Stale data" || lastSuccessfulFetch == null || now.difference(lastSuccessfulFetch!).inSeconds > 10) {
         setState(() {
           showNoReadings = true;
           showReconnecting = false;
-          finalMessageShown = false;
         });
-        return;
-      }
-
-      if (mounted) {
+      } else {
         setState(() {
-          respiration = "${data['respiration_rate']} BPM";
-          temperature = "${data['temperature']} °F";
-          isFetching = false;
           showNoReadings = false;
-          showReconnecting = false;
-          finalMessageShown = false;
+          showReconnecting = true;
         });
       }
 
-      // Reset the disconnection timer when new data is received
-      disconnectionTimer?.cancel();
-      disconnectionTimer =
-          Timer(const Duration(seconds: 10), _handleDataFetchFailure);
-    } catch (e) {
-      print("Failed to fetch sensor data: $e");
-      _handleDataFetchFailure();
+      return;
     }
+
+    // ✅ Valid reading — reset watchdog
+    lastSuccessfulFetch = now;
+    isValidSensorConnected = true;
+
+    if (!prefs.containsKey("stabilization_start_time")) {
+      await prefs.setInt("stabilization_start_time", now.millisecondsSinceEpoch);
+      hasStabilized = false;
+      secondsRemaining = 30;
+    } else {
+      final millis = prefs.getInt("stabilization_start_time")!;
+      final savedStart = DateTime.fromMillisecondsSinceEpoch(millis);
+      final diff = now.difference(savedStart).inSeconds;
+      hasStabilized = diff >= 30;
+      secondsRemaining = hasStabilized ? 0 : 30 - diff;
+    }
+
+    setState(() {
+      respiration = "${data['respiration_rate']} BPM";
+      temperature = "${data['temperature']} °F";
+      isFetching = false;
+      showNoReadings = false;
+      showReconnecting = false;
+      finalMessageShown = false;
+    });
+
+    disconnectionTimer?.cancel();
+    disconnectionTimer = Timer(const Duration(seconds: 10), _handleDataFetchFailure);
+
+  } catch (e) {
+    print("❌ Exception fetching data: $e");
+    isValidSensorConnected = false;
+    _handleDataFetchFailure();
   }
+}
 
   /// **Fetch user profile data**
   Future<void> fetchUserProfile() async {
@@ -195,32 +245,18 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
   /// **Handle data fetch failure with smooth transition**
   void _handleDataFetchFailure() {
-    if (mounted && !finalMessageShown) {
+    if (!mounted) return;
+    final now = DateTime.now();
+
+    if (lastSuccessfulFetch != null && now.difference(lastSuccessfulFetch!).inSeconds < 10) {
       setState(() {
-        isFetching = false;
-        showNoReadings = true;
-        showReconnecting =
-            false; // Ensure 'Reconnecting' does not replace the message
-        finalMessageShown = true;
+        showNoReadings = false;
+        showReconnecting = true;
       });
-
-      // **After 3 seconds, show "Reconnecting..."**
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted && !finalMessageShown) {
-          setState(() {
-            showReconnecting = true;
-          });
-
-          // **After another 5 seconds, show the final message**
-          Future.delayed(const Duration(seconds: 5), () {
-            if (mounted) {
-              setState(() {
-                showReconnecting = false;
-                finalMessageShown = true; // Prevent further updates
-              });
-            }
-          });
-        }
+    } else {
+      setState(() {
+        showNoReadings = true;
+        showReconnecting = false;
       });
     }
   }
@@ -265,37 +301,35 @@ class _PatientDashboardState extends State<PatientDashboard> {
             SizedBox(height: screenHeight * 0.01), // 1% of screen height
 
             // Show persistent message if no valid readings are available
-            if (showNoReadings || finalMessageShown)
-              Column(
-                children: [
-                  Text(
-                    "No readings to display!",
+if (isValidSensorConnected && !hasStabilized && secondsRemaining > 0)
+  Column(children: [
+    CircularProgressIndicator(),
+    SizedBox(height: screenHeight * 0.01),
+    Text("Sensor Stabilizing... ($secondsRemaining s left)",
+        style: TextStyle(
+            fontSize: screenWidth * 0.035, fontWeight: FontWeight.bold)),
+              ])
+            else if (isValidSensorConnected && hasStabilized)
+              SizedBox.shrink() // readings will be shown below
+            else if (showReconnecting)
+              Column(children: [
+                CircularProgressIndicator(),
+                SizedBox(height: screenHeight * 0.01),
+                Text("Waiting for next reading...",
+                    style: TextStyle(fontSize: 16)),
+              ])
+            else if (showNoReadings)
+              Column(children: [
+                Text("No readings to display!",
                     style: TextStyle(
-                        fontSize: screenWidth * 0.035,
-                        fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(
-                      height: screenHeight * 0.01), // 1% of screen height),
-                  if (showReconnecting)
-                    Column(
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(
-                            height:
-                                screenHeight * 0.01), // 1% of screen height),
-                        Text("Reconnecting...", style: TextStyle(fontSize: 16)),
-                      ],
-                    )
-                  else
-                    Text(
-                      "Check if your ESP32 is active.",
-                      style: TextStyle(
-                          fontSize: screenWidth * 0.03,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red),
-                    ),
-                ],
-              ),
+                        fontSize: screenWidth * 0.035, fontWeight: FontWeight.bold)),
+                SizedBox(height: screenHeight * 0.01),
+                Text("Check if your ESP32 is active.",
+                    style: TextStyle(
+                        fontSize: screenWidth * 0.03,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red)),
+              ]),
             SizedBox(height: screenHeight * 0.01), //15
 
             // Gender, Age, Weight Cards
@@ -502,7 +536,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
     final double screenHeight = MediaQuery.of(context).size.height;
     return Container(
       width: screenWidth,
-      height: screenHeight * 0.495, // Increased height
+      height: screenHeight * 0.345, // Increased height
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(screenWidth * 0.04),
         boxShadow: [
@@ -522,7 +556,9 @@ class _PatientDashboardState extends State<PatientDashboard> {
       child: Padding(
         padding: EdgeInsets.all(screenWidth * 0.015),
         child: Container(
+          
           decoration: BoxDecoration(
+            
             color: Colors.white,
             borderRadius: BorderRadius.circular(screenWidth * 0.04),
           ),
@@ -540,15 +576,15 @@ class _PatientDashboardState extends State<PatientDashboard> {
                           fontWeight: FontWeight.bold,
                           color: Colors.black87),
                     ),
-                    SizedBox(height: 5),
+                    SizedBox(height: screenHeight*0.02),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(screenWidth * 0.01),
                       child: SizedBox(
-                        height: screenHeight * 0.375, // Adjusted height
+                        height: screenHeight * 0.25, // Adjusted height
                         width: screenWidth,
                         child: CustomPaint(
                           painter: ECGLinePainter(points),
-                          size: Size(double.infinity, 200),
+                          size: Size(double.infinity, screenHeight*0.1),
                         ),
                       ),
                     ),
@@ -556,7 +592,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                 ),
               ),
               Positioned(
-                top: screenHeight * 0.0035,
+                top: screenHeight * 0.0075,
                 right: screenWidth * 0.02,
                 child: GestureDetector(
                   onTap: () {
