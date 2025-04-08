@@ -4,7 +4,7 @@ import '../services/api_client.dart'; // Import API client
 import '../services/alert.dart'; // Import API client
 import 'dart:async'; // Import Timer
 import 'package:shared_preferences/shared_preferences.dart';
-import 'temp_trends.dart';
+import 'temperature_trends.dart';
 
 class TemperaturePage extends StatefulWidget {
   final String? gender;
@@ -19,10 +19,11 @@ class TemperaturePage extends StatefulWidget {
   });
 
   @override
-  _TemperaturePageState createState() => _TemperaturePageState();
+  TemperaturePageState createState() => TemperaturePageState();
 }
 
-class _TemperaturePageState extends State<TemperaturePage> {
+class TemperaturePageState extends State<TemperaturePage> {
+  static TemperaturePageState? instance;
   String temperature = "Loading...";
   String currentTempStatus = "Loading...";
   bool isFetching = true;
@@ -31,6 +32,7 @@ class _TemperaturePageState extends State<TemperaturePage> {
   String gender = "-";
   String age = "-";
   String weight = "-";
+  String role = "-";
   DateTime? startTime;
   int secondsRemaining = 30;
   bool hasStabilized = false;
@@ -42,10 +44,20 @@ class _TemperaturePageState extends State<TemperaturePage> {
   @override
   void initState() {
     super.initState();
+    instance = this;
 
     _loadStabilizationTime();
-    _startTemperatureFetchingLoop();
     _loadUserDetailsOrUseParams();
+    _loadUserRole();
+  }
+
+  Future<void> _loadUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedRole = prefs.getString("role") ?? "-";
+    if (!mounted) return;
+    setState(() {
+      role = savedRole;
+    });
   }
 
   Future<void> _loadStabilizationTime() async {
@@ -74,28 +86,19 @@ class _TemperaturePageState extends State<TemperaturePage> {
     }
   }
 
-  void _startTemperatureFetchingLoop() {
-    dataFetchTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      await fetchTemperature();
+  void updateFromRealtime(double tempVal) {
+    final formatted = "${tempVal.toStringAsFixed(1)} °F";
+    final now = DateTime.now();
 
-      if (!hasStabilized && startTime != null) {
-        final now = DateTime.now();
-        final diff = now.difference(startTime!);
-        final remaining = 30 - diff.inSeconds;
+    lastValidTemp = tempVal;
+    lastSuccessfulFetch = now;
+    lastTempFetch = now;
 
-        if (remaining > 0) {
-          if (!mounted) return;
-          setState(() {
-            secondsRemaining = remaining;
-          });
-        } else {
-          if (!mounted) return;
-          setState(() {
-            hasStabilized = true;
-            secondsRemaining = 0;
-          });
-        }
-      }
+    setState(() {
+      temperature = formatted;
+      currentTempStatus = hasStabilized ? "Stable" : "Stabilizing...";
+      isFetching = false;
+      showError = false;
     });
   }
 
@@ -305,6 +308,7 @@ class _TemperaturePageState extends State<TemperaturePage> {
 
   @override
   void dispose() {
+    instance = null;
     dataFetchTimer?.cancel();
     super.dispose();
   }
@@ -427,36 +431,35 @@ class _TemperaturePageState extends State<TemperaturePage> {
                   ),
                 ),
 
-                SizedBox(height: screenHeight * 0.032),
-
-                // View Trends Button
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const TempChartScreen()),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 222, 155, 131),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(screenWidth * 0.04),
-                    ),
-                    padding: EdgeInsets.symmetric(
+                if (role != 'specialist') ...[
+                  SizedBox(height: screenHeight * 0.032),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const TempChartScreen()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 222, 155, 131),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(screenWidth * 0.04),
+                      ),
+                      padding: EdgeInsets.symmetric(
                         horizontal: screenWidth * 0.048,
                         vertical: screenHeight * 0.02),
-                    minimumSize: Size(screenWidth * 0.9, 50), // 👈 Responsive
-                  ),
-                  child: Text(
-                    "View Trends",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: screenWidth * 0.032,
+                      minimumSize: Size(screenWidth * 0.9, 50),
+                    ),
+                    child: Text(
+                      "View Trends",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: screenWidth * 0.032,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

@@ -4,6 +4,7 @@ import '../services/api_client.dart';
 import '../services/alert.dart'; 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'respiration_trends.dart';
 
 class RespirationPage extends StatefulWidget {
   final String? gender;
@@ -18,10 +19,11 @@ class RespirationPage extends StatefulWidget {
   });
 
   @override
-  _RespirationPageState createState() => _RespirationPageState();
+  RespirationPageState createState() => RespirationPageState();
 }
 
-class _RespirationPageState extends State<RespirationPage> {
+class RespirationPageState extends State<RespirationPage> {
+  static RespirationPageState? instance;
   String respirationRate = "Loading...";
   String respirationStatus = "Loading...";
   bool isFetching = true;
@@ -29,6 +31,7 @@ class _RespirationPageState extends State<RespirationPage> {
   String gender = "-";
   String age = "-";
   String weight = "-";
+  String role = "-";
   Timer? dataFetchTimer;
   DateTime? startTime;
   DateTime? lastSuccessfulFetch;
@@ -41,11 +44,21 @@ class _RespirationPageState extends State<RespirationPage> {
   @override
   void initState() {
     super.initState();
+    instance = this;
     _loadUserDetailsOrUseParams();
     _loadStabilizationTime();
     _startRespirationFetchingLoop();
+    _loadUserRole();
   }
 
+  Future<void> _loadUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedRole = prefs.getString("role") ?? "-";
+    if (!mounted) return;
+    setState(() {
+      role = savedRole;
+    });
+  }
   Future<void> _loadUserDetailsOrUseParams() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -85,7 +98,7 @@ class _RespirationPageState extends State<RespirationPage> {
   }
 
   void _startRespirationFetchingLoop() {
-    dataFetchTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+    dataFetchTimer = Timer.periodic(const Duration(seconds: 60), (timer) async {
       await fetchRespirationRate();
 
       // ⏱ Inactivity check (5 min gap)
@@ -114,6 +127,22 @@ class _RespirationPageState extends State<RespirationPage> {
           });
         }
       }
+    });
+  }
+
+  void updateFromRealtime(double tempVal) {
+    final formatted = "${tempVal.toStringAsFixed(1)} °F";
+    final now = DateTime.now();
+
+    lastValidResp = tempVal;
+    lastSuccessfulFetch = now;
+    lastRespFetch = now;
+
+    setState(() {
+      respirationRate = formatted;
+      respirationStatus = hasStabilized ? "Stable" : "Stabilizing...";
+      isFetching = false;
+      showError = false;
     });
   }
 
@@ -218,6 +247,7 @@ class _RespirationPageState extends State<RespirationPage> {
 
   @override
   void dispose() {
+    instance = null;
     dataFetchTimer?.cancel();
     super.dispose();
   }
@@ -392,26 +422,33 @@ class _RespirationPageState extends State<RespirationPage> {
 
               const SizedBox(height: 16),
 
-              // View Trends Button
-              Center(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.brown[300],
-                    padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(screenWidth * 0.04),
+              // Conditionally render View Trends button
+              if (role != 'specialist')
+                Center(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.brown[300],
+                      padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(screenWidth * 0.04),
+                      ),
                     ),
-                  ),
-                  onPressed: () {},
-                  child: Text(
-                    "View Trends",
-                    style: GoogleFonts.poppins(
-                      fontSize: screenWidth * 0.04,
-                      color: Colors.white,
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const RespChartScreen()),
+                      );
+                    },
+                    child: Text(
+                      "View Trends",
+                      style: GoogleFonts.poppins(
+                        fontSize: screenWidth * 0.04,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vitalsense/Modules/ecg_trends.dart';
 import 'package:vitalsense/Modules/respiration_trends.dart';
-import 'package:vitalsense/Modules/temp_trends.dart';
+import 'package:vitalsense/Modules/temperature_trends.dart';
 import '../widgets/patient_drawer.dart';
 
 void main() {
@@ -127,7 +127,7 @@ class TrendsScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => RespirationChartScreen()),
+                    builder: (context) => RespChartScreen()),
               );
             },
             style: CustomButtonStyle.elevatedButtonStyle(
