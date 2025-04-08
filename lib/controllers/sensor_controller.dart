@@ -19,19 +19,18 @@ class SensorController {
   DateTime? stabilizationStartTime;
   Timer? _stabilizationTimer;
 
-  void initWebSocket({
+  Future<bool> initWebSocket({
     required String patientId,
     required String smartshirtId,
     required String ip,
-  }) {
-
+  }) async {
     webSocketService = ShirtWebSocketService(
       ip: ip,
       patientId: patientId,
       smartshirtId: smartshirtId,
     );
 
-    webSocketService.connect(
+    final success = await webSocketService.connect(
       onRealtimeUpdate: (data) {
         print("📡 Real-time data received in SensorController: $data");
 
@@ -41,7 +40,6 @@ class SensorController {
         if (currentBootId != null && currentBootId != _lastBootId) {
           print("⚠️ New boot session detected (boot_id: $currentBootId)");
 
-          // Only then reset stabilization
           _lastBootId = currentBootId;
           _hasStartedStabilization = false;
           hasStabilized = false;
@@ -73,20 +71,22 @@ class SensorController {
           print("👈 Adding temp: $temp");
           TemperatureController.instance?.updateFromRealtime(temp);
           DashboardController.instance?.updateTemperatureLive(temp);
-        } 
+        }
 
         if (resp != null) {
           print("👈 Adding resp: $resp");
           RespirationController.instance?.updateFromRealtime(resp);
           DashboardController.instance?.updateRespirationLive(resp);
-        } 
+        }
 
         if (ecg != null) {
           print("👈 Adding ECG point: $ecg");
           ECGController.instance?.addPoint(ecg);
-        } 
+        }
       },
     );
+
+    return success;
   }
 
   int getSecondsRemaining() {

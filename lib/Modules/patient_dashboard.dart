@@ -91,17 +91,28 @@ class PatientDashboardState extends State<PatientDashboard> {
     final patientId = prefs.getString("patient_id");
     final smartshirtId = prefs.getString("smartshirt_id");
 
-    final ipResult = await ApiClient().getLatestMacAndIP();
-    final ip = ipResult['ip_address'];
+    while (true) {
+      final ipResult = await ApiClient().getLatestMacAndIP();
+      final ip = ipResult['ip_address'];
 
-    if (patientId != null && smartshirtId != null && ip != null) {
-      SensorController().initWebSocket(
-        patientId: patientId,
-        smartshirtId: smartshirtId,
-        ip: ip,
-      );
-    } else {
-      print("❌ Failed to initialize WebSocket — missing credentials or IP");
+      if (patientId != null && smartshirtId != null && ip != null) {
+        final success = await SensorController().initWebSocket(
+          patientId: patientId,
+          smartshirtId: smartshirtId,
+          ip: ip,
+        );
+
+        if (success) {
+          print("✅ WebSocket initialized successfully.");
+          break;
+        } else {
+          print("❌ WebSocket connect() returned false. Retrying...");
+        }
+      } else {
+        print("❌ Missing patientId/smartshirtId or IP. Retrying...");
+      }
+
+      await Future.delayed(Duration(seconds: 5));
     }
   }
 
@@ -191,6 +202,13 @@ class PatientDashboardState extends State<PatientDashboard> {
   }
 
   void updateTemperatureLive(double temp) {
+    if (temp < 93 || temp > 110) {
+      setState(() {
+        temperature = "Sensor Disconnected";
+      });
+      return;
+    }
+
     final formatted = "${temp.toStringAsFixed(1)} °F";
     if (mounted) {
       setState(() {
@@ -199,7 +217,15 @@ class PatientDashboardState extends State<PatientDashboard> {
     }
   }
 
+
   void updateRespirationLive(double resp) {
+    if (resp < 5.0) {
+      setState(() {
+        respiration = "Sensor Disconnected";
+      });
+      return;
+    }
+
     final formatted = "${resp.toStringAsFixed(1)} BPM";
     if (mounted) {
       setState(() {
@@ -207,7 +233,6 @@ class PatientDashboardState extends State<PatientDashboard> {
       });
     }
   }
-
 
   /// **Handle data fetch failure with smooth transition**
   void _checkIfSensorDisconnected() {
@@ -344,14 +369,14 @@ class PatientDashboardState extends State<PatientDashboard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildInfoCard2(respiration, "Respiration", Colors.orange, () {
+                _buildInfoCard2(respiration, "Respiration", Color(0xFF99B88D), () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                         builder: (context) => const RespirationPage()),
                   );
                 }),
-                _buildInfoCard2(temperature, "Temperature", Colors.redAccent,
+                _buildInfoCard2(temperature, "Temperature", Color(0xFF99B88D),
                     () {
                   Navigator.push(
                     context,
@@ -480,17 +505,25 @@ class PatientDashboardState extends State<PatientDashboard> {
             SizedBox(height: screenHeight * 0.005),
             Text(
               value,
+              textAlign: value == "Sensor Disconnected" ? TextAlign.center : TextAlign.left,
               style: TextStyle(
-                  fontSize: screenWidth * 0.055,
-                  fontWeight: FontWeight.w300,
-                  color: Colors.black),
+                fontSize: value == "Sensor Disconnected" 
+                    ? screenWidth * 0.030 
+                    : screenWidth * 0.055,
+                fontWeight: value == "Sensor Disconnected" 
+                    ? FontWeight.bold 
+                    : FontWeight.w300,
+                color: value == "Sensor Disconnected" 
+                    ? Colors.red 
+                    : Colors.black,
+              ),
             ),
             SizedBox(height: screenHeight * 0.01),
             ElevatedButton(
               onPressed: onPressed, // Calls the provided callback function
               style: ElevatedButton.styleFrom(
                 backgroundColor:
-                    const Color.fromARGB(255, 176, 85, 85), // Matches your UI
+                    const Color.fromARGB(255, 90, 109, 83), // Matches your UI
                 padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(screenWidth * 0.5),
@@ -586,7 +619,7 @@ class PatientDashboardState extends State<PatientDashboard> {
                         vertical: screenHeight * 0.004),
                     decoration: BoxDecoration(
                       color: Colors.green.shade100,
-                      borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                      borderRadius: BorderRadius.circular(screenWidth * 0.05),
                     ),
                     child: Text(
                       'Details',

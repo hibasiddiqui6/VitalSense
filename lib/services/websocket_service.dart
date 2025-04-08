@@ -29,44 +29,54 @@ class ShirtWebSocketService {
     required Function(Map<String, dynamic>) onRealtimeUpdate,
   }) async {
     _onRealtimeUpdate = onRealtimeUpdate;
-
     print("🌐 Attempting connection to ws://$ip/ws");
+
+    final completer = Completer<bool>();
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse("ws://$ip/ws"));
-      print("✅ Connected to WebSocket");
     } catch (e) {
-      print("❌ Connection failed: $e");
+      print("❌ Connection attempt failed immediately: $e");
       return false;
     }
 
-    // Send auth payload
-    _channel.sink.add(jsonEncode({
-      "patient_id": patientId,
-      "smartshirt_id": smartshirtId,
-    }));
-
+    // Listen for any stream data OR connection failure
     _streamSub = _channel.stream.listen(
       (data) {
         try {
           final decoded = jsonDecode(data);
           _sensorBuffer.add(decoded);
           _onRealtimeUpdate(decoded);
+
+          // Resolve the completer on first valid response
+          if (!completer.isCompleted) {
+            print("✅ WebSocket handshake confirmed.");
+            completer.complete(true);
+          }
         } catch (e) {
           print("❌ JSON Decode Error: $e");
         }
       },
       onDone: () {
-        print("📴 WebSocket closed. Triggering reconnect...");
+        print("📴 WebSocket closed unexpectedly.");
+        if (!completer.isCompleted) completer.complete(false);
         reconnect();
       },
       onError: (e) {
         print("❌ WebSocket error: $e");
+        if (!completer.isCompleted) completer.complete(false);
         reconnect();
       },
       cancelOnError: true,
     );
 
+    // Send initial handshake
+    _channel.sink.add(jsonEncode({
+      "patient_id": patientId,
+      "smartshirt_id": smartshirtId,
+    }));
+
+    // Start pinging
     _pingTimer = Timer.periodic(Duration(seconds: 10), (_) {
       try {
         _channel.sink.add("ping");
@@ -75,7 +85,14 @@ class ShirtWebSocketService {
       }
     });
 
-    return true;
+    // Wait for confirmation or timeout
+    return completer.future.timeout(
+      Duration(seconds: 5),
+      onTimeout: () {
+        print("⌛ WebSocket handshake timed out.");
+        return false;
+      },
+    );
   }
 
   void reconnect() async {
@@ -117,6 +134,7 @@ class ShirtWebSocketService {
 
     // 💡 Only flush if stabilized
     if (SensorController().hasStabilized) {
+      print("Ready to flush");
       flushToBackend();
     } else {
       print("⏳ Not stabilized — skipping flush.");

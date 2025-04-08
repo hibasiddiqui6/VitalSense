@@ -11,38 +11,38 @@ class ApiClient {
   static String get baseUrl => _baseUrl;
   
    // Fetch Sensor Data from database
-  Future<Map<String, dynamic>> getSensorData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? patientId = prefs.getString("patient_id");
+  // Future<Map<String, dynamic>> getSensorData() async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   String? patientId = prefs.getString("patient_id");
 
-    if (patientId == null) {
-      return {'error': 'Patient ID not found in storage'};
-    }
+  //   if (patientId == null) {
+  //     return {'error': 'Patient ID not found in storage'};
+  //   }
 
-    final url = Uri.parse('$_baseUrl/get_sensor?patient_id=$patientId');
+  //   final url = Uri.parse('$_baseUrl/get_sensor?patient_id=$patientId');
 
-    try {
-      final response = await http.get(url).timeout(const Duration(seconds: 3));
+  //   try {
+  //     final response = await http.get(url).timeout(const Duration(seconds: 3));
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (!prefs.containsKey("stabilization_start_time")) {
-          final temp = double.tryParse(data['temperature'].toString()) ?? -100;
-          if (temp != -100) {
-            await prefs.setInt("stabilization_start_time", DateTime.now().millisecondsSinceEpoch);
-          }
-        }
-        return data;
+  //     if (response.statusCode == 200) {
+  //       final data = json.decode(response.body);
+  //       if (!prefs.containsKey("stabilization_start_time")) {
+  //         final temp = double.tryParse(data['temperature'].toString()) ?? -100;
+  //         if (temp != -100) {
+  //           await prefs.setInt("stabilization_start_time", DateTime.now().millisecondsSinceEpoch);
+  //         }
+  //       }
+  //       return data;
 
-      } else if (response.statusCode == 410) {
-          return {'error': 'Stale data'};
-        } else {
-          return {'error': 'Failed to fetch sensor data (HTTP ${response.statusCode})'};
-      }
-    } catch (e) {
-      return {'error': 'Server unreachable. Check your connection.'};
-    }
-  }
+  //     } else if (response.statusCode == 410) {
+  //         return {'error': 'Stale data'};
+  //       } else {
+  //         return {'error': 'Failed to fetch sensor data (HTTP ${response.statusCode})'};
+  //     }
+  //   } catch (e) {
+  //     return {'error': 'Server unreachable. Check your connection.'};
+  //   }
+  // }
    
    // Fetch Sensor Data from firebase
   // Stream<List<Map<String, dynamic>>> getFirebaseECGBatchStream(String patientId) {
@@ -360,7 +360,6 @@ class ApiClient {
       return {'error': 'Failed to fetch SmartShirts: $e'};
     }
   }
-
 
   Future<bool> deleteSmartShirt(String macAddress) async {
     final url = Uri.parse('$baseUrl/delete_smartshirt');
