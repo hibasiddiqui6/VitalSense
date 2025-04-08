@@ -1,11 +1,10 @@
-// import 'package:fl_chart/fl_chart.dart';
-// import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:vitalsense/controllers/sensor_controller.dart';
 import '../services/api_client.dart'; // API for fetching ECG data
 import 'package:shared_preferences/shared_preferences.dart';
-// import 'dart:math';
+import '../controllers/ecg_controller.dart';
 
 class ECGScreen extends StatefulWidget {
   final String? gender;
@@ -53,8 +52,8 @@ class ECGPainter extends CustomPainter {
 
     Path path = Path();
     if (points.isNotEmpty) {
-      double minValue = 1500; // ECG Min
-      double maxValue = 2400; // ECG Max
+      double minValue = 1900; // ECG Min
+      double maxValue = 2100; // ECG Max
       double canvasHeight = size.height * 0.8;
       double normalize(double value) {
         if (maxValue == minValue) {
@@ -79,17 +78,13 @@ class ECGPainter extends CustomPainter {
 }
 
 class _ECGScreenState extends State<ECGScreen> {
-  // List<FlSpot> ecgData = [];
-  // double time = 0;
   List<Offset> points = [];
   double x = 0;
   Timer? ecgTimer;
   List<double> ecgBuffer = [];
+  Timer? stabilizationRefreshTimer;
 
   ApiClient apiClient = ApiClient();
-  // Timer? ecgTimer;
-  // double minY = 0, maxY = 4095; // Default range for 12-bit ADC
-  // int baseTime = 0; // Base time for X-axis labels
 
   // Patient details
   String gender = "-";
@@ -99,8 +94,9 @@ class _ECGScreenState extends State<ECGScreen> {
   @override
   void initState() {
     super.initState();
-    startECGStreaming();
-    _loadUserDetailsOrUseParams(); // Load dynamic patient details
+    _loadUserDetailsOrUseParams();
+    _startECGStream();
+    _startStabilizationCountdown();
   }
 
   /// Load gender, age, weight from params or SharedPreferences
@@ -121,67 +117,39 @@ class _ECGScreenState extends State<ECGScreen> {
     }
   }
 
-  /// **Fetch real-time ECG data every 2ms**
-  Future<void> startECGStreaming() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? patientId = prefs.getString("patient_id");
+  void _startECGStream() {
+    ecgTimer = Timer.periodic(Duration(milliseconds: 20), (_) {
+      if (!mounted) return;
 
-    if (patientId == null) {
-      print("⚠️ Patient ID not found.");
-      return;
-    }
+      double? ecgVal = ECGController.instance?.popNextPoint();
+      print("📦 ECG Buffer Length: ${ECGController.instance?.buffer.length}");
+      if (ecgVal == null) return;
 
-    // Listen to Firebase updates
-    apiClient.getFirebaseECGStream(patientId).listen((String ecgValue) {
-      if (ecgValue.isNotEmpty) {
-        double? parsed = double.tryParse(ecgValue.trim());
-        if (parsed != null) ecgBuffer.add(parsed);
-      }
-    }, onError: (error) {
-      print("❌ ECG Stream Error: $error");
-    });
-
-    // Timer to consume buffer at fixed interval (e.g., 20ms = 50 FPS)
-    ecgTimer?.cancel(); // avoid multiple timers
-    ecgTimer = Timer.periodic(Duration(milliseconds: 0), (_) {
-      if (!mounted || ecgBuffer.isEmpty) return;
-
-      double ecg = ecgBuffer.removeAt(0);
+      print("📊 ECG value popped: $ecgVal");
 
       setState(() {
-        points.add(Offset(x, ecg));
+        points.add(Offset(x, ecgVal));
         x += 5;
-
         if (points.length > 100) points.removeAt(0);
         if (x >= 350) {
           x = 0;
           points.clear();
         }
-        print("Updated Points: $points");
       });
     });
   }
-    
-//   // **Mock Function** to fetch ECG values from a cloud database
-//   Future<double> fetchECGDataFromCloud() async {
-//   return 50 + 30 * sin(x / 20); // Simulated ECG signal with smooth waves
-// }
-
-  /// Auto-Adjust Y-Axis based on incoming data
-  // void _updateYAxisRange() {
-  //   if (ecgData.isNotEmpty) {
-  //     double minVal = ecgData.map((e) => e.y).reduce((a, b) => a < b ? a : b);
-  //     double maxVal = ecgData.map((e) => e.y).reduce((a, b) => a > b ? a : b);
-
-  //     setState(() {
-  //       minY = minVal - 100;
-  //       maxY = maxVal + 100;
-  //     });
-  //   }
-  // }
+ 
+  void _startStabilizationCountdown() {
+    stabilizationRefreshTimer = Timer.periodic(Duration(seconds: 1), (_) {
+      if (mounted && !SensorController().hasStabilized) {
+        setState(() {}); // UI refresh
+      }
+    });
+  }
 
   @override
   void dispose() {
+    stabilizationRefreshTimer?.cancel();
     ecgTimer?.cancel();
     super.dispose();
   }
@@ -232,6 +200,41 @@ class _ECGScreenState extends State<ECGScreen> {
                   ],
                 ),
               ),
+
+              if (!SensorController().hasStabilized &&
+                  SensorController().stabilizationStartTime != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 8),
+                      Text(
+                        "Sensor Stabilizing... (${SensorController().getSecondsRemaining()}s left)",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: MediaQuery.of(context).size.width * 0.04),
+                      ),
+                    ],
+                  ),
+                )
+              else if (SensorController().stabilizationStartTime == null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Column(
+                    children: [
+                      Text("No ECG readings available!",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: MediaQuery.of(context).size.width * 0.04)),
+                      SizedBox(height: 4),
+                      Text("Check if your ESP32 is connected.",
+                          style: TextStyle(
+                              color: Colors.red,
+                              fontSize: MediaQuery.of(context).size.width * 0.035)),
+                    ],
+                  ),
+                ),
 
               // ECG Graph Section
               Container(

@@ -83,20 +83,25 @@ class _PatientLoginState extends State<PatientLogin> {
         SharedPreferences prefs = await SharedPreferences.getInstance();
 
         if (smartShirtResponse.containsKey("smartshirts") &&
-            smartShirtResponse["smartshirts"].isNotEmpty) {
-          print("SmartShirt found! Navigating to SensorDataScreen...");
+          smartShirtResponse["smartshirts"].isNotEmpty) {
+        
+        final selectedShirt = smartShirtResponse["smartshirts"][0]; // pick the first one
+        final smartshirtId = selectedShirt["smartshirtId"];
 
-          await prefs.setBool('smartshirt_registered', true);
+        print("SmartShirt found! ID: $smartshirtId. Navigating to SensorDataScreen...");
 
-          Future.delayed(const Duration(seconds: 2), () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PatientDashboard(),
-              ),
-            );
-          });
-          return;
+        await prefs.setBool('smartshirt_registered', true);
+        await prefs.setString('smartshirt_id', smartshirtId.toString());
+
+        Future.delayed(const Duration(seconds: 2), () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PatientDashboard(),
+            ),
+          );
+        });
+        return;
         } else {
           print(
               "⚠ No SmartShirt found. Proceeding to SmartShirt connection screen...");

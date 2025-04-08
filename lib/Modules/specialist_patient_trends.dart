@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vitalsense/Modules/specialist_patient_insights.dart';
+import 'package:vitalsense/Modules/specialist_patient_trends_selector.dart';
 import 'package:vitalsense/widgets/specialist_drawer.dart';
 import '../services/api_client.dart';
 
@@ -175,8 +175,9 @@ class _Specialist_PatientsTrendsHistoryState
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => PatientInsightsScreen(
+                      builder: (context) => SpecialistTrendsSelectorScreen(
                         patientId: patient['patientid'],
+                        patientName: patient['fullname'],
                       ),
                     ),
                   );
