@@ -1,11 +1,12 @@
-// import 'package:fl_chart/fl_chart.dart';
-// import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:vitalsense/controllers/sensor_controller.dart';
+import 'package:vitalsense/services/alert.dart';
 import '../services/api_client.dart'; // API for fetching ECG data
 import 'package:shared_preferences/shared_preferences.dart';
-// import 'dart:math';
+import '../controllers/ecg_controller.dart';
+// import 'ecg_trends.dart';
 
 class ECGScreen extends StatefulWidget {
   final String? gender;
@@ -53,9 +54,9 @@ class ECGPainter extends CustomPainter {
 
     Path path = Path();
     if (points.isNotEmpty) {
-      double minValue = 1500; // ECG Min
-      double maxValue = 2400; // ECG Max
-      double canvasHeight = size.height * 0.8;
+      double minValue = 1700; // ECG Min
+      double maxValue = 2300; // ECG Max
+      double canvasHeight = size.height * 1;
       double normalize(double value) {
         if (maxValue == minValue) {
           return size.height / 4; // Prevent division by zero
@@ -79,28 +80,33 @@ class ECGPainter extends CustomPainter {
 }
 
 class _ECGScreenState extends State<ECGScreen> {
-  // List<FlSpot> ecgData = [];
-  // double time = 0;
   List<Offset> points = [];
   double x = 0;
   Timer? ecgTimer;
   List<double> ecgBuffer = [];
-
+  Timer? stabilizationRefreshTimer;
   ApiClient apiClient = ApiClient();
-  // Timer? ecgTimer;
-  // double minY = 0, maxY = 4095; // Default range for 12-bit ADC
-  // int baseTime = 0; // Base time for X-axis labels
-
   // Patient details
   String gender = "-";
   String age = "-";
   String weight = "-";
+  String role = "-";
+  String latestBPM = "-";
+  String ecgStatus = "-";
+  Color statusColor = Colors.grey;
+  bool hasShownECGAlert = false;
+  bool showFindings = false;
+  ECGSegment? segmentData;
 
   @override
   void initState() {
     super.initState();
-    startECGStreaming();
-    _loadUserDetailsOrUseParams(); // Load dynamic patient details
+    _loadUserDetailsOrUseParams();
+    _loadUserRole();
+    _startECGStream();
+    _startStabilizationCountdown();
+    loadLatestECGStatus();
+    loadLatestECGSegments();
   }
 
   /// Load gender, age, weight from params or SharedPreferences
@@ -121,67 +127,160 @@ class _ECGScreenState extends State<ECGScreen> {
     }
   }
 
-  /// **Fetch real-time ECG data every 2ms**
-  Future<void> startECGStreaming() async {
+  Future<void> _loadUserRole() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? patientId = prefs.getString("patient_id");
-
-    if (patientId == null) {
-      print("⚠️ Patient ID not found.");
-      return;
-    }
-
-    // Listen to Firebase updates
-    apiClient.getFirebaseECGStream(patientId).listen((String ecgValue) {
-      if (ecgValue.isNotEmpty) {
-        double? parsed = double.tryParse(ecgValue.trim());
-        if (parsed != null) ecgBuffer.add(parsed);
-      }
-    }, onError: (error) {
-      print("❌ ECG Stream Error: $error");
+    final savedRole = prefs.getString("role") ?? "-";
+    if (!mounted) return;
+    setState(() {
+      role = savedRole;
     });
+  }
 
-    // Timer to consume buffer at fixed interval (e.g., 20ms = 50 FPS)
-    ecgTimer?.cancel(); // avoid multiple timers
-    ecgTimer = Timer.periodic(Duration(milliseconds: 0), (_) {
-      if (!mounted || ecgBuffer.isEmpty) return;
+  void _startECGStream() {
+    ecgTimer = Timer.periodic(Duration(milliseconds: 20), (_) {
+      if (!mounted) return;
 
-      double ecg = ecgBuffer.removeAt(0);
+      double? ecgVal = ECGController.instance?.popNextPoint();
+      // print("📦 ECG Buffer Length: ${ECGController.instance?.buffer.length}");
+      if (ecgVal == null) return;
+
+      print("📊 ECG value popped: $ecgVal");
 
       setState(() {
-        points.add(Offset(x, ecg));
+        points.add(Offset(x, ecgVal));
         x += 5;
-
         if (points.length > 100) points.removeAt(0);
         if (x >= 350) {
           x = 0;
           points.clear();
         }
-        print("Updated Points: $points");
       });
     });
   }
-    
-//   // **Mock Function** to fetch ECG values from a cloud database
-//   Future<double> fetchECGDataFromCloud() async {
-//   return 50 + 30 * sin(x / 20); // Simulated ECG signal with smooth waves
-// }
+ 
+  void _startStabilizationCountdown() {
+    stabilizationRefreshTimer = Timer.periodic(Duration(seconds: 1), (_) {
+      if (mounted && !SensorController().hasStabilized) {
+        setState(() {}); // UI refresh
+      }
+    });
+  }
 
-  /// Auto-Adjust Y-Axis based on incoming data
-  // void _updateYAxisRange() {
-  //   if (ecgData.isNotEmpty) {
-  //     double minVal = ecgData.map((e) => e.y).reduce((a, b) => a < b ? a : b);
-  //     double maxVal = ecgData.map((e) => e.y).reduce((a, b) => a > b ? a : b);
+  Future<void> loadLatestECGStatus() async {
+    if (!SensorController().hasStabilized || SensorController().stabilizationStartTime == null) {
+    setState(() {
+      latestBPM = "-";
+      ecgStatus = "Sensor Not Connected";
+      statusColor = Colors.grey;
+    });
+    return;
+  }
+  
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
 
-  //     setState(() {
-  //       minY = minVal - 100;
-  //       maxY = maxVal + 100;
-  //     });
-  //   }
-  // }
+    if (patientId == null) return;
+
+    final result = await apiClient.getLatestECGStatus(patientId);
+
+    if (result != null) {
+      setState(() {
+      String rawBpm = result["bpm"].toString();
+      if (double.tryParse(rawBpm) != null &&
+          double.parse(rawBpm) >= 40 &&
+          double.parse(rawBpm) <= 180) {
+        latestBPM = rawBpm;
+      } else {
+        latestBPM = "-";
+      }
+
+      ecgStatus = result["ecgstatus"];
+
+      switch (ecgStatus) {
+        case "Normal":
+          statusColor = Colors.green;
+          break;
+        case "Low":
+          statusColor = Colors.orange;
+          break;
+        case "High":
+          statusColor = Colors.red;
+          break;
+        default:
+          statusColor = Colors.grey;
+      }
+
+      // 🔔 Trigger alert if needed
+      if ((ecgStatus == "Low" || ecgStatus == "High") && 
+        !hasShownECGAlert &&
+        SensorController().hasStabilized) {
+      hasShownECGAlert = true;
+      _showECGAlertDialog(ecgStatus);
+    }
+
+    });
+
+    }
+  }
+
+  Future<void> loadLatestECGSegments() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
+    if (patientId == null) return;
+
+    final result = await apiClient.getLatestECGSegments(patientId); 
+
+    if (result != null && result['bpm'] != null && double.tryParse(result['bpm'].toString()) != null) {
+      setState(() {
+        segmentData = ECGSegment.fromJson(result);
+      });
+    } else {
+      setState(() {
+        segmentData = null;
+      });
+    }
+  }
+
+  void _showECGAlertDialog(String condition) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("⚠️ ECG Alert"),
+        content: Text(
+          "Detected condition: $condition\nWould you like to notify trusted contacts?",
+          style: const TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                final contacts = await ApiClient().getTrustedContacts();
+                await notifyContacts(condition, contacts); // Assume this exists
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Contacts notified")),
+                );
+              } catch (e) {
+                print("Error sending alert: $e");
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Failed to send alert")),
+                );
+              }
+            },
+            child: const Text("Notify"),
+          )
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
+    stabilizationRefreshTimer?.cancel();
     ecgTimer?.cancel();
     super.dispose();
   }
@@ -232,6 +331,41 @@ class _ECGScreenState extends State<ECGScreen> {
                   ],
                 ),
               ),
+
+              if (!SensorController().hasStabilized &&
+                  SensorController().stabilizationStartTime != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 8),
+                      Text(
+                        "Sensor Stabilizing... (${SensorController().getSecondsRemaining()}s left)",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: MediaQuery.of(context).size.width * 0.04),
+                      ),
+                    ],
+                  ),
+                )
+              else if (SensorController().stabilizationStartTime == null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Column(
+                    children: [
+                      Text("No ECG readings available!",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: MediaQuery.of(context).size.width * 0.04)),
+                      SizedBox(height: 4),
+                      Text("Check if your ESP32 is connected.",
+                          style: TextStyle(
+                              color: Colors.red,
+                              fontSize: MediaQuery.of(context).size.width * 0.035)),
+                    ],
+                  ),
+                ),
 
               // ECG Graph Section
               Container(
@@ -294,7 +428,9 @@ class _ECGScreenState extends State<ECGScreen> {
                   ],
                 ),
                 padding: const EdgeInsets.all(12),
-                child: Row(
+                
+                child: 
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _infoCard(gender, "Gender"),
@@ -304,33 +440,99 @@ class _ECGScreenState extends State<ECGScreen> {
                 ),
               ),
 
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+              // SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+              Padding(
+                padding: const EdgeInsets.only(top: 16.0),
+                child: Column(
+                  children: [
+                    // Toggle Buttons
+                    _toggleTabBar(),
+                    SizedBox(height: 16),
 
-              // View Trends Button
-              Center(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: EdgeInsets.symmetric(
-                        horizontal: MediaQuery.of(context).size.width *
-                            0.12, // 12% of screen width
-                        vertical: MediaQuery.of(context).size.height *
-                            0.017), // 1.7% of screen height
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  onPressed: () {},
-                  child: Text(
-                    "View Trends",
-                    style: GoogleFonts.poppins(
-                      fontSize: MediaQuery.of(context).size.width * 0.04,
-                      color: Colors.white,
-                    ),
-                  ),
+                    // View: either Rhythm or Findings
+                    if (!showFindings)
+                      Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _infoCard(
+                                (latestBPM == '-' || latestBPM == 'null' || latestBPM.isEmpty) ? '—' : latestBPM,
+                                "BPM"
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                          children: [
+                            Expanded(child: _statusCard(ecgStatus, statusColor)),
+                          ],
+                        ),
+                        ],
+                      )
+                    else if (segmentData != null)
+                      _segmentCard(segmentData!),
+                  ],
                 ),
               ),
+
+
+              // SizedBox(height: MediaQuery.of(context).size.height * 0.04),
+              // // View Trends Button
+              // if (role != 'specialist')
+              //   Center(
+              //     child: ElevatedButton(
+              //       style: ElevatedButton.styleFrom(
+              //         backgroundColor: Colors.brown[300],
+              //         padding: EdgeInsets.symmetric(
+              //           horizontal: MediaQuery.of(context).size.width * 0.12,
+              //           vertical: MediaQuery.of(context).size.height * 0.017),
+              //         shape: RoundedRectangleBorder(
+              //           borderRadius: BorderRadius.circular(13),
+              //         ),
+              //       ),
+              //       onPressed: () {
+              //         Navigator.push(
+              //           context,
+              //           MaterialPageRoute(
+              //             builder: (context) => ECGChartScreen(
+              //               patientId: null, // Uses current logged-in patient from prefs
+              //               showDrawer: false,
+              //             ),
+              //           ),
+              //         );
+              //       },
+              //       child: Text(
+              //         "View Trends",
+              //         style: GoogleFonts.poppins(
+              //           fontSize: MediaQuery.of(context).size.width * 0.04,
+              //           color: Colors.white,
+              //         ),
+              //       ),
+              //     ),
+              //   ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusCard(String status, Color color) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Center(
+        child: Text(
+          status == "Sensor Not Connected" ? "No Signal" : "Status: $status",
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
       ),
@@ -373,4 +575,148 @@ class _ECGScreenState extends State<ECGScreen> {
       ),
     );
   }
+
+Widget _toggleTabBar() {
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.grey[300],
+      borderRadius: BorderRadius.circular(30),
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _pillButton("Rhythm", !showFindings),
+        _pillButton("Findings", showFindings),
+      ],
+    ),
+  );
 }
+
+Widget _pillButton(String label, bool isActive) {
+  return Expanded(
+    child: GestureDetector(
+      onTap: () {
+        setState(() {
+          showFindings = label == "Findings";
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.green[800] : Colors.transparent,
+          borderRadius: BorderRadius.circular(30),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? Colors.white : Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _segmentCard(ECGSegment data) {
+  final segments = [
+    ["HR", "${data.hr} BPM"],
+    ["HRV", "${data.hrv} ms"],
+    ["RR", "${data.rr} ms"],
+    ["P", "${data.p} ms"],
+    ["PR", "${data.pr} ms"],
+    ["QRS", "${data.qrs} ms"],
+    ["QT", "${data.qt} ms"],
+    ["QTc", "${data.qtc} ms"],
+  ];
+
+  return Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(top: 16),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 6,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: Table(
+      columnWidths: const {
+        0: FlexColumnWidth(1),
+        1: FlexColumnWidth(1),
+      },
+      children: List.generate(segments.length ~/ 2, (i) {
+        final left = segments[i * 2];
+        final right = segments[i * 2 + 1];
+        return TableRow(
+          children: [
+            _segmentTableCell(left[0], left[1]),
+            _segmentTableCell(right[0], right[1]),
+          ],
+        );
+      }),
+    ),
+  );
+}
+
+Widget _segmentTableCell(String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold)),
+        Flexible(child: Text(value)),
+      ],
+    ),
+  );
+}
+
+}
+
+class ECGSegment {
+  final String hr, hrv, rr, pr, p, qrs, qt, qtc;
+
+  ECGSegment({
+    required this.hr,
+    required this.hrv,
+    required this.rr,
+    required this.pr,
+    required this.p,
+    required this.qrs,
+    required this.qt,
+    required this.qtc,
+  });
+
+  factory ECGSegment.fromJson(Map<String, dynamic> json) {
+    String rawBpm = json['bpm']?.toString() ?? '-';
+    String finalBpm = '-';
+
+    if (double.tryParse(rawBpm) != null &&
+        double.parse(rawBpm) >= 40 &&
+        double.parse(rawBpm) <= 180) {
+      finalBpm = rawBpm;
+    }
+
+    return ECGSegment(
+      hr: finalBpm,
+      hrv: json['hrv'] ?? '-',
+      rr: json['rr'] != null && double.tryParse(json['rr'].toString()) != null
+        ? double.parse(json['rr'].toString()).round().toString()
+        : '-',
+      pr: json['pr'] ?? '-',
+      p: json['p'] ?? '-',
+      qrs: json['qrs'] ?? '-',
+      qt: json['qt'] ?? '-',
+      qtc: json['qtc'] ?? '-',
+    );
+  }
+
+}
+
