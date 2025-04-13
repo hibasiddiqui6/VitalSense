@@ -43,21 +43,6 @@ class ApiClient {
   //     return {'error': 'Server unreachable. Check your connection.'};
   //   }
   // }
-   
-   // Fetch Sensor Data from firebase
-  // Stream<List<Map<String, dynamic>>> getFirebaseECGBatchStream(String patientId) {
-  //   final dbRef = FirebaseDatabase.instance.ref("ecg_data/$patientId");
-
-  //   return dbRef.limitToLast(1).onChildAdded.map((DatabaseEvent event) {
-  //     final value = event.snapshot.value as Map;
-  //     final List ecgList = value['ecg'] as List;
-
-  //     return ecgList.map<Map<String, dynamic>>((item) => {
-  //       "value": item["value"],
-  //       "timestamp_ms": item["timestamp_ms"]
-  //     }).toList();
-  //   });
-  // }
 
    // Patient
   static Future<void>fetchAndSavePatientId(String email) async { 
@@ -117,6 +102,11 @@ class ApiClient {
               print("Patient registered successfully! Fetching patient ID...");
 
               SharedPreferences prefs = await SharedPreferences.getInstance();
+              await prefs.setString("gender", gender);
+              await prefs.setString("age", age.toString());
+              print("age saved: $age");
+              print("gender saved: $gender");
+
               await prefs.setString("email", email.toLowerCase());
               // 🔹 Ensure DB commit before fetching patient ID
               await Future.delayed(const Duration(seconds: 1));
@@ -157,8 +147,16 @@ class ApiClient {
 
           if (response.statusCode == 200) {
               final responseData = json.decode(response.body);
-              
+
+              String gender = responseData['gender'] ?? "Male";
+              int age = responseData['age'] ?? 0;
+
               SharedPreferences prefs = await SharedPreferences.getInstance();
+              await prefs.setString("gender", gender);
+              await prefs.setString("age", age.toString());
+              print("age saved: $age");
+              print("gender saved: $gender");
+
               await prefs.setString("email", email.toLowerCase());
 
               // Fetch and Save patient_id
@@ -708,23 +706,31 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> getSpecificPatientInsights(String patientId) async {
-  final response = await http.get(Uri.parse('$baseUrl/patient_insights/$patientId'));
-  
-  if (response.statusCode == 200) {
-    return jsonDecode(response.body);
-  } else {
-    return {'error': 'Failed to fetch patient insights'};
+    final response = await http.get(Uri.parse('$baseUrl/patient_insights/$patientId'));
+    
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      return {'error': 'Failed to fetch patient insights'};
+    }
   }
-}
 
   // Temperature
   Future<Map<String, dynamic>> classifyTemperature(double temperature) async {
+    final prefs = await SharedPreferences.getInstance();
+    final gender = prefs.getString("gender") ?? "Male";
+    final age = int.tryParse(prefs.getString("age") ?? "0") ?? 0;
+
     final url = Uri.parse('$baseUrl/classify_temp_status');
 
     final response = await http.post(
       url,
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"temperature": temperature}),
+      body: jsonEncode({
+        "temperature": temperature,
+        "age": age,
+        "gender": gender
+      }),
     );
 
     if (response.statusCode == 200) {
@@ -764,12 +770,18 @@ class ApiClient {
 
   // Respiration
   Future<Map<String, dynamic>> classifyRespiration(double respiration) async {
+    final prefs = await SharedPreferences.getInstance();
+    final age = int.tryParse(prefs.getString("age") ?? "0") ?? 0;
+
     final url = Uri.parse('$baseUrl/classify_respiration_status');
 
     final response = await http.post(
       url,
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"respiration": respiration}),
+      body: jsonEncode({
+        "respiration": respiration,
+        "age": age
+      }),
     );
 
     if (response.statusCode == 200) {
@@ -807,4 +819,101 @@ class ApiClient {
     return [];
   }
 
+  Future<Map<String, dynamic>?> getLatestECGStatus(String patientId) async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/latest_ecg_status?patient_id=$patientId"),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print("Failed to fetch ECG status: ${response.body}");
+      }
+    } catch (e) {
+      print("Exception while fetching ECG status: $e");
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> getLatestECGSegments(String patientId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/latest-ecg-segments/$patientId'),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print("Failed to fetch ECG segments: ${response.body}");
+      }
+    } catch (e) {
+      print("Exception while fetching ECG segments: $e");
+    }
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> getECGTrends(String range, {String? patientId}) async {
+    // If patientId not passed, fallback to SharedPreferences
+    if (patientId == null) {
+      final prefs = await SharedPreferences.getInstance();
+      patientId = prefs.getString("patient_id");
+    }
+
+    if (patientId == null) {
+      print("❌ No patient ID provided");
+      return [];
+    }
+
+    final url = Uri.parse('$_baseUrl/ecg_trends?patient_id=$patientId&range=$range');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(json.decode(response.body));
+      } else {
+        print("Error fetching ecg trends: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("❌ Exception: $e");
+    }
+
+    return [];
+  }
+
+  Future<Map<String, dynamic>> generateReport({
+    required String patientId,
+    required String smartshirtId,
+    required DateTime sessionStart,
+    required DateTime sessionEnd,
+  }) async {
+    final url = Uri.parse('$baseUrl/generate_report');
+
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "patient_id": patientId,
+        "smartshirt_id": smartshirtId,
+        "session_start": sessionStart.toIso8601String(),
+        "session_end": sessionEnd.toIso8601String(),
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception("Failed to generate report: ${response.body}");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getReports(String patientId, {String range = "24h"}) async {
+    final url = Uri.parse('$baseUrl/get_reports?patient_id=$patientId&range=$range');
+
+    final response = await http.get(url);
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    } else {
+      throw Exception("Failed to fetch reports: ${response.body}");
+    }
+  }
 }

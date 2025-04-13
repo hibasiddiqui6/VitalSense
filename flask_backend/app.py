@@ -4,16 +4,16 @@ import bcrypt  # For secure password hashing
 from db_utils import fetch_data, fetch_all_data, modify_data, fetch_latest_data, modify_and_return
 from datetime import datetime, timedelta
 import os
-import json
-import base64
-import pytz
+import psycopg2
 import traceback
 # import time
 from pytz import timezone
 import gevent
 from greenlet import getcurrent
-from vitals_classifier import classify_temp, classify_respiration
-from functools import partial
+from vitals_classifier import classify_temp, classify_respiration, classify_ecg_bpm
+from ecg_realtime_processor import add_ecg_sample
+from flask import send_file
+from generate_pdf_report import create_pdf
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -51,23 +51,29 @@ def insert_postgres_only(sensor_data, ids):
         print(f"[SUCCESS] Inserted ECG record into Postgres with id={hv_id}")
 
         # Classify and insert temp/resp status correctly
+        gevent.spawn_later(2, add_ecg_sample, ids["smartshirt_id"], int(sensor_data["ecg"]), hv_id, ids["age"], ids["gender"])
         gevent.spawn_later(2, classify_and_insert_temp_status, sensor_data["temperature"], hv_id)
         gevent.spawn_later(2, classify_and_insert_resp_status, sensor_data["respiration"], hv_id)
 
+    except psycopg2.errors.UniqueViolation:
+        print("⚠️ Duplicate entry blocked by DB constraint — skipping insert.")
     except Exception as e:
         print(f"❌ insert_postgres_only failed: {e}")
+        traceback.print_exc()
 
 @app.route('/sensor', methods=['POST'])
 def receive_sensor_data():
     try:
         data = request.get_json(force=True)
 
-        ecg = data.get("ecg")
+        ecg = data.get("ecg_raw")
         respiration = data.get("respiration")
         temperature = data.get("temperature")
         raw_timestamp = data.get("timestamp")
         patient_id = data.get("patient_id")
         smartshirt_id = data.get("smartshirt_id")
+        age = int(data.get("age", 0))
+        gender = data.get("gender", "Male")
 
         print(f"[RECEIVED] ECG={ecg}, Resp={respiration}, Temp={temperature}, Time={raw_timestamp}, PID={patient_id}, SID={smartshirt_id}")
 
@@ -87,7 +93,9 @@ def receive_sensor_data():
 
         ids = {
             "patient_id": patient_id,
-            "smartshirt_id": smartshirt_id
+            "smartshirt_id": smartshirt_id,
+            "age": age,
+            "gender": gender
         }
 
         # Always insert into database — frontend has ensured stabilization
@@ -99,7 +107,7 @@ def receive_sensor_data():
         print(f"[EXCEPTION] /sensor error: {e}")
         traceback.print_exc()
         return jsonify({"error": "Server error"}), 500
-
+    
 def refresh_linked_ids(force=False):
     now = datetime.utcnow()
     if force or app.linked_ids is None or app.last_linked_refresh is None or (now - app.last_linked_refresh).total_seconds() > REFRESH_INTERVAL_SECONDS: 
@@ -171,7 +179,13 @@ def login_patient():
             if patient:
                 # Check password
                 if bcrypt.checkpw(data['password'].encode(), user['password'].encode()):
-                    return jsonify({"message": "Login successful!", "patient_id": patient['patientid']}), 200
+                    return jsonify({
+                        "message": "Login successful!",
+                        "patient_id": patient['patientid'],
+                        "age": patient['age'],
+                        "gender": patient['gender']
+                    }), 200
+
                 else:
                     return jsonify({"message": "Invalid email or password"}), 401
             else:
@@ -744,21 +758,28 @@ def get_patient_insights(patient_id):
 def classify_temp_status():
     data = request.get_json()
     temp = float(data.get("temperature", -100))
-    classification = classify_temp(temp)
+    age = int(data.get("age", 0))
+    gender = data.get("gender", "Male")
+
+    classification = classify_temp(temp, age, gender)
     return jsonify(classification)
 
 def classify_and_insert_temp_status(temp_str, hv_id):
     try:
-        # print(f"[CHECK] Validating hv_id={hv_id}")
-        query = "SELECT 1 FROM health_vitals WHERE id = %s"
-        if not fetch_data(query, (hv_id,)):
+        query = "SELECT hv.patientid, p.age, p.gender FROM health_vitals hv JOIN patients p ON hv.patientid = p.patientid WHERE hv.id = %s"
+        result = fetch_data(query, (hv_id,))
+        if not result:
             print(f"[WARN] Skipping classification: hv_id {hv_id} not found")
             return
 
+        age = result["age"]
+        gender = result["gender"]
+
         temp = float(temp_str)
-        result = classify_temp(temp)
-        status = result['status']
-        disease = result['disease']
+        classification = classify_temp(temp, age, gender)
+
+        status = classification["status"]
+        disease = classification["disease"]
 
         if status == "Sensor Disconnected":
             print(f"[SKIP] Temperature status '{status}' — not inserting")
@@ -810,19 +831,28 @@ def get_temperature_trends():
 def classify_respiration_status():
     data = request.get_json()
     resp = float(data.get("respiration", -1))
-    classification = classify_respiration(resp)
+    age = int(data.get("age", 0))
+    classification = classify_respiration(resp, age)
     return jsonify(classification)
 
 def classify_and_insert_resp_status(resp_str, hv_id):
     try:
-        # print(f"[CHECK] Validating hv_id={hv_id}")
-        query = "SELECT 1 FROM health_vitals WHERE id = %s"
-        if not fetch_data(query, (hv_id,)):
-            print(f"[WARN] Skipping respiration classification: hv_id {hv_id} not found")
+        # Ensure health_vitals ID is valid
+        query = """
+            SELECT patients.age
+            FROM health_vitals
+            JOIN patients ON patients.patientid = health_vitals.patientid
+            WHERE health_vitals.id = %s
+        """
+        result = fetch_data(query, (hv_id,))
+        if not result:
+            print(f"[WARN] Skipping respiration classification: hv_id {hv_id} not linked to patient.")
             return
 
+        age = int(result["age"])
         resp = float(resp_str)
-        result = classify_respiration(resp)
+        result = classify_respiration(resp, age)
+
         status = result['status']
         disease = result['disease']
 
@@ -871,6 +901,212 @@ def get_respiration_trends():
         row["timestamp"] = row["timestamp"].astimezone(timezone("Asia/Karachi")).isoformat()
 
     return jsonify(result)
+
+@app.route('/latest_ecg_status')
+def get_latest_ecg_status():
+    patient_id = request.args.get("patient_id")
+    if not patient_id:
+        return jsonify({"error": "Missing patient_id"}), 400
+
+    query = """
+        SELECT e.bpm, e.ecgstatus
+        FROM ecg e
+        JOIN health_vitals hv ON hv.id = e.healthvitalsid
+        WHERE hv.patientID = %s
+        ORDER BY hv.timestamp DESC
+        LIMIT 1
+    """
+    result = fetch_data(query, (patient_id,))
+    return jsonify(result) if result else jsonify({"error": "No ECG found"}), 200
+
+@app.route("/latest-ecg-segments/<patient_id>", methods=["GET"])
+def get_latest_ecg_segments(patient_id):
+    try:
+        query = """
+            SELECT e.bpm, e.hrv, e.rr, e.pr, e.p, e.qrs, e.qt, e.qtc, e.ecgstatus
+            FROM ecg e
+            JOIN health_vitals hv ON e.healthvitalsid = hv.id
+            WHERE hv.patientID = %s
+            ORDER BY hv.timestamp DESC
+            LIMIT 1
+        """
+        row = fetch_data(query, (patient_id,))
+        if not row:
+            return jsonify({"error": "No ECG data found"}), 404
+
+        keys = ["bpm", "hrv", "rr", "pr", "p", "qrs", "qt", "qtc", "ecgstatus"]
+        result = dict(zip(keys, row[0]))
+        return jsonify(result), 200
+    except Exception as e:
+        print(f"❌ Error in /latest-ecg-segments: {e}")
+        return jsonify({"error": "Server error"}), 500
+
+@app.route('/ecg_trends', methods=['GET'])
+def get_ecg_trends():
+    patient_id = request.args.get("patient_id")
+    range_type = request.args.get("range", "24h").lower()
+
+    if not patient_id:
+        return jsonify({"error": "Patient ID is required"}), 400
+
+    now = datetime.now(timezone("Asia/Karachi"))  # Use PKT timezone
+
+    if range_type == "week":
+        start_time = now - timedelta(days=7)
+    elif range_type == "month":
+        start_time = now - timedelta(days=30)
+    else:
+        start_time = now - timedelta(hours=24)
+
+    query = """
+        SELECT hv.timestamp, e.bpm, e.ecgstatus
+        FROM health_vitals hv
+        JOIN ecg e ON hv.id = e.healthvitalsid
+        WHERE hv.patientID = %s AND hv.timestamp >= %s
+        ORDER BY hv.timestamp ASC
+    """
+    result = fetch_all_data(query, (patient_id, start_time))
+
+    # Convert timestamps to ISO format
+    for row in result:
+        row["timestamp"] = row["timestamp"].astimezone(timezone("Asia/Karachi")).isoformat()
+
+    return jsonify(result)
+
+@app.route("/generate_report", methods=["POST"])
+def generate_report():
+    try:
+        data = request.get_json()
+        patient_id = data["patient_id"]
+        smartshirt_id = data["smartshirt_id"]
+        session_start = datetime.fromisoformat(data["session_start"])
+        session_end = datetime.fromisoformat(data["session_end"])
+
+        # Fetch joined classified data within the session range
+        query = """
+            SELECT 
+                p.fullname, p.age, p.gender, p.weight,
+                e.bpm, e.ecgstatus,
+                t.temperature, t.temperaturestatus,
+                r.respiration, r.respirationstatus
+            FROM health_vitals hv
+            LEFT JOIN ecg e ON e.healthvitalsid = hv.id
+            LEFT JOIN temperature t ON t.healthvitalsid = hv.id
+            LEFT JOIN respiration r ON r.healthvitalsid = hv.id
+            JOIN patients p ON hv.patientid = p.patientid
+            WHERE hv.patientid = %s AND hv.timestamp BETWEEN %s AND %s
+        """
+        rows = fetch_all_data(query, (patient_id, session_start, session_end))
+        if not rows:
+            return jsonify({"error": "No vitals found for session"}), 404
+
+        # Use filtered values to compute session aggregates
+        bpms = [float(r["bpm"]) for r in rows if r["bpm"] not in [None, "", "-"]]
+        temps = [float(r["temperature"]) for r in rows if r["temperature"] not in [None, "", "-"]]
+        resps = [float(r["respiration"]) for r in rows if r["respiration"] not in [None, "", "-"]]
+
+        ecg_statuses = [r["ecgstatus"] for r in rows if r["ecgstatus"] not in [None, "", "Sensor Disconnected"]]
+        temp_statuses = [r["temperaturestatus"] for r in rows if r["temperaturestatus"] not in [None, "", "Sensor Disconnected"]]
+        resp_statuses = [r["respirationstatus"] for r in rows if r["respirationstatus"] not in [None, "", "Sensor Disconnected"]]
+
+        # Aggregate
+        bpm_avg = sum(bpms) / len(bpms) if bpms else None
+        temp_avg = sum(temps) / len(temps) if temps else None
+        resp_avg = sum(resps) / len(resps) if resps else None
+
+        # Select most frequent (mode) status if multiple
+        from collections import Counter
+        def most_common_status(statuses):
+            return Counter(statuses).most_common(1)[0][0] if statuses else "-"
+
+        ecg_status = most_common_status(ecg_statuses)
+        temp_status = most_common_status(temp_statuses)
+        resp_status = most_common_status(resp_statuses)
+
+        severity = "High" if any(s in ["High", "Very High", "Critical"] for s in [temp_status, resp_status, ecg_status]) else "Normal"
+        recommendation = "Consult your doctor immediately" if severity == "High" else "Vitals are within safe range"
+
+        patient_info = rows[0]
+        insert_query = """
+            INSERT INTO reports (
+                patient_id, smartshirt_id, session_start, session_end,
+                full_name, age, gender, weight,
+                avg_bpm, avg_temp, avg_resp,
+                temp_status, resp_status, ecg_status,
+                severity, recommendation
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """
+        report_id = modify_and_return(insert_query, (
+            patient_id, smartshirt_id, session_start, session_end,
+            patient_info["fullname"], patient_info["age"], patient_info["gender"], patient_info["weight"],
+            round(bpm_avg, 1) if bpm_avg else None,
+            round(temp_avg, 1) if temp_avg else None,
+            round(resp_avg, 1) if resp_avg else None,
+            temp_status, resp_status, ecg_status,
+            severity, recommendation
+        ))["id"]
+
+        return jsonify({
+            "status": "success",
+            "report_id": report_id,
+            "severity": severity,
+            "recommendation": recommendation,
+            "avg_bpm": round(bpm_avg, 1) if bpm_avg else "-",
+            "avg_temp": round(temp_avg, 1) if temp_avg else "-",
+            "avg_resp": round(resp_avg, 1) if resp_avg else "-",
+            "temp_status": temp_status,
+            "resp_status": resp_status,
+            "ecg_status": ecg_status,
+            "date": session_end.date().isoformat(),
+            "time": session_end.time().isoformat(timespec='minutes')
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Failed to generate report: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Server error"}), 500
+    
+@app.route("/get_reports", methods=["GET"])
+def get_reports():
+    patient_id = request.args.get("patient_id")
+    range_type = request.args.get("range", "24h").lower()
+
+    if not patient_id:
+        return jsonify({"error": "Missing patient ID"}), 400
+
+    now = datetime.now()
+    if range_type == "week":
+        start_time = now - timedelta(days=7)
+    elif range_type == "month":
+        start_time = now - timedelta(days=30)
+    else:
+        start_time = now - timedelta(hours=24)
+
+    query = """
+        SELECT id, full_name, age, gender, weight,
+               avg_bpm, avg_temp, avg_resp,
+               temp_status, resp_status, ecg_status,
+               severity, recommendation,
+               session_start, session_end,
+               to_char(session_end, 'YYYY-MM-DD') as date,
+               to_char(session_end, 'HH24:MI') as time
+        FROM reports
+        WHERE patient_id = %s AND session_end >= %s
+        ORDER BY session_end DESC
+    """
+    return jsonify(fetch_all_data(query, (patient_id, start_time)))
+
+@app.route('/download_report/<int:report_id>', methods=['GET'])
+def download_report(report_id):
+    query = "SELECT * FROM reports WHERE id = %s"
+    report = fetch_data(query, (report_id,))
+    if not report:
+        return jsonify({"error": "Report not found"}), 404
+
+    pdf_buffer = create_pdf(report)
+    return send_file(pdf_buffer, as_attachment=True, download_name=f"report_{report_id}.pdf", mimetype='application/pdf')
 
 @app.route('/testhook', methods=['POST'])
 def testhook():

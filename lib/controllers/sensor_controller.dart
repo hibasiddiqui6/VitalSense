@@ -1,7 +1,13 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vitalsense/Modules/patient_dashboard.dart';
+import 'package:vitalsense/Modules/report.dart';
+import 'package:vitalsense/Modules/specialist_patient_insights.dart';
+import 'package:vitalsense/services/api_client.dart';
 import 'package:vitalsense/services/websocket_service.dart';
-import 'dashboard_controller.dart';
+import 'patient_dashboard_controller.dart';
+import 'specialist_patient_insights_controller.dart';
 import 'temperature_controller.dart';
 import 'respiration_controller.dart';
 import 'ecg_controller.dart';
@@ -35,6 +41,7 @@ class SensorController {
         print("📡 Real-time data received in SensorController: $data");
 
         PatientDashboardState.instance?.lastSuccessfulFetch = DateTime.now();
+        PatientInsightsScreenState.instance?.lastSuccessfulFetch = DateTime.now();
 
         final String? currentBootId = data['boot_id'];
         if (currentBootId != null && currentBootId != _lastBootId) {
@@ -65,23 +72,25 @@ class SensorController {
 
         double? temp = double.tryParse(data['temperature'].toString());
         double? resp = double.tryParse(data['respiration'].toString());
-        double? ecg = double.tryParse(data['ecg'].toString());
+        double? ecgRaw = double.tryParse(data['ecg_raw'].toString());
 
         if (temp != null) {
           print("👈 Adding temp: $temp");
           TemperatureController.instance?.updateFromRealtime(temp);
           DashboardController.instance?.updateTemperatureLive(temp);
+          PatientInsightsController.instance?.updateTemperatureLive(temp);
         }
 
         if (resp != null) {
           print("👈 Adding resp: $resp");
           RespirationController.instance?.updateFromRealtime(resp);
           DashboardController.instance?.updateRespirationLive(resp);
+          PatientInsightsController.instance?.updateRespirationLive(resp);
         }
 
-        if (ecg != null) {
-          print("👈 Adding ECG point: $ecg");
-          ECGController.instance?.addPoint(ecg);
+        if (ecgRaw != null) {
+          print("👈 Adding ECG point: $ecgRaw");
+          ECGController.instance?.addPoint(ecgRaw);
         }
       },
     );
@@ -103,8 +112,54 @@ class SensorController {
     return 30 - elapsed;
   }
 
-  void dispose() {
+  void dispose(BuildContext context) {
     _stabilizationTimer?.cancel();
+
+    if (hasStabilized) {
+      generateReportOnDisconnect(context);
+    }
+
     webSocketService.disconnect();
   }
+
+  void generateReportOnDisconnect(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final patientId = prefs.getString("patient_id");
+    final smartshirtId = prefs.getString("smartshirt_id");
+    final sessionStart = stabilizationStartTime ?? DateTime.now().subtract(Duration(minutes: 1));
+    final sessionEnd = DateTime.now();
+
+    try {
+      final response = await ApiClient().generateReport(
+        patientId: patientId!,
+        smartshirtId: smartshirtId!,
+        sessionStart: sessionStart,
+        sessionEnd: sessionEnd,
+      );
+
+      if (response["status"] == "success") {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text("Monitoring Ended"),
+            content: const Text("Report generated successfully."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PatientReport(reportData: response),
+                  ),
+                ),
+                child: const Text("View Report"),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      print("⚠️ Error generating report: $e");
+    }
+  }
+
 }

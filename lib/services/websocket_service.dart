@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vitalsense/controllers/sensor_controller.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:http/http.dart' as http;
 import 'api_client.dart';
@@ -45,13 +44,24 @@ class ShirtWebSocketService {
       (data) {
         try {
           final decoded = jsonDecode(data);
-          _sensorBuffer.add(decoded);
-          _onRealtimeUpdate(decoded);
+          final isDuplicate = _sensorBuffer.any((entry) =>
+              entry['timestamp'] == decoded['timestamp'] &&
+              entry['ecg_raw'].toString() == decoded['ecg_raw'].toString());
+
+          if (!isDuplicate) {
+            _sensorBuffer.add(decoded);
+            _onRealtimeUpdate(decoded);
+          } else {
+            print("⚠️ Duplicate reading detected locally — skipping add.");
+          }
 
           // Resolve the completer on first valid response
           if (!completer.isCompleted) {
             print("✅ WebSocket handshake confirmed.");
             completer.complete(true);
+
+            print("🚿 Flushing buffer immediately after connect.");
+            flushToBackend();
           }
         } catch (e) {
           print("❌ JSON Decode Error: $e");
@@ -133,12 +143,12 @@ class ShirtWebSocketService {
     await _channel.sink.close();
 
     // 💡 Only flush if stabilized
-    if (SensorController().hasStabilized) {
-      print("Ready to flush");
-      flushToBackend();
-    } else {
-      print("⏳ Not stabilized — skipping flush.");
-    }
+    // if (SensorController().hasStabilized) {
+    //   print("Ready to flush");
+    //   flushToBackend();
+    // } else {
+    //   print("⏳ Not stabilized — skipping flush.");
+    // }
   }
 
   void flushToBackend() async {
@@ -149,10 +159,16 @@ class ShirtWebSocketService {
   final List<Map<String, dynamic>> failedBatches = [];
 
   for (final batch in batchesToFlush) {
+    final prefs = await SharedPreferences.getInstance();
+    final gender = prefs.getString("gender") ?? "Male";
+    final age = int.tryParse(prefs.getString("age") ?? "0") ?? 0;
+
     final payload = {
       ...batch,
       "patient_id": patientId,
       "smartshirt_id": smartshirtId,
+      "age": age,
+      "gender": gender
     };
 
     try {

@@ -245,7 +245,7 @@ class _RespChartScreenState extends State<RespChartScreen> {
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 28,
-                getTitlesWidget: (value, meta) => Text("${value.toInt()}°", style: const TextStyle(fontSize: 10, color: Colors.black)),
+                getTitlesWidget: (value, meta) => Text("${value.toInt()}", style: const TextStyle(fontSize: 10, color: Colors.black)),
               ),
             ),
             rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -316,9 +316,9 @@ class _RespChartScreenState extends State<RespChartScreen> {
   final avg = resps.reduce((a, b) => a + b) / resps.length;
 
   return [
-    _bpmIndicator("${min.toStringAsFixed(1)} F", "MIN", [Color(0xFFFFCDB6), Color(0xFFFFE9DF)]),
-    _bpmIndicator("${avg.toStringAsFixed(1)} F", "AVG", [Color(0xFFA6C583), Color(0xFFF0FFD7)]),
-    _bpmIndicator("${max.toStringAsFixed(1)} F", "MAX", [Color(0xFFFFE5B4), Color(0xFFFFEBD6)]),
+    _bpmIndicator("${min.toStringAsFixed(1)} BPM", "MIN", [Color(0xFFFFCDB6), Color(0xFFFFE9DF)]),
+    _bpmIndicator("${avg.toStringAsFixed(1)} BPM", "AVG", [Color(0xFFA6C583), Color(0xFFF0FFD7)]),
+    _bpmIndicator("${max.toStringAsFixed(1)} BPM", "MAX", [Color(0xFFFFE5B4), Color(0xFFFFEBD6)]),
   ];
 }
 
@@ -332,7 +332,7 @@ class _RespChartScreenState extends State<RespChartScreen> {
       ),
       child: Column(
         children: [
-          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ],
@@ -363,7 +363,7 @@ class _RespChartScreenState extends State<RespChartScreen> {
         shownLabels.add(label);
         rows.add({
           "time": label,
-          "resp": "${entry['respiration']} F",
+          "resp": "${entry['respiration']} BPM",
           "status": entry['respirationstatus'] ?? "-",
         });
       }

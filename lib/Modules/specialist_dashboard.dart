@@ -172,7 +172,7 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
       height: screenHeight,
       child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(
-            horizontal: screenWidth * 0.05, vertical: screenHeight * 0.05),
+            horizontal: screenWidth * 0.05, vertical: screenHeight * 0.1),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [

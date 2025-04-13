@@ -473,8 +473,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
             borderRadius: BorderRadius.circular(15),
           ),
           contentPadding: EdgeInsets.symmetric(
-            vertical: MediaQuery.of(context).size.height *
-                0.14, // Adjust height dynamically
+             // Adjust height dynamically
             horizontal: 16, // Keep horizontal padding fixed
           ),
           enabledBorder: OutlineInputBorder(
@@ -525,7 +524,8 @@ class _RegistrationFormState extends State<RegistrationForm> {
         value: value.isNotEmpty ? value : null,
         style: TextStyle(
           fontSize:
-              MediaQuery.of(context).size.width * 0.045, // Responsive font size
+              MediaQuery.of(context).size.width * 0.045, 
+              color: Colors.black// Responsive font size
         ),
         decoration: InputDecoration(
           labelText: label,
@@ -538,8 +538,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
             borderRadius: BorderRadius.circular(15),
           ),
           contentPadding: EdgeInsets.symmetric(
-            vertical: MediaQuery.of(context).size.height *
-                0.06, // Adjust height dynamically
+             // Adjust height dynamically
             horizontal: 16, // Keep horizontal padding fixed
           ),
           enabledBorder: OutlineInputBorder(

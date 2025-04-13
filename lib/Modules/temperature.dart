@@ -172,20 +172,26 @@ class TemperaturePageState extends State<TemperaturePage> {
 
   Color _statusColor(String status) {
     switch (status) {
-      case "Fever":
-      case "Hyperthermia":
-      case "Hyperpyrexia":
-        return Colors.redAccent;
-      case "Hypothermia":
+      case "Low": // < 95°F
         return Colors.blueAccent;
-      case "Below Normal":
+      case "Below Normal": // 95.0 - 96.8°F
         return Colors.orangeAccent;
-      case "Normal":
+      case "Normal": // 96.8 - 99°F
         return Colors.green;
-      case "Elevated (Monitor)":
+      case "Elevated": // >99 - <100.4°F
         return Colors.deepOrange;
+      case "High": // 100.4 - <104°F
+        return Colors.redAccent;
+      case "Very High": // 104 - <107°F
+        return const Color.fromARGB(255, 175, 33, 33); // intense red
+      case "Critical": // ≥107°F
+        return Colors.purple;
+      case "Sensor Disconnected":
+        return Colors.grey;
+      case "Stabilizing...":
+        return Colors.amber;
       default:
-        return const Color.fromARGB(255, 189, 107, 77); // default color
+        return const Color.fromARGB(255, 189, 107, 77); // fallback
     }
   }
 
@@ -323,7 +329,7 @@ class TemperaturePageState extends State<TemperaturePage> {
              Container(
                 padding: EdgeInsets.symmetric(vertical: screenHeight * 0.01),
                 decoration: BoxDecoration(
-                  color: Colors.brown[300],
+                  color: _statusColor(currentTempStatus),
                   borderRadius: BorderRadius.circular(screenWidth * 0.04),
                 ),
                 child: Center(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vitalsense/Modules/ecg_trends.dart';
 import 'package:vitalsense/Modules/respiration_trends.dart';
 import 'package:vitalsense/Modules/temperature_trends.dart';
 
@@ -39,6 +40,24 @@ class SpecialistTrendsSelectorScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(height: screenHeight * 0.03),
+              
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ECGChartScreen(
+                        patientId: patientId,
+                        patientName: patientName,
+                      ),
+                    ),
+                  );
+                },
+                style: CustomButtonStyle.elevatedButtonStyle(context),
+                child: const Text("ECG Trends / History"),
+              ),
+
+              SizedBox(height: screenHeight * 0.02),
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(

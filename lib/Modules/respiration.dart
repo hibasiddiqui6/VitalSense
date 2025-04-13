@@ -292,7 +292,7 @@ class RespirationPageState extends State<RespirationPage> {
               Container(
                 padding: EdgeInsets.symmetric(vertical: screenHeight * 0.01),
                 decoration: BoxDecoration(
-                  color: Colors.brown[300],
+                  color: _statusColor(respirationStatus),
                   borderRadius: BorderRadius.circular(screenWidth * 0.04),
                 ),
                 child: Center(
@@ -413,6 +413,23 @@ class RespirationPageState extends State<RespirationPage> {
         ),
       ),
     );
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case "Slow":         // < 12 BPM
+        return Colors.orangeAccent;
+      case "Normal":       // 12–20 BPM
+        return Colors.green;
+      case "Rapid":        // > 20 BPM
+        return Colors.redAccent;
+      case "Sensor Disconnected":
+        return Colors.grey;
+      case "Stabilizing...":
+        return Colors.amber;
+      default:
+        return const Color.fromARGB(255, 189, 107, 77); // fallback
+    }
   }
 
   Widget _statusText(String title, String value) {

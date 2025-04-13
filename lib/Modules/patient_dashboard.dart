@@ -55,6 +55,10 @@ class PatientDashboardState extends State<PatientDashboard> {
   Timer? timer;
   int time = 0;
 
+  double healthPerformance = 0.0;
+  String healthStatusLabel = "Unknown";
+  Color statusColor = Colors.grey;
+
   @override
   void initState() {
     super.initState();
@@ -84,6 +88,61 @@ class PatientDashboardState extends State<PatientDashboard> {
     // **Fetch user details**
     fetchUserProfile();
     _loadUserDetails();
+
+    Timer.periodic(Duration(seconds: 5), (_) {
+      if (mounted) {
+        updateHealthPerformance();
+      }
+    });
+  }
+
+  void updateHealthPerformance() {
+    double? tempVal = double.tryParse(temperature.replaceAll(RegExp(r'[^\d.]'), ''));
+    double? respVal = double.tryParse(respiration.replaceAll(RegExp(r'[^\d.]'), ''));
+
+    // ✅ No valid data yet? Show unknown
+    if (tempVal == null || respVal == null || !SensorController().hasStabilized) {
+      setState(() {
+        healthPerformance = 0.0;
+        healthStatusLabel = "Unknown";
+        statusColor = Colors.grey;
+      });
+      return;
+    }
+
+    double score = 0;
+
+    if (tempVal >= 97 && tempVal <= 99.5) {
+      score += 0.4;
+    }
+
+    if (respVal >= 12 && respVal <= 20) {
+      score += 0.4;
+    }
+
+    if (SensorController().hasStabilized) {
+      score += 0.2;
+    }
+
+    String label;
+    Color color;
+
+    if (score >= 0.8) {
+      label = "Good";
+      color = const Color.fromARGB(255, 165, 209, 147);
+    } else if (score >= 0.5) {
+      label = "Moderate";
+      color = const Color.fromARGB(255, 222, 184, 133);
+    } else {
+      label = "Poor";
+      color = Colors.redAccent;
+    }
+
+    setState(() {
+      healthPerformance = score * 100;
+      healthStatusLabel = label;
+      statusColor = color;
+    });
   }
 
   Future<void> _initWebSocket() async {
@@ -642,12 +701,13 @@ class PatientDashboardState extends State<PatientDashboard> {
   Widget _buildHealthPerformanceCard() {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
+
     return Container(
       width: screenWidth * 0.9,
       height: screenHeight * 0.2,
       padding: EdgeInsets.all(screenWidth * 0.04),
       decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 154, 142, 142),
+        color: const Color.fromARGB(255, 191, 200, 193),
         borderRadius: BorderRadius.circular(screenWidth * 0.02),
         boxShadow: [
           BoxShadow(
@@ -666,20 +726,22 @@ class PatientDashboardState extends State<PatientDashboard> {
           ),
           SizedBox(height: screenHeight * 0.01),
           Text(
-            '70%',
-            style: TextStyle(
-                fontSize: screenWidth * 0.06, fontWeight: FontWeight.bold),
-          ),
+              healthStatusLabel == "Unknown" ? "-" : '${healthPerformance.toStringAsFixed(0)}%',
+              style: TextStyle(
+                fontSize: screenWidth * 0.06,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           SizedBox(height: screenHeight * 0.01),
           Container(
             padding: EdgeInsets.symmetric(
                 horizontal: screenWidth * 0.05, vertical: screenHeight * 0.015),
             decoration: BoxDecoration(
-              color: Colors.greenAccent,
+              color: statusColor,
               borderRadius: BorderRadius.circular(screenWidth * 0.025),
             ),
             child: Text(
-              'Moderate',
+              healthStatusLabel,
               style: TextStyle(fontSize: screenWidth * 0.035),
             ),
           ),
