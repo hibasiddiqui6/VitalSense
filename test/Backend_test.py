@@ -10,14 +10,12 @@ sys.modules['vitals_classifier'] = flask_backend.vitals_classifier
 
 from flask_backend.app import app  # Adjust if path differs
 
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 class FlaskAppTestCase(unittest.TestCase):
     def setUp(self):
         self.client = app.test_client()
         self.client.testing = True
-
 
     def test_ping(self):
         response = self.client.get('/ping')
@@ -54,6 +52,7 @@ class FlaskAppTestCase(unittest.TestCase):
         }
         res = self.client.post('/register/patient', json=payload)
         self.assertIn(res.status_code, [400, 500])
+
     @patch('db_utils.fetch_data')
     def test_login_patient_invalid_credentials(self, mock_fetch):
         mock_fetch.side_effect = [
@@ -66,8 +65,6 @@ class FlaskAppTestCase(unittest.TestCase):
             "password": "wrongpass"
         })
         self.assertIn(response.status_code, [401])
-
-
 
     def test_classify_temp_status(self):
         response = self.client.post('/classify_temp_status', json={"temperature": 38.5})

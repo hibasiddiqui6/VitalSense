@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
-import bcrypt  # For secure password hashing
+import bcrypt  
 from db_utils import fetch_data, fetch_all_data, modify_data, fetch_latest_data, modify_and_return, get_connection
 from datetime import datetime, timedelta
 import os
@@ -13,7 +13,7 @@ from pytz import timezone
 import gevent
 from greenlet import getcurrent
 from vitals_classifier import classify_temp, classify_respiration
-from ecg_realtime_processor import add_ecg_sample
+from ecg_realtime_processor import process_ecg_batch
 from flask import send_file
 from generate_pdf_report import create_pdf
 from psycopg2.extras import execute_values
@@ -104,7 +104,6 @@ def insert_multiple_postgres(sensor_list, ids):
 
         # Classify only inserted entries
         for hv_id, sensor_data in zip([row[0] for row in returned_ids], sensor_list[:inserted_count]):
-            gevent.spawn_later(1, add_ecg_sample, ids["smartshirt_id"], int(sensor_data["ecg_raw"]), hv_id, ids["age"], ids["gender"])
             gevent.spawn_later(1, classify_and_insert_temp_status, sensor_data["temperature"], hv_id)
             gevent.spawn_later(1, classify_and_insert_resp_status, sensor_data["respiration"], hv_id)
 
@@ -186,29 +185,19 @@ def process_single_sensor_reading(data):
         print(f"❌ Failed to process reading: {e}")
         traceback.print_exc()
     
-def refresh_linked_ids(force=False):
-    now = datetime.utcnow()
-    if force or app.linked_ids is None or app.last_linked_refresh is None or (now - app.last_linked_refresh).total_seconds() > REFRESH_INTERVAL_SECONDS: 
-        print("[REFRESH] Reloading SmartShirt link from DB...")
-        query = """
-            SELECT smartshirt.patientid, smartshirt.smartshirtid
-            FROM smartshirt
-            JOIN patients ON smartshirt.patientid = patients.patientid
-            WHERE shirtstatus = TRUE
-            LIMIT 1
-        """
-        result = fetch_data(query)
-        if result:
-            app.linked_ids = {
-                "patient_id": result["patientid"],
-                "smartshirt_id": result["smartshirtid"]
-            }
-            app.last_linked_refresh = now
-            print(f"[REFRESHED] linked_ids: {app.linked_ids}")
-        else:
-            print("[WARN] No active SmartShirt linked.")
-            app.linked_ids = None
+@app.route("/ecg_batch", methods=["POST"])
+def ecg_batch():
+    try:
+        data = request.get_json()
+        if not data or not isinstance(data, list):
+            return jsonify({"error": "Invalid request format — expected a list of ECG batches"}), 400
 
+        process_ecg_batch(data)
+        return jsonify({"message": "Batch processed successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 @app.route('/register/patient', methods=['POST'])
 def register_patient():
     data = request.json
@@ -860,7 +849,7 @@ def classify_and_insert_temp_status(temp_str, hv_id):
         disease = classification["disease"]
 
         if status == "Sensor Disconnected" or temp > 120:
-            print(f"[SKIP] Temperature status '{status}' — not inserting")
+            # print(f"[SKIP] Temperature status '{status}' — not inserting")
             return
 
         insert_query = """
@@ -935,7 +924,7 @@ def classify_and_insert_resp_status(resp_str, hv_id):
         disease = result['disease']
 
         if status == "Sensor Disconnected" or resp <= 5.0:
-            print(f"[SKIP] Respiration status '{status}' — not inserting")
+            # print(f"[SKIP] Respiration status '{status}' — not inserting")
             return
 
         insert_query = """

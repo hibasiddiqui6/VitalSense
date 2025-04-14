@@ -151,13 +151,6 @@ class SensorController {
 
     } catch (e) {
       print("⚠️ Failed to finalize session: $e");
-      showDialog(
-        context: context,
-        builder: (_) => const AlertDialog(
-          title: Text("Error"),
-          content: Text("Failed to end session. Try again."),
-        ),
-      );
     }
   }
 

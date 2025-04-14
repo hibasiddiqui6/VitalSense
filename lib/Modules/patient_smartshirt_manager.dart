@@ -209,7 +209,6 @@ class _SmartShirtManagementScreenState extends State<SmartShirtManagementScreen>
                           }
                         },
                         itemBuilder: (context) => const [
-                          PopupMenuItem(value: 'reset', child: Text("Reset Wi-Fi")),
                           PopupMenuItem(value: 'delete', child: Text("Remove Device")),
                         ],
                       ),
