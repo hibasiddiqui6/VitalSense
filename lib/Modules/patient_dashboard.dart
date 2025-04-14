@@ -1,6 +1,6 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
+import 'package:vitalsense/controllers/sensor_controller.dart';
 import 'dart:async';
 import '../services/api_client.dart';
 import 'ecg.dart';
@@ -29,10 +29,11 @@ class PatientDashboard extends StatefulWidget {
   const PatientDashboard({super.key});
 
   @override
-  _PatientDashboardState createState() => _PatientDashboardState();
+  PatientDashboardState createState() => PatientDashboardState();
 }
 
-class _PatientDashboardState extends State<PatientDashboard> {
+class PatientDashboardState extends State<PatientDashboard> {
+  static PatientDashboardState? instance;
   String respiration = "-";
   String temperature = "-";
   String fullName = "...";
@@ -45,36 +46,134 @@ class _PatientDashboardState extends State<PatientDashboard> {
   bool showReconnecting = false;
   bool finalMessageShown = false;
   Timer? disconnectionTimer;
-  Timer? dataFetchTimer;
   List<Offset> points = [];
   DateTime? lastSuccessfulFetch;
-  int secondsRemaining = 30;
-  bool hasStabilized = false;
-  DateTime? stabilizationStartTime;
-  bool isValidSensorConnected = false;
+  Timer? stabilizationRefreshTimer;
+  bool wasDisconnected = false;
+  bool sessionEnded = false;
 
   double x = 0;
   Timer? timer;
   int time = 0;
 
+  double healthPerformance = 0.0;
+  String healthStatusLabel = "Unknown";
+  Color statusColor = Colors.grey;
+
   @override
   void initState() {
     super.initState();
 
+    stabilizationRefreshTimer = Timer.periodic(Duration(seconds: 1), (_) {
+        if (mounted && !SensorController().hasStabilized) {
+          setState(() {}); 
+        }
+      });
+
+    instance = this;
+    _initWebSocket();
+
+    Timer.periodic(Duration(seconds: 1), (_) {
+        if (mounted && !SensorController().hasStabilized) {
+          setState(() {}); // Refresh the UI to update remaining seconds
+        }
+      });
+
     startECGStreaming();
 
-    // **Start continuous data fetching**
-    dataFetchTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      fetchSensorData();
+    // Check every 5 seconds if no reading has been received for 10+ seconds
+    disconnectionTimer = Timer.periodic(Duration(seconds: 5), (_) {
+      _checkIfSensorDisconnected();
     });
-
-    // **Start the disconnection timeout**
-    disconnectionTimer =
-        Timer(const Duration(seconds: 20), _handleDataFetchFailure);
 
     // **Fetch user details**
     fetchUserProfile();
     _loadUserDetails();
+
+    Timer.periodic(Duration(seconds: 5), (_) {
+      if (mounted) {
+        updateHealthPerformance();
+      }
+    });
+  }
+
+  void updateHealthPerformance() {
+    double? tempVal = double.tryParse(temperature.replaceAll(RegExp(r'[^\d.]'), ''));
+    double? respVal = double.tryParse(respiration.replaceAll(RegExp(r'[^\d.]'), ''));
+
+    // ✅ No valid data yet? Show unknown
+    if (tempVal == null || respVal == null || !SensorController().hasStabilized) {
+      setState(() {
+        healthPerformance = 0.0;
+        healthStatusLabel = "Unknown";
+        statusColor = Colors.grey;
+      });
+      return;
+    }
+
+    double score = 0;
+
+    if (tempVal >= 97 && tempVal <= 99.5) {
+      score += 0.4;
+    }
+
+    if (respVal >= 12 && respVal <= 20) {
+      score += 0.4;
+    }
+
+    if (SensorController().hasStabilized) {
+      score += 0.2;
+    }
+
+    String label;
+    Color color;
+
+    if (score >= 0.8) {
+      label = "Good";
+      color = const Color.fromARGB(255, 165, 209, 147);
+    } else if (score >= 0.5) {
+      label = "Moderate";
+      color = const Color.fromARGB(255, 222, 184, 133);
+    } else {
+      label = "Poor";
+      color = Colors.redAccent;
+    }
+
+    setState(() {
+      healthPerformance = score * 100;
+      healthStatusLabel = label;
+      statusColor = color;
+    });
+  }
+
+  Future<void> _initWebSocket() async {
+    final prefs = await SharedPreferences.getInstance();
+    final patientId = prefs.getString("patient_id");
+    final smartshirtId = prefs.getString("smartshirt_id");
+
+    while (true) {
+      final ipResult = await ApiClient().getLatestMacAndIP();
+      final ip = ipResult['ip_address'];
+
+      if (patientId != null && smartshirtId != null && ip != null) {
+        final success = await SensorController().initWebSocket(
+          patientId: patientId,
+          smartshirtId: smartshirtId,
+          ip: ip,
+        );
+
+        if (success) {
+          print("✅ WebSocket initialized successfully.");
+          break;
+        } else {
+          print("❌ WebSocket connect() returned false. Retrying...");
+        }
+      } else {
+        print("❌ Missing patientId/smartshirtId or IP. Retrying...");
+      }
+
+      await Future.delayed(Duration(seconds: 5));
+    }
   }
 
   void startECGStreaming() {
@@ -112,87 +211,6 @@ class _PatientDashboardState extends State<PatientDashboard> {
     time++;
     return 100 + 30 * sin(time / 10); // Simulated ECG signal
   }
-
-  /// **Fetch sensor data from Flask server**
-  Future<void> fetchSensorData() async {
-  try {
-    final data = await ApiClient().getSensorData();
-    final now = DateTime.now();
-    final prefs = await SharedPreferences.getInstance();
-
-    if (data.containsKey("error")) {
-      print("❌ Sensor error: ${data['error']}");
-      isValidSensorConnected = false;
-
-      final millis = prefs.getInt("stabilization_start_time");
-      if (millis != null) {
-        final lastStable = DateTime.fromMillisecondsSinceEpoch(millis);
-        final gap = now.difference(lastStable).inSeconds;
-
-        // Only reset stabilization if sensor stayed offline more than 30s
-        if (gap > 30) {
-          await prefs.remove("stabilization_start_time");
-          hasStabilized = false;
-          secondsRemaining = 30;
-        } else {
-          final diff = now.difference(lastStable).inSeconds;
-          hasStabilized = diff >= 30;
-          secondsRemaining = hasStabilized ? 0 : 30 - diff;
-        }
-      } else {
-        hasStabilized = false;
-        secondsRemaining = 30;
-      }
-
-      if (data['error'] == "Stale data" || lastSuccessfulFetch == null || now.difference(lastSuccessfulFetch!).inSeconds > 10) {
-        setState(() {
-          showNoReadings = true;
-          showReconnecting = false;
-        });
-      } else {
-        setState(() {
-          showNoReadings = false;
-          showReconnecting = true;
-        });
-      }
-
-      return;
-    }
-
-    // ✅ Valid reading — reset watchdog
-    lastSuccessfulFetch = now;
-    isValidSensorConnected = true;
-
-    if (!prefs.containsKey("stabilization_start_time")) {
-      await prefs.setInt("stabilization_start_time", now.millisecondsSinceEpoch);
-      hasStabilized = false;
-      secondsRemaining = 30;
-    } else {
-      final millis = prefs.getInt("stabilization_start_time")!;
-      final savedStart = DateTime.fromMillisecondsSinceEpoch(millis);
-      final diff = now.difference(savedStart).inSeconds;
-      hasStabilized = diff >= 30;
-      secondsRemaining = hasStabilized ? 0 : 30 - diff;
-    }
-
-    setState(() {
-      respiration = "${data['respiration_rate']} BPM";
-      temperature = "${data['temperature']} °F";
-      isFetching = false;
-      showNoReadings = false;
-      showReconnecting = false;
-      finalMessageShown = false;
-    });
-
-    disconnectionTimer?.cancel();
-    disconnectionTimer = Timer(const Duration(seconds: 10), _handleDataFetchFailure);
-
-  } catch (e) {
-    print("❌ Exception fetching data: $e");
-    isValidSensorConnected = false;
-    _handleDataFetchFailure();
-  }
-}
 
   /// **Fetch user profile data**
   Future<void> fetchUserProfile() async {
@@ -243,27 +261,63 @@ class _PatientDashboardState extends State<PatientDashboard> {
     });
   }
 
-  /// **Handle data fetch failure with smooth transition**
-  void _handleDataFetchFailure() {
-    if (!mounted) return;
-    final now = DateTime.now();
-
-    if (lastSuccessfulFetch != null && now.difference(lastSuccessfulFetch!).inSeconds < 10) {
+  void updateTemperatureLive(double temp) {
+    if (temp < 93 || temp > 110) {
       setState(() {
-        showNoReadings = false;
-        showReconnecting = true;
+        temperature = "Sensor Disconnected";
       });
-    } else {
+      return;
+    }
+
+    final formatted = "${temp.toStringAsFixed(1)} °F";
+    if (mounted) {
       setState(() {
-        showNoReadings = true;
+        temperature = formatted;
+      });
+    }
+  }
+
+
+  void updateRespirationLive(double resp) {
+    if (resp < 5.0) {
+      setState(() {
+        respiration = "Sensor Disconnected";
+      });
+      return;
+    }
+
+    final formatted = "${resp.toStringAsFixed(1)} BPM";
+    if (mounted) {
+      setState(() {
+        respiration = formatted;
+      });
+    }
+  }
+
+  /// **Handle data fetch failure with smooth transition**
+  void _checkIfSensorDisconnected() {
+    final now = DateTime.now();
+    final bool isNowDisconnected = lastSuccessfulFetch == null || now.difference(lastSuccessfulFetch!).inSeconds > 10;
+
+    if (isNowDisconnected != wasDisconnected) {
+      setState(() {
+        showNoReadings = isNowDisconnected;
         showReconnecting = false;
       });
+
+      // ✅ Trigger end session + report when disconnected for first time
+      if (isNowDisconnected && !wasDisconnected) {
+        SensorController().endMonitoringSession(context);
+      }
+
+      wasDisconnected = isNowDisconnected;
     }
   }
 
   @override
   void dispose() {
-    dataFetchTimer?.cancel();
+    stabilizationRefreshTimer?.cancel();
+    instance = null;
     disconnectionTimer?.cancel();
     timer?.cancel();
     super.dispose();
@@ -301,35 +355,51 @@ class _PatientDashboardState extends State<PatientDashboard> {
             SizedBox(height: screenHeight * 0.01), // 1% of screen height
 
             // Show persistent message if no valid readings are available
-if (isValidSensorConnected && !hasStabilized && secondsRemaining > 0)
-  Column(children: [
-    CircularProgressIndicator(),
-    SizedBox(height: screenHeight * 0.01),
-    Text("Sensor Stabilizing... ($secondsRemaining s left)",
-        style: TextStyle(
-            fontSize: screenWidth * 0.035, fontWeight: FontWeight.bold)),
-              ])
-            else if (isValidSensorConnected && hasStabilized)
-              SizedBox.shrink() // readings will be shown below
-            else if (showReconnecting)
-              Column(children: [
-                CircularProgressIndicator(),
-                SizedBox(height: screenHeight * 0.01),
-                Text("Waiting for next reading...",
-                    style: TextStyle(fontSize: 16)),
-              ])
-            else if (showNoReadings)
-              Column(children: [
+          if (showNoReadings)
+            Column(
+              children: [
                 Text("No readings to display!",
                     style: TextStyle(
-                        fontSize: screenWidth * 0.035, fontWeight: FontWeight.bold)),
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeight.bold)),
                 SizedBox(height: screenHeight * 0.01),
                 Text("Check if your ESP32 is active.",
                     style: TextStyle(
                         fontSize: screenWidth * 0.03,
                         fontWeight: FontWeight.bold,
                         color: Colors.red)),
-              ]),
+              ],
+            )
+          else if (!SensorController().hasStabilized && SensorController().stabilizationStartTime != null)
+            Column(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: screenHeight * 0.01),
+                Text(
+                  "Sensor Stabilizing... (${SensorController().getSecondsRemaining()}s left)",
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.035,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            )
+          else if (SensorController().stabilizationStartTime == null)
+            Column(
+              children: [
+                Text("No readings to display!",
+                    style: TextStyle(
+                        fontSize: screenWidth * 0.035,
+                        fontWeight: FontWeight.bold)),
+                SizedBox(height: screenHeight * 0.01),
+                Text("Check if your ESP32 is active.",
+                    style: TextStyle(
+                        fontSize: screenWidth * 0.03,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red)),
+              ],
+            ),
+
             SizedBox(height: screenHeight * 0.01), //15
 
             // Gender, Age, Weight Cards
@@ -365,14 +435,14 @@ if (isValidSensorConnected && !hasStabilized && secondsRemaining > 0)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildInfoCard2(respiration, "Respiration", Colors.orange, () {
+                _buildInfoCard2(respiration, "Respiration", Color(0xFF99B88D), () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                         builder: (context) => const RespirationPage()),
                   );
                 }),
-                _buildInfoCard2(temperature, "Temperature", Colors.redAccent,
+                _buildInfoCard2(temperature, "Temperature", Color(0xFF99B88D),
                     () {
                   Navigator.push(
                     context,
@@ -501,17 +571,25 @@ if (isValidSensorConnected && !hasStabilized && secondsRemaining > 0)
             SizedBox(height: screenHeight * 0.005),
             Text(
               value,
+              textAlign: value == "Sensor Disconnected" ? TextAlign.center : TextAlign.left,
               style: TextStyle(
-                  fontSize: screenWidth * 0.055,
-                  fontWeight: FontWeight.w300,
-                  color: Colors.black),
+                fontSize: value == "Sensor Disconnected" 
+                    ? screenWidth * 0.030 
+                    : screenWidth * 0.055,
+                fontWeight: value == "Sensor Disconnected" 
+                    ? FontWeight.bold 
+                    : FontWeight.w300,
+                color: value == "Sensor Disconnected" 
+                    ? Colors.red 
+                    : Colors.black,
+              ),
             ),
             SizedBox(height: screenHeight * 0.01),
             ElevatedButton(
               onPressed: onPressed, // Calls the provided callback function
               style: ElevatedButton.styleFrom(
                 backgroundColor:
-                    const Color.fromARGB(255, 176, 85, 85), // Matches your UI
+                    const Color.fromARGB(255, 90, 109, 83), // Matches your UI
                 padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(screenWidth * 0.5),
@@ -607,7 +685,7 @@ if (isValidSensorConnected && !hasStabilized && secondsRemaining > 0)
                         vertical: screenHeight * 0.004),
                     decoration: BoxDecoration(
                       color: Colors.green.shade100,
-                      borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                      borderRadius: BorderRadius.circular(screenWidth * 0.05),
                     ),
                     child: Text(
                       'Details',
@@ -630,12 +708,13 @@ if (isValidSensorConnected && !hasStabilized && secondsRemaining > 0)
   Widget _buildHealthPerformanceCard() {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
+
     return Container(
       width: screenWidth * 0.9,
       height: screenHeight * 0.2,
       padding: EdgeInsets.all(screenWidth * 0.04),
       decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 154, 142, 142),
+        color: const Color.fromARGB(255, 191, 200, 193),
         borderRadius: BorderRadius.circular(screenWidth * 0.02),
         boxShadow: [
           BoxShadow(
@@ -654,20 +733,22 @@ if (isValidSensorConnected && !hasStabilized && secondsRemaining > 0)
           ),
           SizedBox(height: screenHeight * 0.01),
           Text(
-            '70%',
-            style: TextStyle(
-                fontSize: screenWidth * 0.06, fontWeight: FontWeight.bold),
-          ),
+              healthStatusLabel == "Unknown" ? "-" : '${healthPerformance.toStringAsFixed(0)}%',
+              style: TextStyle(
+                fontSize: screenWidth * 0.06,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           SizedBox(height: screenHeight * 0.01),
           Container(
             padding: EdgeInsets.symmetric(
                 horizontal: screenWidth * 0.05, vertical: screenHeight * 0.015),
             decoration: BoxDecoration(
-              color: Colors.greenAccent,
+              color: statusColor,
               borderRadius: BorderRadius.circular(screenWidth * 0.025),
             ),
             child: Text(
-              'Moderate',
+              healthStatusLabel,
               style: TextStyle(fontSize: screenWidth * 0.035),
             ),
           ),

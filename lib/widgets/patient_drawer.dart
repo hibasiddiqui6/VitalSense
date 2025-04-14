@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vitalsense/Modules/report_types.dart';
-import 'package:vitalsense/Modules/patient_trends_type.dart';
+import 'package:vitalsense/Modules/patient_trends_selector.dart';
 import '../Modules/welcome_page.dart';
 import '../Modules/patient_dashboard.dart';
 import '../Modules/patient_profile.dart';
-import '../Modules/trusted_contacts.dart';
+import '../Modules/patient_trusted_contacts.dart';
 import '../Modules/patient_settings.dart';
 import '../Modules/about_us.dart';
 import '../Modules/patient_wifi_setup.dart';
-// Import trends/reports when available
-// import '../Modules/patient_trends.dart';
-// import '../Modules/patient_reports.dart';
+import '../Modules/patient_smartshirt_manager.dart';
+import '../Modules/reports_history.dart';
 
 class PatientDrawer extends StatefulWidget {
   final String fullName;
@@ -117,6 +115,11 @@ class _PatientDrawerState extends State<PatientDrawer> {
                 }),
                 _divider(),
 
+                _buildDrawerItem(Icons.sensor_window, "My SmartShirts", () {
+                  _navigateTo(context, SmartShirtManagementScreen());
+                }),
+                _divider(),
+
                 _buildDrawerItem(Icons.contacts, "Trusted Contacts", () {
                   _navigateTo(context, TrustedContactsScreen());
                 }),
@@ -129,7 +132,7 @@ class _PatientDrawerState extends State<PatientDrawer> {
                 _divider(),
 
                 _buildDrawerItem(Icons.insert_drive_file, "Reports", () {
-                  _navigateTo(context, const PatientReportsScreen());
+                  _navigateTo(context, const ReportHistoryScreen());
                 }),
                 _divider(),
 

@@ -1,21 +1,23 @@
-
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import bcrypt  # For secure password hashing
-from db_utils import fetch_data, fetch_all_data, modify_data, fetch_latest_data, modify_and_return
+from db_utils import fetch_data, fetch_all_data, modify_data, fetch_latest_data, modify_and_return, get_connection
 from datetime import datetime, timedelta
 import os
+import psycopg2
+import traceback
+import threading
+import time
 import json
-import base64
-import pytz
-# import time
 from pytz import timezone
 import gevent
 from greenlet import getcurrent
-import firebase_admin
-from firebase_admin import db, credentials
 from vitals_classifier import classify_temp, classify_respiration
-from functools import partial
+from ecg_realtime_processor import add_ecg_sample
+from flask import send_file
+from generate_pdf_report import create_pdf
+from psycopg2.extras import execute_values
+from psycopg2.errors import UniqueViolation
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -25,31 +27,15 @@ sensor_data = {}
 # In-memory cache to store latest ESP32 MAC and IP (for testing/demo)
 mac_ip_cache = {}
 
-firebase_initialized = False
-stabilization_start_times = {}
-last_sensor_times = {}  # <-- New dictionary
-STABILIZATION_SECONDS = 30
-RESET_SESSION_GAP = 300  # 5 minutes
+app.linked_ids = None
+app.last_linked_refresh = None
+REFRESH_INTERVAL_SECONDS = 300 
+
+PKT = timezone("Asia/Karachi")
 
 @app.route('/')
 def home():
     return 'API is running!', 200
-
-def initialize_firebase():
-    if not firebase_admin._apps.get('vitalsense'):
-        firebase_b64 = os.getenv("FIREBASE_CREDENTIALS_BASE64")
-        firebase_db_url = os.getenv("FIREBASE_DB_URL")
-
-        if firebase_b64 and firebase_db_url:
-            decoded = base64.b64decode(firebase_b64).decode("utf-8")
-            cred_dict = json.loads(decoded)
-            cred = credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred, {
-                "databaseURL": firebase_db_url
-            }, name="vitalsense")
-            print("✅ Firebase initialized")
-        else:
-            print("❌ Firebase credentials or DB URL not found.")
 
 def insert_postgres_only(sensor_data, ids):
     try:
@@ -67,156 +53,161 @@ def insert_postgres_only(sensor_data, ids):
             ids["smartshirt_id"],
         )
 
-        hv_id_result = modify_and_return(insert_query, values)
-        hv_id = hv_id_result["id"]
+        result = modify_and_return(insert_query, values)
+        if not result:
+            print("⚠️ Insert failed or returned no ID — skipping classification.")
+            return
 
-        # print(f"[INSERT] ✅ health_vitals inserted with ID {hv_id}")
+        hv_id = result["id"]
+        print(f"[SUCCESS] Inserted ECG record into Postgres with id={hv_id}")
 
-        # print(f"[DEBUG] Spawning classification for hv_id {hv_id}")
-        # Immediately classify and insert temperature
-        gevent.spawn_later(2, partial(classify_and_insert_temp_status, sensor_data["temperature"], hv_id))
-        gevent.spawn_later(2, partial(classify_and_insert_resp_status, sensor_data["respiration"], hv_id))
+        # Only classify if insert succeeded
+        gevent.spawn_later(2, add_ecg_sample, ids["smartshirt_id"], int(sensor_data["ecg"]), hv_id, ids["age"], ids["gender"])
+        gevent.spawn_later(2, classify_and_insert_temp_status, sensor_data["temperature"], hv_id)
+        gevent.spawn_later(2, classify_and_insert_resp_status, sensor_data["respiration"], hv_id)
 
+    except psycopg2.errors.UniqueViolation:
+        print("⚠️ Duplicate entry blocked by DB constraint — skipping insert.")
     except Exception as e:
         print(f"❌ insert_postgres_only failed: {e}")
+        traceback.print_exc()
 
-def insert_firebase_only(data, ids):
+def insert_multiple_postgres(sensor_list, ids):
     try:
-        initialize_firebase()
-        ref = db.reference(f"/ecg_data/{ids['patient_id']}", app=firebase_admin.get_app("vitalsense"))
+        insert_query = """
+            INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientID, smartshirtID)
+            VALUES %s
+            ON CONFLICT DO NOTHING
+            RETURNING id
+        """
 
-        # No need to parse from string — data["timestamp"] is already a datetime object
-        utc_time = data["timestamp"]
-        pkt_time = utc_time.astimezone(timezone("Asia/Karachi"))
+        values = []
+        for sensor_data in sensor_list:
+            utc_time = datetime.fromisoformat(sensor_data["timestamp"].replace("Z", "+00:00"))
+            values.append((
+                utc_time,
+                sensor_data["ecg_raw"],
+                sensor_data["respiration"],
+                sensor_data["temperature"],
+                ids["patient_id"],
+                ids["smartshirt_id"]
+            ))
 
-        timestamp_key = pkt_time.isoformat(timespec='milliseconds').replace(":", "_").replace(".", "_") + "Z"
+        conn = get_connection()
+        cur = conn.cursor()
+        execute_values(cur, insert_query, values)
+        returned_ids = cur.fetchall()
+        conn.commit()
 
-        ref.child(timestamp_key).set({
-            "smartshirt_id": ids["smartshirt_id"],
-            "ecg": data["ecg"],
-            "respiration": data["respiration"],
-            "temperature": data["temperature"],
-            "timestamp": timestamp_key
-        })
+        inserted_count = len(returned_ids)
+        print(f"[SUCCESS] Inserted {inserted_count} batched readings")
+
+        # Classify only inserted entries
+        for hv_id, sensor_data in zip([row[0] for row in returned_ids], sensor_list[:inserted_count]):
+            gevent.spawn_later(1, add_ecg_sample, ids["smartshirt_id"], int(sensor_data["ecg_raw"]), hv_id, ids["age"], ids["gender"])
+            gevent.spawn_later(1, classify_and_insert_temp_status, sensor_data["temperature"], hv_id)
+            gevent.spawn_later(1, classify_and_insert_resp_status, sensor_data["respiration"], hv_id)
+
+    except UniqueViolation:
+        print("⚠️ One or more duplicate entries — some inserts skipped.")
     except Exception as e:
-        print(f"⚠️ Firebase RTDB insert failed: {e}")
+        print(f"❌ insert_multiple_postgres failed: {e}")
+        traceback.print_exc()
 
 @app.route('/sensor', methods=['POST'])
 def receive_sensor_data():
-    global sensor_data
     try:
         data = request.get_json(force=True)
 
-        ecg = data.get("ecg")
+        if isinstance(data, list):  # Batch mode
+            print(f"[BATCH RECEIVED] {len(data)} readings")
+
+            required_fields = ["patient_id", "smartshirt_id", "age", "gender"]
+            for field in required_fields:
+                if field not in data[0]:
+                    return jsonify({"error": f"Missing '{field}' in readings"}), 400
+
+            ids = {
+                "patient_id": data[0]["patient_id"],
+                "smartshirt_id": data[0]["smartshirt_id"],
+                "age": int(data[0].get("age", 0)),
+                "gender": data[0].get("gender", "Male")
+            }
+
+            gevent.spawn(insert_multiple_postgres, data, ids)
+            return jsonify({"status": "batch_received", "count": len(data)}), 200
+
+        # Otherwise fallback to single reading
+        process_single_sensor_reading(data)
+        return jsonify({"status": "success"}), 200
+
+    except Exception as e:
+        print(f"[EXCEPTION] /sensor error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Server error"}), 500
+
+def process_single_sensor_reading(data):
+    try:
+        ecg = data.get("ecg_raw")
         respiration = data.get("respiration")
         temperature = data.get("temperature")
-        timestamp = data.get("timestamp")
+        raw_timestamp = data.get("timestamp")
+        patient_id = data.get("patient_id")
+        smartshirt_id = data.get("smartshirt_id")
+        age = int(data.get("age", 0))
+        gender = data.get("gender", "Male")
 
-        if None in [ecg, respiration, temperature, timestamp]:
-            print("[WARN] Missing sensor fields")
-            return jsonify({"error": "Missing sensor fields"}), 400
+        if None in [respiration, temperature, ecg, raw_timestamp, patient_id, smartshirt_id]:
+            print("⚠️ Skipped: Missing required sensor fields")
+            return
 
-        if not hasattr(app, "linked_ids"):
-            query = """
-                SELECT smartshirt.patientID, smartshirt.smartshirtID 
-                FROM smartshirt 
-                JOIN patients ON smartshirt.patientID = patients.PatientID 
-                WHERE shirtstatus = TRUE
-                LIMIT 1
-            """
-            result = fetch_data(query)
-            if not result:
-                print("[WARN] No linked SmartShirt found")
-                return jsonify({"error": "No active SmartShirt linked to a patient"}), 404
-            app.linked_ids = {
-                "patient_id": result["patientid"],
-                "smartshirt_id": result["smartshirtid"]
-            }
-            print(f"[INIT] Linked IDs loaded: {app.linked_ids}")
+        print(f"[RECEIVED] ECG={ecg}, Resp={respiration}, Temp={temperature}, Time={raw_timestamp}, PID={patient_id}, SID={smartshirt_id}")
 
-        ids = app.linked_ids
-        patient_id = ids["patient_id"]
-        utc_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        utc_time = datetime.fromisoformat(raw_timestamp.replace("Z", "+00:00"))
 
         sensor_data = {
             "ecg": ecg,
             "respiration": respiration,
             "temperature": temperature,
-            "timestamp": utc_time 
+            "timestamp": utc_time
         }
 
-        print(f"[{datetime.now()}] ✅ Received Sensor Data for Patient {patient_id}: {sensor_data}")
+        ids = {
+            "patient_id": patient_id,
+            "smartshirt_id": smartshirt_id,
+            "age": age,
+            "gender": gender
+        }
 
-        # --- Stabilization logic ---
-        now = datetime.now()
-        if patient_id in last_sensor_times:
-            gap = (now - last_sensor_times[patient_id]).total_seconds()
-            if gap > RESET_SESSION_GAP:
-                stabilization_start_times[patient_id] = now
-                print(f"[RESET] Stabilization restarted for patient {patient_id} after {gap:.1f}s gap")
-        else:
-            stabilization_start_times[patient_id] = now
-            print(f"[INIT] Stabilization window started for patient {patient_id}")
-
-        last_sensor_times[patient_id] = now
-
-        elapsed = (now - stabilization_start_times[patient_id]).total_seconds()
-        is_stable = elapsed >= STABILIZATION_SECONDS
-
-        # Insert Firebase
-        gevent.spawn(insert_firebase_only, sensor_data, ids)
-
-        if is_stable:
-            # Pass stabilization info down
-            gevent.spawn(insert_postgres_only, sensor_data, ids)
-        else:
-            print(f"[INFO] Skipping Postgres insert (stabilizing: {elapsed:.1f}s)")
-
-        return jsonify({
-            "status": "success",
-            "data": sensor_data,
-            "stabilizing": not is_stable,
-            "seconds_elapsed": round(elapsed, 1),
-            "required_seconds": STABILIZATION_SECONDS
-        }), 200
+        # Use gevent for async insert
+        gevent.spawn(insert_postgres_only, sensor_data, ids)
 
     except Exception as e:
-        print(f"[EXCEPTION] /sensor error: {e}")
-        return jsonify({"error": f"An error occurred: {e}"}), 500
-
-@app.route('/get_sensor', methods=['GET'])
-def get_sensor_data():
-    try:
-        patient_id = request.args.get("patient_id")
-        print(f"[DEBUG] /get_sensor request for patient_id: {patient_id}")
-
-        if not patient_id:
-            return jsonify({"error": "Patient ID is required"}), 400
-
-        latest_data = fetch_latest_data("health_vitals", "patientID", patient_id)
-        print(f"[DEBUG] Retrieved latest data: {latest_data}")
-
-        if not latest_data:
-            return jsonify({"error": "No sensor data found for this patient"}), 404
-
-        # Freshness check using already-localized datetime
-        timestamp = latest_data.get("timestamp")
-
-        if isinstance(timestamp, datetime):
-            if timestamp.tzinfo is None:
-                timestamp = pytz.utc.localize(timestamp)
-
-            now_pkt = datetime.now(timezone("Asia/Karachi"))
-
-            if now_pkt - timestamp.astimezone(timezone("Asia/Karachi")) > timedelta(minutes=5):
-                print(f"[INFO] Data is older than 5 minutes. Timestamp: {timestamp}")
-                return jsonify({"error": "No recent sensor data available"}), 410
-
-        return jsonify(latest_data), 200
-
-    except Exception as e:
-        print(f"[EXCEPTION] Error in /get_sensor API: {e}")
-        return jsonify({"error": f"An error occurred: {e}"}), 500
+        print(f"❌ Failed to process reading: {e}")
+        traceback.print_exc()
+    
+def refresh_linked_ids(force=False):
+    now = datetime.utcnow()
+    if force or app.linked_ids is None or app.last_linked_refresh is None or (now - app.last_linked_refresh).total_seconds() > REFRESH_INTERVAL_SECONDS: 
+        print("[REFRESH] Reloading SmartShirt link from DB...")
+        query = """
+            SELECT smartshirt.patientid, smartshirt.smartshirtid
+            FROM smartshirt
+            JOIN patients ON smartshirt.patientid = patients.patientid
+            WHERE shirtstatus = TRUE
+            LIMIT 1
+        """
+        result = fetch_data(query)
+        if result:
+            app.linked_ids = {
+                "patient_id": result["patientid"],
+                "smartshirt_id": result["smartshirtid"]
+            }
+            app.last_linked_refresh = now
+            print(f"[REFRESHED] linked_ids: {app.linked_ids}")
+        else:
+            print("[WARN] No active SmartShirt linked.")
+            app.linked_ids = None
 
 @app.route('/register/patient', methods=['POST'])
 def register_patient():
@@ -266,7 +257,13 @@ def login_patient():
             if patient:
                 # Check password
                 if bcrypt.checkpw(data['password'].encode(), user['password'].encode()):
-                    return jsonify({"message": "Login successful!", "patient_id": patient['patientid']}), 200
+                    return jsonify({
+                        "message": "Login successful!",
+                        "patient_id": patient['patientid'],
+                        "age": patient['age'],
+                        "gender": patient['gender']
+                    }), 200
+
                 else:
                     return jsonify({"message": "Invalid email or password"}), 401
             else:
@@ -444,7 +441,12 @@ def get_smartshirts():
         if not patient_id:
             return jsonify({"error": "Patient ID is required"}), 400
 
-        results = fetch_all_data("SELECT devicemac, shirtstatus FROM smartshirt WHERE patientid = %s", (patient_id,))
+        results = fetch_all_data("""
+            SELECT smartshirtid, devicemac, shirtstatus 
+            FROM smartshirt 
+            WHERE patientid = %s
+        """, (patient_id,))
+
         if results:
             # Convert ShirtStatus to boolean
             for result in results:
@@ -455,36 +457,49 @@ def get_smartshirts():
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
     
-@app.route('/send_mac_to_app', methods=['POST'])
-def receive_mac():
+@app.route('/delete_smartshirt', methods=['DELETE'])
+def delete_smartshirt():
     try:
         data = request.json
         mac = data.get("mac_address")
-        ip = data.get("ip_address")
 
-        if not mac or not ip:
-            return jsonify({"error": "Missing MAC or IP address"}), 400
+        if not mac:
+            return jsonify({"error": "MAC address is required"}), 400
 
-        mac_ip_cache["latest"] = {"mac_address": mac, "ip_address": ip}
-
-        print(f"Received MAC: {mac}, IP: {ip}")
-        response = jsonify({"status": "saved"})
-        response.headers["Content-Length"] = str(len(response.get_data()))
-        return response, 200
+        # Delete SmartShirt entry
+        modify_data("DELETE FROM smartshirt WHERE devicemac = %s", (mac,))
+        return jsonify({"message": "SmartShirt deleted"}), 200
     except Exception as e:
-        print(f"[EXCEPTION] MAC receive error: {e}")
-        return jsonify({"error": "Server error"}), 500
+        return jsonify({"error": f"Failed to delete SmartShirt: {e}"}), 500
     
+@app.route('/send_mac_to_app', methods=['POST'])
+def receive_mac():
+    data = request.json
+    mac = data.get("mac_address")
+    ip = data.get("ip_address")
+
+    if not mac or not ip:
+        return jsonify({"error": "Missing MAC or IP address"}), 400
+
+    mac_ip_cache["latest"] = {
+        "mac_address": mac,
+        "ip_address": ip,
+        "timestamp": datetime.now()
+    }
+
+    print(f"✅ Received MAC: {mac}, IP: {ip}")
+    return jsonify({"status": "saved"}), 200
+
 @app.route('/get_latest_mac_ip', methods=['GET'])
 def get_latest_mac_ip():
-    try:
-        latest = mac_ip_cache.get("latest")
-        if not latest:
-            return jsonify({"error": "No ESP32 MAC/IP available"}), 404
+    latest = mac_ip_cache.get("latest")
+    if not latest:
+        return jsonify({"error": "No ESP32 MAC/IP available"}), 404
 
-        return jsonify(latest), 200
-    except Exception as e:
-        return jsonify({"error": f"Failed to fetch latest MAC/IP: {e}"}), 500
+    return jsonify({
+        "mac_address": latest["mac_address"],
+        "ip_address": latest["ip_address"]
+    }), 200
 
 @app.route('/get_patient_profile', methods=['GET'])
 def get_patient_profile():
@@ -821,24 +836,31 @@ def get_patient_insights(patient_id):
 def classify_temp_status():
     data = request.get_json()
     temp = float(data.get("temperature", -100))
-    classification = classify_temp(temp)
+    age = int(data.get("age", 0))
+    gender = data.get("gender", "Male")
+
+    classification = classify_temp(temp, age, gender)
     return jsonify(classification)
 
 def classify_and_insert_temp_status(temp_str, hv_id):
     try:
-        # print(f"[CHECK] Validating hv_id={hv_id}")
-        query = "SELECT 1 FROM health_vitals WHERE id = %s"
-        if not fetch_data(query, (hv_id,)):
+        query = "SELECT hv.patientid, p.age, p.gender FROM health_vitals hv JOIN patients p ON hv.patientid = p.patientid WHERE hv.id = %s"
+        result = fetch_data(query, (hv_id,))
+        if not result:
             print(f"[WARN] Skipping classification: hv_id {hv_id} not found")
             return
 
-        temp = float(temp_str)
-        result = classify_temp(temp)
-        status = result['status']
-        disease = result['disease']
+        age = result["age"]
+        gender = result["gender"]
 
-        if status == "Sensor Disconnected":
-            # print(f"[SKIP] Temperature status '{status}' — not inserting")
+        temp = float(temp_str)
+        classification = classify_temp(temp, age, gender)
+
+        status = classification["status"]
+        disease = classification["disease"]
+
+        if status == "Sensor Disconnected" or temp > 120:
+            print(f"[SKIP] Temperature status '{status}' — not inserting")
             return
 
         insert_query = """
@@ -854,7 +876,7 @@ def classify_and_insert_temp_status(temp_str, hv_id):
 @app.route('/temperature_trends', methods=['GET'])
 def get_temperature_trends():
     patient_id = request.args.get("patient_id")
-    range_type = request.args.get("range", "24h")
+    range_type = request.args.get("range", "24h").lower()
 
     if not patient_id:
         return jsonify({"error": "Patient ID is required"}), 400
@@ -883,10 +905,53 @@ def get_temperature_trends():
 
     return jsonify(result)
 
+@app.route("/classify_respiration_status", methods=["POST"])
+def classify_respiration_status():
+    data = request.get_json()
+    resp = float(data.get("respiration", -1))
+    age = int(data.get("age", 0))
+    classification = classify_respiration(resp, age)
+    return jsonify(classification)
+
+def classify_and_insert_resp_status(resp_str, hv_id):
+    try:
+        # Ensure health_vitals ID is valid
+        query = """
+            SELECT patients.age
+            FROM health_vitals
+            JOIN patients ON patients.patientid = health_vitals.patientid
+            WHERE health_vitals.id = %s
+        """
+        result = fetch_data(query, (hv_id,))
+        if not result:
+            print(f"[WARN] Skipping respiration classification: hv_id {hv_id} not linked to patient.")
+            return
+
+        age = int(result["age"])
+        resp = float(resp_str)
+        result = classify_respiration(resp, age)
+
+        status = result['status']
+        disease = result['disease']
+
+        if status == "Sensor Disconnected" or resp <= 5.0:
+            print(f"[SKIP] Respiration status '{status}' — not inserting")
+            return
+
+        insert_query = """
+            INSERT INTO respiration (healthvitalsid, respiration, respirationstatus, detecteddisease)
+            VALUES (%s, %s, %s, %s)
+        """
+        modify_data(insert_query, (hv_id, resp, status, disease))
+        print(f"[SUCCESS] Inserted respiration for hv_id {hv_id}")
+
+    except Exception as e:
+        print(f"❌ classify_and_insert_resp_status failed: {e}")
+
 @app.route('/respiration_trends', methods=['GET'])
 def get_respiration_trends():
     patient_id = request.args.get("patient_id")
-    range_type = request.args.get("range", "24h")
+    range_type = request.args.get("range", "24h").lower()
 
     if not patient_id:
         return jsonify({"error": "Patient ID is required"}), 400
@@ -915,39 +980,355 @@ def get_respiration_trends():
 
     return jsonify(result)
 
-@app.route("/classify_respiration_status", methods=["POST"])
-def classify_respiration_status():
-    data = request.get_json()
-    resp = float(data.get("respiration", -1))
-    classification = classify_respiration(resp)
-    return jsonify(classification)
+@app.route('/latest_ecg_status')
+def get_latest_ecg_status():
+    patient_id = request.args.get("patient_id")
+    if not patient_id:
+        return jsonify({"error": "Missing patient_id"}), 400
 
-def classify_and_insert_resp_status(resp_str, hv_id):
+    query = """
+        SELECT e.bpm, e.ecgstatus
+        FROM ecg e
+        JOIN health_vitals hv ON hv.id = e.healthvitalsid
+        WHERE hv.patientID = %s
+        ORDER BY hv.timestamp DESC
+        LIMIT 1
+    """
+    result = fetch_data(query, (patient_id,))
+    return jsonify(result) if result else jsonify({"error": "No ECG found"}), 200
+
+@app.route("/latest-ecg-segments/<patient_id>", methods=["GET"])
+def get_latest_ecg_segments(patient_id):
     try:
-        # print(f"[CHECK] Validating hv_id={hv_id}")
-        query = "SELECT 1 FROM health_vitals WHERE id = %s"
-        if not fetch_data(query, (hv_id,)):
-            print(f"[WARN] Skipping respiration classification: hv_id {hv_id} not found")
-            return
-
-        resp = float(resp_str)
-        result = classify_respiration(resp)
-        status = result['status']
-        disease = result['disease']
-
-        if status == "Sensor Disconnected":
-            print(f"[SKIP] Respiration status '{status}' — not inserting")
-            return
-
-        insert_query = """
-            INSERT INTO respiration (healthvitalsid, respiration, respirationstatus, detecteddisease)
-            VALUES (%s, %s, %s, %s)
+        query = """
+            SELECT e.bpm, e.hrv, e.rr, e.pr, e.p, e.qrs, e.qt, e.qtc, e.ecgstatus
+            FROM ecg e
+            JOIN health_vitals hv ON e.healthvitalsid = hv.id
+            WHERE hv.patientID = %s
+            ORDER BY hv.timestamp DESC
+            LIMIT 1
         """
-        modify_data(insert_query, (hv_id, resp, status, disease))
-        print(f"[SUCCESS] Inserted respiration for hv_id {hv_id}")
+        row = fetch_data(query, (patient_id,))
+        if not row:
+            return jsonify({"error": "No ECG data found"}), 404
+
+        keys = ["bpm", "hrv", "rr", "pr", "p", "qrs", "qt", "qtc", "ecgstatus"]
+        result = dict(zip(keys, row[0]))
+        return jsonify(result), 200
+    except Exception as e:
+        print(f"❌ Error in /latest-ecg-segments: {e}")
+        return jsonify({"error": "Server error"}), 500
+
+@app.route('/ecg_trends', methods=['GET'])
+def get_ecg_trends():
+    patient_id = request.args.get("patient_id")
+    range_type = request.args.get("range", "24h").lower()
+
+    if not patient_id:
+        return jsonify({"error": "Patient ID is required"}), 400
+
+    now = datetime.now(timezone("Asia/Karachi"))  # Use PKT timezone
+
+    if range_type == "week":
+        start_time = now - timedelta(days=7)
+    elif range_type == "month":
+        start_time = now - timedelta(days=30)
+    else:
+        start_time = now - timedelta(hours=24)
+
+    query = """
+        SELECT hv.timestamp, e.bpm, e.ecgstatus
+        FROM health_vitals hv
+        JOIN ecg e ON hv.id = e.healthvitalsid
+        WHERE hv.patientID = %s AND hv.timestamp >= %s
+        ORDER BY hv.timestamp ASC
+    """
+    result = fetch_all_data(query, (patient_id, start_time))
+
+    # Convert timestamps to ISO format
+    for row in result:
+        row["timestamp"] = row["timestamp"].astimezone(timezone("Asia/Karachi")).isoformat()
+
+    return jsonify(result)
+
+def schedule_report_generation(patient_id, smartshirt_id, session_start, delay_sec=10):
+    def task():
+        print(f"⏳ Scheduling report generation in {delay_sec} seconds...")
+        time.sleep(delay_sec)
+        session_end = datetime.now(PKT)
+
+        # Use a local alias just in case we want to modify it later
+        localized_start = session_start
+
+        print(f"[Scheduled] session_start: {localized_start} ({localized_start.tzinfo})")
+        print(f"[Scheduled] session_end: {session_end} ({session_end.tzinfo})")
+
+        try:
+            with app.app_context():
+                generate_report_logic(patient_id, smartshirt_id, localized_start, session_end)
+            print("✅ Background report generation complete.")
+        except Exception as e:
+            print(f"❌ Failed in background report gen: {e}")
+    threading.Thread(target=task).start()
+
+@app.route("/generate_report", methods=["POST"])
+def generate_report():
+    try:
+        data = request.get_json()
+        patient_id = data["patient_id"]
+        smartshirt_id = data["smartshirt_id"]
+        session_start = datetime.fromisoformat(data["session_start"])
+        session_end = datetime.fromisoformat(data["session_end"])
+
+        if session_start.tzinfo is None:
+            session_start = session_start.replace(tzinfo=PKT)
+
+        if session_end.tzinfo is None:
+            session_end = session_end.replace(tzinfo=PKT)
+
+        print(f"session_start: {session_start} ({session_start.tzinfo})")
+        print(f"session_end: {session_end} ({session_end.tzinfo})")
+
+        result = generate_report_logic(patient_id, smartshirt_id, session_start, session_end)
+        if "error" in result:
+            return jsonify(result), 404
+        return jsonify(result), 200
 
     except Exception as e:
-        print(f"❌ classify_and_insert_resp_status failed: {e}")
+        print(f"❌ Failed to generate report: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Server error"}), 500
+    
+def generate_report_logic(patient_id, smartshirt_id, session_start, session_end):
+    # Fetch joined classified data within the session range
+    query = """
+        SELECT 
+            u.fullname, p.age, p.gender, p.weight,
+            e.bpm, e.ecgstatus, e.pr, e.qrs, e.qt, e.rr, e.p, e.qtc, e.hrv,
+            t.temperature, t.temperaturestatus,
+            r.respiration, r.respirationstatus
+        FROM health_vitals hv
+        LEFT JOIN ecg e ON e.healthvitalsid = hv.id
+        LEFT JOIN temperature t ON t.healthvitalsid = hv.id
+        LEFT JOIN respiration r ON r.healthvitalsid = hv.id
+        JOIN patients p ON hv.patientid = p.patientid
+        JOIN users u ON p.userid = u.userid
+        WHERE hv.patientid = %s AND hv.timestamp BETWEEN %s AND %s
+
+    """
+    rows = fetch_all_data(query, (patient_id, session_start, session_end))
+    if not rows:
+        print("⚠️ No vitals found for session.")
+        return {"error": "No vitals found for session"}
+
+    bpms = [float(r["bpm"]) for r in rows if r["bpm"] not in [None, "", "-"]]
+    temps = [float(r["temperature"]) for r in rows if r["temperature"] not in [None, "", "-"]]
+    resps = [float(r["respiration"]) for r in rows if r["respiration"] not in [None, "", "-"]]
+
+    ecg_statuses = [r["ecgstatus"] for r in rows if r["ecgstatus"] not in [None, "", "Sensor Disconnected"]]
+    temp_statuses = [r["temperaturestatus"] for r in rows if r["temperaturestatus"] not in [None, "", "Sensor Disconnected"]]
+    resp_statuses = [r["respirationstatus"] for r in rows if r["respirationstatus"] not in [None, "", "Sensor Disconnected"]]
+
+    bpm_avg = sum(bpms) / len(bpms) if bpms else None
+    temp_avg = sum(temps) / len(temps) if temps else None
+    resp_avg = sum(resps) / len(resps) if resps else None
+
+    from collections import Counter
+    def most_common(statuses): return Counter(statuses).most_common(1)[0][0] if statuses else "-"
+
+    ecg_status = most_common(ecg_statuses)
+    temp_status = most_common(temp_statuses)
+    resp_status = most_common(resp_statuses)
+
+    # Get specific recommendations
+    temp_rec = get_recommendation_by_vital("Temperature", temp_status)
+    resp_rec = get_recommendation_by_vital("Respiration", resp_status)
+    ecg_rec = get_recommendation_by_vital("ECG", ecg_status)
+
+    # Fallbacks
+    default_title = "No Recommendation"
+    default_msg = "Please consult your healthcare provider."
+
+    # Compose recommendations
+    recommendation = {
+        "temperature": {
+            "title": temp_rec["title"] if temp_rec else default_title,
+            "message": temp_rec["message"] if temp_rec else default_msg
+        },
+        "respiration": {
+            "title": resp_rec["title"] if resp_rec else default_title,
+            "message": resp_rec["message"] if resp_rec else default_msg
+        },
+        "ecg": {
+            "title": ecg_rec["title"] if ecg_rec else default_title,
+            "message": ecg_rec["message"] if ecg_rec else default_msg
+        }
+    }
+
+    # Determine severity and main recommendation based on the most critical vital
+    vital_statuses = {
+        "temperature": temp_status,
+        "respiration": resp_status,
+        "ecg": ecg_status,
+    }
+    most_critical_vital = min(vital_statuses, key=lambda v: get_priority_index(vital_statuses[v]))
+    most_critical_status = vital_statuses[most_critical_vital]
+    severity = most_critical_status if most_critical_status != "Normal" else "Normal"
+    recommendation_title = recommendation[most_critical_vital]["title"]
+
+    patient_info = rows[0]
+    # Collect ECG metrics dynamically
+    ecg_metrics = {
+        k: v for k, v in {
+            "PR Interval": patient_info.get("pr"),
+            "QRS Complex": patient_info.get("qrs"),
+            "QT Interval": patient_info.get("qt"),
+            "RR": patient_info.get("rr"),
+            "P": patient_info.get("p"),
+            "QTC": patient_info.get("qtc"),
+            "HRV": patient_info.get("hrv"),
+        }.items() if v not in [None, "", "-"]
+    }
+
+    insert_query = """
+        INSERT INTO reports (
+            patient_id, smartshirt_id, session_start, session_end,
+            full_name, age, gender, weight,
+            avg_bpm, avg_temp, avg_resp,
+            temp_status, resp_status, ecg_status,
+            severity, recommendation,
+            recommendations_by_vital
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
+    """
+    report_id = modify_and_return(insert_query, (
+        patient_id, smartshirt_id, session_start, session_end,
+        patient_info["fullname"], patient_info["age"], patient_info["gender"], patient_info["weight"],
+        round(bpm_avg, 1) if bpm_avg else None,
+        round(temp_avg, 1) if temp_avg else None,
+        round(resp_avg, 1) if resp_avg else None,
+        temp_status, resp_status, ecg_status,
+        severity, recommendation_title,
+        json.dumps(recommendation) 
+    ))["id"]
+
+    return {
+        "status": "success",
+        "report_id": report_id,
+        "severity": severity,
+        "recommendation": recommendation_title,  # main summary
+        "recommendations_by_vital": recommendation,  # per-vital details
+        "avg_bpm": round(bpm_avg, 1) if bpm_avg else "-",
+        "avg_temp": round(temp_avg, 1) if temp_avg else "-",
+        "avg_resp": round(resp_avg, 1) if resp_avg else "-",
+        "temp_status": temp_status,
+        "resp_status": resp_status,
+        "ecg_status": ecg_status,
+        "ecg_metrics": ecg_metrics,
+        "date": session_end.date().isoformat(),
+        "time": session_end.time().isoformat(timespec='minutes')
+    }
+
+@app.route("/end_session", methods=["POST"])
+def end_session():
+    try:
+        data = request.get_json()
+        patient_id = data["patient_id"]
+        smartshirt_id = data["smartshirt_id"]
+        session_start = datetime.fromisoformat(data["session_start"])
+
+        if session_start.tzinfo is None:
+            session_start = PKT.localize(session_start)
+
+        # Launch background scheduler
+        schedule_report_generation(patient_id, smartshirt_id, session_start)
+
+        return jsonify({"status": "Report will be generated shortly"}), 200
+
+    except Exception as e:
+        print(f"❌ /end_session error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Server error"}), 500
+
+@app.route("/get_reports", methods=["GET"])
+def get_reports():
+    patient_id = request.args.get("patient_id")
+    range_type = request.args.get("range", "24h").lower()
+
+    if not patient_id:
+        return jsonify({"error": "Missing patient ID"}), 400
+
+    now = datetime.now()
+    if range_type == "week":
+        start_time = now - timedelta(days=7)
+    elif range_type == "month":
+        start_time = now - timedelta(days=30)
+    else:
+        start_time = now - timedelta(hours=24)
+
+    query = """
+        SELECT id, full_name, age, gender, weight,
+            avg_bpm, avg_temp, avg_resp,
+            temp_status, resp_status, ecg_status,
+            severity, recommendation,
+            recommendations_by_vital,
+            session_start::text as session_start,
+            session_end::text as session_end,  
+            to_char(session_end, 'YYYY-MM-DD') as date,
+            to_char(session_end, 'HH24:MI') as time
+        FROM reports
+        WHERE patient_id = %s AND session_end >= %s
+        ORDER BY session_end DESC
+
+    """
+    rows = fetch_all_data(query, (patient_id, start_time))
+
+    # Format timestamp fields to ISO 8601 with +05:00
+    for row in rows:
+        if isinstance(row.get("session_start"), datetime):
+            row["session_start"] = row["session_start"].isoformat()
+        if isinstance(row.get("session_end"), datetime):
+            row["session_end"] = row["session_end"].isoformat()
+
+    return jsonify(rows) 
+
+@app.route('/delete_report/<int:report_id>', methods=['DELETE'])
+def delete_report(report_id):
+    query = "DELETE FROM reports WHERE id = %s RETURNING id"
+    deleted = modify_and_return(query, (report_id,))  # ✅ use proper function
+
+    if not deleted:
+        return jsonify({"error": "Report not found"}), 404
+
+    return jsonify({"message": "Report deleted", "deleted_id": deleted["id"]}), 200
+
+@app.route('/download_report/<int:report_id>', methods=['GET'])
+def download_report(report_id):
+    query = "SELECT * FROM reports WHERE id = %s"
+    report = fetch_data(query, (report_id,))
+    if not report:
+        return jsonify({"error": "Report not found"}), 404
+
+    pdf_buffer = create_pdf(report)
+    return send_file(pdf_buffer, as_attachment=True, download_name=f"report_{report_id}.pdf", mimetype='application/pdf')
+
+def get_priority_index(status):
+        order = ["Critical", "Very High", "High", "Low", "Slow", "Rapid", "Elevated", "Below Normal", "Unknown", "Normal"]
+        return order.index(status) if status in order else len(order)
+
+def get_recommendation_by_vital(vital_name, status):
+    query = """
+        SELECT title, message FROM recommendations
+        WHERE vital_name = %s AND status = %s AND active = TRUE
+    """
+    rec = fetch_data(query, (vital_name, status))
+    
+    if not rec:
+        print(f"⚠️ No recommendation found for {vital_name} with status '{status}'")
+
+    print(f"Recommendation found for {vital_name} with status '{status}'")
+    return rec
 
 @app.route('/testhook', methods=['POST'])
 def testhook():

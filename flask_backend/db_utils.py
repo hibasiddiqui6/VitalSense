@@ -14,6 +14,9 @@ def get_db_connection():
     except Exception as e:
         print(f"❌ Error: Unable to connect to the database. {e}")
         raise e
+    
+def get_connection():
+    return get_db_connection()  # alias for clarity in app.py
 
 # Execute SELECT query (single row)
 def fetch_data(query, params=None):
