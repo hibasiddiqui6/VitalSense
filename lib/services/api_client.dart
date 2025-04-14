@@ -916,4 +916,40 @@ class ApiClient {
       throw Exception("Failed to fetch reports: ${response.body}");
     }
   }
+
+  Future<bool> deleteReport(int reportId) async {
+    final url = Uri.parse('$baseUrl/delete_report/$reportId');
+    final response = await http.delete(url); // 🔁 WAS .get, NOW .delete
+
+    if (response.statusCode == 200) {
+      print("✅ Report deleted: ${response.body}");
+      return true;
+    } else {
+      print("⚠️ Failed to delete report: ${response.body}");
+      return false;
+    }
+  }
+
+  Future<void> endMonitoringSession({
+    required String patientId,
+    required String smartshirtId,
+    required DateTime sessionStart,
+  }) async {
+    final url = Uri.parse('$baseUrl/end_session');
+
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "patient_id": patientId,
+        "smartshirt_id": smartshirtId,
+        "session_start": sessionStart.toIso8601String(),
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to schedule report generation: ${response.body}");
+    }
+  }
+
 }

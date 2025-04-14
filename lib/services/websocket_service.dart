@@ -12,7 +12,6 @@ class ShirtWebSocketService {
   Timer? _flushTimer;
 
   final List<Map<String, dynamic>> _sensorBuffer = [];
-
   final String patientId;
   final String smartshirtId;
   String ip;
@@ -24,43 +23,41 @@ class ShirtWebSocketService {
     required this.ip,
   });
 
- Future<bool> connect({
-    required Function(Map<String, dynamic>) onRealtimeUpdate,
-  }) async {
+  Future<bool> connect({required Function(Map<String, dynamic>) onRealtimeUpdate}) async {
     _onRealtimeUpdate = onRealtimeUpdate;
-    print("🌐 Attempting connection to ws://$ip/ws");
-
     final completer = Completer<bool>();
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse("ws://$ip/ws"));
     } catch (e) {
-      print("❌ Connection attempt failed immediately: $e");
+      print("❌ Connection failed: $e");
       return false;
     }
 
-    // Listen for any stream data OR connection failure
     _streamSub = _channel.stream.listen(
       (data) {
         try {
           final decoded = jsonDecode(data);
+          final timestamp = decoded['timestamp'];
+          final ecg = decoded['ecg_raw'].toString();
+
           final isDuplicate = _sensorBuffer.any((entry) =>
-              entry['timestamp'] == decoded['timestamp'] &&
-              entry['ecg_raw'].toString() == decoded['ecg_raw'].toString());
+              entry['timestamp'] == timestamp && entry['ecg_raw'].toString() == ecg);
 
           if (!isDuplicate) {
             _sensorBuffer.add(decoded);
+            _sensorBuffer.sort((a, b) => DateTime.parse(a['timestamp']).compareTo(DateTime.parse(b['timestamp'])));
             _onRealtimeUpdate(decoded);
-          } else {
-            print("⚠️ Duplicate reading detected locally — skipping add.");
           }
 
-          // Resolve the completer on first valid response
           if (!completer.isCompleted) {
-            print("✅ WebSocket handshake confirmed.");
             completer.complete(true);
+            print("✅ WebSocket handshake confirmed");
+            flushToBackend();
+          }
 
-            print("🚿 Flushing buffer immediately after connect.");
+          if (_sensorBuffer.length >= 50) {
+            print("🚿 Auto-flushing large batch");
             flushToBackend();
           }
         } catch (e) {
@@ -80,13 +77,11 @@ class ShirtWebSocketService {
       cancelOnError: true,
     );
 
-    // Send initial handshake
     _channel.sink.add(jsonEncode({
       "patient_id": patientId,
       "smartshirt_id": smartshirtId,
     }));
 
-    // Start pinging
     _pingTimer = Timer.periodic(Duration(seconds: 10), (_) {
       try {
         _channel.sink.add("ping");
@@ -95,105 +90,84 @@ class ShirtWebSocketService {
       }
     });
 
-    // Wait for confirmation or timeout
-    return completer.future.timeout(
-      Duration(seconds: 5),
-      onTimeout: () {
-        print("⌛ WebSocket handshake timed out.");
-        return false;
-      },
-    );
+    // ⏰ Start auto-flush every 5 seconds
+    _flushTimer = Timer.periodic(Duration(seconds: 5), (_) => flushToBackend());
+
+    return completer.future.timeout(Duration(seconds: 5), onTimeout: () {
+      print("⌛ WebSocket handshake timed out.");
+      return false;
+    });
+  }
+
+  Future<void> disconnect() async {
+    _pingTimer.cancel();
+    _flushTimer?.cancel();
+    await flushToBackend(); // final flush on exit
+    await _streamSub.cancel();
+    await _channel.sink.close();
   }
 
   void reconnect() async {
     print("🔌 Reconnecting...");
     await disconnect();
 
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
+    final prefs = await SharedPreferences.getInstance();
     while (true) {
       await Future.delayed(Duration(seconds: 5));
-
-      String? cachedIp = prefs.getString("latest_ip");
-
+      final cachedIp = prefs.getString("latest_ip");
       if (cachedIp != null) {
         ip = cachedIp;
-        print("📦 Using cached IP: $ip");
       } else {
-        final newIpResult = await ApiClient().getLatestMacAndIP();
-        if (newIpResult.containsKey("ip_address")) {
-          ip = newIpResult["ip_address"];
-          print("🔁 Fetched new IP: $ip");
+        final result = await ApiClient().getLatestMacAndIP();
+        if (result.containsKey("ip_address")) {
+          ip = result["ip_address"];
           await prefs.setString("latest_ip", ip);
         } else {
-          print("❌ No IP available. Retrying...");
+          print("❌ No IP found. Retrying...");
           continue;
         }
       }
 
       final success = await connect(onRealtimeUpdate: _onRealtimeUpdate);
-      if (success) break; // Exit retry loop on success
+      if (success) break;
     }
   }
 
-  Future<void> disconnect() async {
-    _pingTimer.cancel();
-    _flushTimer?.cancel();
-    await _streamSub.cancel();
-    await _channel.sink.close();
+  Future<void> flushToBackend() async {
+    if (_sensorBuffer.isEmpty) return;
 
-    // 💡 Only flush if stabilized
-    // if (SensorController().hasStabilized) {
-    //   print("Ready to flush");
-    //   flushToBackend();
-    // } else {
-    //   print("⏳ Not stabilized — skipping flush.");
-    // }
-  }
+    print("🚀 [Batch Flush] Sending ${_sensorBuffer.length} readings...");
 
-  void flushToBackend() async {
-  final url = Uri.parse("https://vitalsense-flask-backend.fly.dev/sensor");
-
-  // Create a copy to safely iterate
-  final batchesToFlush = List<Map<String, dynamic>>.from(_sensorBuffer);
-  final List<Map<String, dynamic>> failedBatches = [];
-
-  for (final batch in batchesToFlush) {
+    final url = Uri.parse("https://vitalsense-flask-backend.fly.dev/sensor");
     final prefs = await SharedPreferences.getInstance();
     final gender = prefs.getString("gender") ?? "Male";
     final age = int.tryParse(prefs.getString("age") ?? "0") ?? 0;
 
-    final payload = {
-      ...batch,
-      "patient_id": patientId,
-      "smartshirt_id": smartshirtId,
-      "age": age,
-      "gender": gender
-    };
+    final batchPayload = _sensorBuffer.map((reading) {
+      return {
+        ...reading,
+        "patient_id": patientId,
+        "smartshirt_id": smartshirtId,
+        "age": age,
+        "gender": gender
+      };
+    }).toList();
 
     try {
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode(payload),
+        body: jsonEncode(batchPayload),
       );
 
-      if (response.statusCode != 200) {
-        print("❌ Flush failed (${response.statusCode}): ${response.body}");
-        failedBatches.add(payload);
+      if (response.statusCode == 200) {
+        print("✅ [Batch Flush] Success (${batchPayload.length} entries)");
+        _sensorBuffer.clear();
       } else {
-        print("✅ Flushed batch.");
+        print("❌ [Batch Flush] Failed: ${response.body}");
       }
     } catch (e) {
-      print("⚠️ Flush error: $e");
-      failedBatches.add(payload);
+      print("⚠️ [Batch Flush] Network error: $e");
     }
   }
-
-  // Only after loop, update original buffer
-  _sensorBuffer
-    ..clear()
-    ..addAll(failedBatches);
-}
-
 }

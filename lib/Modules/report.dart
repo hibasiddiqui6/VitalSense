@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/api_client.dart';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:flutter/rendering.dart';
 
 void main() {
   runApp(const MyApp());
 }
+final GlobalKey reportKey = GlobalKey();
 
 /// Main Application Entry Point
 class MyApp extends StatelessWidget {
@@ -21,7 +30,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Health Alert Report Screen
+/// Health Report Screen
 class PatientReport extends StatefulWidget {
   final Map<String, dynamic>? reportData;
 
@@ -31,16 +40,13 @@ class PatientReport extends StatefulWidget {
   PatientReportState createState() => PatientReportState();
 }
 
-
 class PatientReportState extends State<PatientReport> {
-  static PatientReportState? instance;
 
   String patientId = "-";
   String fullName = "...";
   String age = "...";
   String gender = "-";
   String weight = "...";
-  String condition = "-";
   String date = "-";
   String time = "-";
   String severity = "-";
@@ -51,38 +57,106 @@ class PatientReportState extends State<PatientReport> {
   String temperature = "-";
   String temperatureCondition = "-";
   String recommendation = "-";
+  Map<String, dynamic> tempRecommendation = {};
+  Map<String, dynamic> respRecommendation = {};
+  Map<String, dynamic> ecgRecommendation = {};
 
   void _handleMenuAction(String action) async {
     switch (action) {
       case "Download":
-        final id = widget.reportData?["report_id"];
-        if (id != null) {
-          final url = "https://vitalsense-flask-backend.fly.dev/download_report/$id";
-          if (await canLaunchUrl(Uri.parse(url))) {
-            await launchUrl(Uri.parse(url));
-          } else {
-            Fluttertoast.showToast(msg: "❌ Could not generate PDF. Try again later.");
-          }
-        } else {
-          _showToast("❌ Report ID not found");
+        try {
+          RenderRepaintBoundary boundary = reportKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+          ui.Image image = await boundary.toImage(pixelRatio: 3.5);
+          ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+          Uint8List pngBytes = byteData!.buffer.asUint8List();
+
+          final pdf = pw.Document();
+          final imageProvider = pw.MemoryImage(pngBytes);
+
+          pdf.addPage(
+            pw.Page(
+              pageFormat: PdfPageFormat.a4,
+              build: (pw.Context context) {
+                return pw.Center(
+                  child: pw.Image(
+                    imageProvider,
+                    fit: pw.BoxFit.contain,
+                    width: PdfPageFormat.a4.width,
+                  ),
+                );
+              },
+            ),
+          );
+
+          // Save PDF to device
+          final directory = await getTemporaryDirectory(); // or getApplicationDocumentsDirectory()
+          final filePath = '${directory.path}/health_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
+          final file = File(filePath);
+          await file.writeAsBytes(await pdf.save());
+
+          Fluttertoast.showToast(msg: "📄 PDF saved to: $filePath");
+
+          // Share the file
+          await Share.shareXFiles([XFile(file.path)], text: "📄 Here's my health report");
+
+        } catch (e) {
+          print("❌ Error generating PDF: $e");
+          Fluttertoast.showToast(msg: "❌ Failed to export PDF");
         }
         break;
       case "Delete":
-        _showToast("Report Deleted");
-        break;
-      case "Share":
-        _showToast("Sharing Report...");
-        break;
+      final id = widget.reportData?["id"];
+      if (id != null) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text("Confirm Delete"),
+            content: const Text("Are you sure you want to delete this report?"),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Delete")),
+            ],
+          ),
+        );
+
+        if (confirmed == true) {
+          final success = await ApiClient().deleteReport(id);
+          if (success && mounted) {
+            Fluttertoast.showToast(msg: "🗑️ Report deleted successfully");
+            Navigator.pop(context, true); // return true to indicate deletion
+          } else {
+            Fluttertoast.showToast(msg: "❌ Failed to delete report");
+          }
+        }
+      } else {
+        Fluttertoast.showToast(msg: "❌ Report ID not found");
+      }
+      break;
+
     }
   }
 
   @override
     void initState() {
       super.initState();
-      instance = this;
 
       if (widget.reportData != null) {
         final r = widget.reportData!;
+        final sessionEndRaw = r["session_end"];
+
+        String formattedDate = "-";
+        String formattedTime = "-";
+
+        if (sessionEndRaw != null) {
+          try {
+            final sessionEnd = DateTime.parse(sessionEndRaw).toLocal(); // Ensure local time
+            formattedDate = DateFormat("yyyy-MM-dd").format(sessionEnd);
+            formattedTime = DateFormat("HH:mm").format(sessionEnd);
+          } catch (e) {
+            print("❌ Failed to parse session_end: $e");
+          }
+        }
+
         setState(() {
           fullName = r["full_name"] ?? "...";
           gender = r["gender"] ?? "-";
@@ -96,8 +170,13 @@ class PatientReportState extends State<PatientReport> {
           arrhythmiaStatus = r["ecg_status"] ?? "-";
           severity = r["severity"] ?? "-";
           recommendation = r["recommendation"] ?? "-";
-          date = r["date"] ?? "-";
-          time = r["time"] ?? "-";
+          date = formattedDate;   // ✅ use formatted
+          time = formattedTime;   // ✅ use formatted
+          final recs = r["recommendations_by_vital"] ?? {};
+          tempRecommendation = recs["temperature"] ?? {};
+          respRecommendation = recs["respiration"] ?? {};
+          ecgRecommendation = recs["ecg"] ?? {};
+
         });
       } else {
         fetchUserProfile(); // fallback for older flow
@@ -178,7 +257,6 @@ class PatientReportState extends State<PatientReport> {
             return const [
               PopupMenuItem(value: "Download", child: Text("Download")),
               PopupMenuItem(value: "Delete", child: Text("Delete")),
-              PopupMenuItem(value: "Share", child: Text("Share")),
             ];
           },
         ),
@@ -187,70 +265,77 @@ class PatientReportState extends State<PatientReport> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double screenHeight = MediaQuery.of(context).size.height;
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: _buildAppBar(context),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(screenWidth * 0.032),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Text(
-                "Health Alert Report",
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: screenWidth * 0.07,
-                  fontWeight: FontWeight.bold,
+Widget build(BuildContext context) {
+  final double screenWidth = MediaQuery.of(context).size.width;
+  final double screenHeight = MediaQuery.of(context).size.height;
+
+  return Scaffold(
+    backgroundColor: const Color(0xFFF5F5F5),
+    appBar: _buildAppBar(context),
+    body: SingleChildScrollView(
+      child: RepaintBoundary(
+        key: reportKey,
+        child: Container(
+          padding: EdgeInsets.all(screenWidth * 0.032),
+          color: const Color(0xFFF5F5F5),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Text(
+                  "Health Report",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: screenWidth * 0.07,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            HeaderCard(
-              fullName: fullName,
-              age: age,
-              gender: gender,
-              weight: weight,
-            ),
-            SizedBox(height: screenHeight * 0.02),
-            ConditionDetected(condition: condition),
-            SizedBox(height: screenHeight * 0.02),
-            SeveritySection(date: date, time: time, severity: severity),
-            SizedBox(height: screenHeight * 0.02),
-            Summary(arrhythmiaStatus: arrhythmiaStatus, bpm: bpm),
-            SizedBox(height: screenHeight * 0.02),
-            ECGInterpretation(
-              arrhythmiaStatus: arrhythmiaStatus,
-              bpm: bpm,
-            ),
-            SizedBox(height: screenHeight * 0.02),
-            Respiration(
-              respirationRate: respirationRate,
-              respirationCondition: respirationCondition,
-            ),
-            SizedBox(height: screenHeight * 0.02),
-            Temperature(
-              temperature: temperature,
-              temperatureCondition: temperatureCondition,
-            ),
-            SizedBox(height: screenHeight * 0.02),
-            Recommendation(recommendation: recommendation),
-          ],
+              PatientInfoCard(
+                fullName: fullName,
+                age: age,
+                gender: gender,
+                weight: weight,
+              ),
+              SizedBox(height: screenHeight * 0.02),
+              SessionTimestampCard(date: date, time: time),
+              SizedBox(height: screenHeight * 0.02),
+              SeveritySection(severity: severity),
+              SizedBox(height: screenHeight * 0.02),
+              ECGInterpretation(
+                arrhythmiaStatus: arrhythmiaStatus,
+                bpm: bpm,
+                recommendation: ecgRecommendation,
+                metrics: widget.reportData?["ecg_metrics"] ?? {},
+              ),
+              SizedBox(height: screenHeight * 0.02),
+              Respiration(
+                respirationRate: respirationRate,
+                respirationCondition: respirationCondition,
+                recommendation: respRecommendation,
+              ),
+              SizedBox(height: screenHeight * 0.02),
+              Temperature(
+                temperature: temperature,
+                temperatureCondition: temperatureCondition,
+                recommendation: tempRecommendation,
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
-class HeaderCard extends StatelessWidget {
+class PatientInfoCard extends StatelessWidget {
   final String fullName;
   final String age;
   final String gender;
   final String weight;
 
-  const HeaderCard({
+  const PatientInfoCard({
     super.key,
     required this.fullName,
     required this.age,
@@ -275,20 +360,25 @@ class HeaderCard extends StatelessWidget {
   }
 }
 
-class ConditionDetected extends StatelessWidget {
-  final String condition;
+class SessionTimestampCard extends StatelessWidget {
+  final String date;
+  final String time;
 
-  const ConditionDetected({required this.condition, super.key});
+  const SessionTimestampCard({
+    super.key,
+    required this.date,
+    required this.time,
+  });
 
   @override
   Widget build(BuildContext context) {
     return _buildCard(
       context,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Text("Detected Condition"),
-          Text(condition),
+          Text("Date: $date", style: TextStyle(fontWeight: FontWeight.w500)),
+          const SizedBox(width: 20),
+          Text("Time: $time", style: TextStyle(fontWeight: FontWeight.w500)),
         ],
       ),
     );
@@ -297,61 +387,48 @@ class ConditionDetected extends StatelessWidget {
 
 class SeveritySection extends StatelessWidget {
   final String severity;
-  final String date;
-  final String time;
 
   const SeveritySection({
     required this.severity,
-    required this.date,
-    required this.time,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
+    Color severityColor = {
+      "High": Colors.red,
+      "Very High": Colors.deepOrange,
+      "Critical": Colors.deepPurple,
+      "Normal": Colors.green,
+      "Low": Colors.orange,
+    }[severity] ?? Colors.grey;
+
+    Icon severityIcon = {
+      "High": Icon(Icons.warning, color: Colors.red),
+      "Very High": Icon(Icons.warning_amber, color: Colors.deepOrange),
+      "Critical": Icon(Icons.dangerous, color: Colors.deepPurple),
+      "Normal": Icon(Icons.check_circle, color: Colors.green),
+      "Low": Icon(Icons.info, color: Colors.orange),
+    }[severity] ?? Icon(Icons.info_outline, color: Colors.grey);
+
     return _buildCard(
       context,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Severity", style: TextStyle(fontWeight: FontWeight.bold)),
-          _infoRow(
-            context,
-            "Severity Level: $severity",
-            "\nDate: $date\nTime: $time",
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class Summary extends StatelessWidget {
-  final String arrhythmiaStatus;
-  final String bpm;
-
-  const Summary({
-    required this.arrhythmiaStatus,
-    required this.bpm,
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _buildCard(
-      context,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Summary",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const Divider(),
+          _infoRow(context, "Severity Level:", severity),
+          const SizedBox(height: 8),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text("Arrhythmia", style: TextStyle(fontWeight: FontWeight.bold)),
-              Text("Normal", style: TextStyle(fontWeight: FontWeight.bold)),
-              Text("130 BPM", style: TextStyle(fontWeight: FontWeight.bold)),
+            children: [
+              severityIcon,
+              const SizedBox(width: 6),
+              Text(
+                severity,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: severityColor,
+                ),
+              ),
             ],
           ),
         ],
@@ -363,10 +440,14 @@ class Summary extends StatelessWidget {
 class ECGInterpretation extends StatelessWidget {
   final String arrhythmiaStatus;
   final String bpm;
+  final Map<String, dynamic> recommendation;
+  final Map<String, dynamic> metrics;
 
   const ECGInterpretation({
     required this.arrhythmiaStatus,
     required this.bpm,
+    required this.recommendation,
+    required this.metrics,
     super.key,
   });
 
@@ -380,12 +461,11 @@ class ECGInterpretation extends StatelessWidget {
           Text("ECG Interpretation",
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const Divider(),
-          _infoRow(context, "Rate", ""),
-          _infoRow(context, "Rhythm", ""),
-          _infoRow(context, "Axis", ""),
-          _infoRow(context, "PR Interval", ""),
-          _infoRow(context, "QRS Complex", ""),
-          _infoRow(context, "QT Interval", ""),
+          _infoRow(context, "Rate", bpm),
+          _infoRow(context, "Rhythm", arrhythmiaStatus),
+          ...metrics.entries.map((e) => _infoRow(context, e.key, e.value ?? "-")),
+          const SizedBox(height: 10),
+          VitalRecommendation(title: "ECG", data: recommendation),
         ],
       ),
     );
@@ -395,10 +475,12 @@ class ECGInterpretation extends StatelessWidget {
 class Respiration extends StatelessWidget {
   final String respirationRate;
   final String respirationCondition;
+  final Map<String, dynamic> recommendation;
 
   const Respiration({
     required this.respirationRate,
     required this.respirationCondition,
+    required this.recommendation,
     super.key,
   });
 
@@ -412,28 +494,33 @@ class Respiration extends StatelessWidget {
           Text("Respiration",
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const Divider(),
-          _infoRow(context, "$respirationRate breaths/min\n",
-              respirationCondition),
+          _infoRow(context, "Respiration Rate", "$respirationRate breaths/min"),
+          _infoRow(context, "Condition", respirationCondition),
+          const SizedBox(height: 10),
+          VitalRecommendation(title: "Respiration", data: recommendation),
         ],
       ),
     );
   }
+
 }
 
 class Temperature extends StatelessWidget {
   final String temperature;
   final String temperatureCondition;
+  final Map<String, dynamic> recommendation;
 
   const Temperature({
     required this.temperature,
     required this.temperatureCondition,
+    required this.recommendation,
     super.key,
   });
+
 
   @override
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
-    //final double screenHeight = MediaQuery.of(context).size.height;
     return _buildCard(
       context,
       child: Column(
@@ -443,40 +530,15 @@ class Temperature extends StatelessWidget {
               style: TextStyle(
                   fontWeight: FontWeight.bold, fontSize: screenWidth * 0.032)),
           const Divider(),
-          _infoRow(context, temperature, temperatureCondition),
-          _infoRow(context, "Condition", "Normal"),
+          _infoRow(context, "Temperature", temperature),
+          _infoRow(context, "Condition", temperatureCondition),
+          const SizedBox(height: 10),
+          VitalRecommendation(title: "Temperature", data: recommendation),
         ],
       ),
     );
   }
-}
 
-class Recommendation extends StatelessWidget {
-  final String recommendation;
-
-  const Recommendation({required this.recommendation, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    return _buildCard(
-      context,
-      color: Colors.red[100],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("RECOMMENDATION",
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: screenWidth * 0.032)),
-          Divider(),
-          Text("Consult your Doctor Immediately!",
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-          SizedBox(height: 5),
-          Text("Dear User, avoid any physical exertion and stay calm."),
-        ],
-      ),
-    );
-  }
 }
 
 Widget _infoRow(BuildContext context, String title, String value) {
@@ -509,4 +571,37 @@ Widget _buildCard(BuildContext context, {required Widget child, Color? color}) {
       child: child,
     ),
   );
+}
+class VitalRecommendation extends StatelessWidget {
+  final String title;
+  final Map<String, dynamic> data;
+
+  const VitalRecommendation({super.key, required this.title, required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final String recTitle = data["title"] ?? "No Recommendation";
+    final String recMessage = data["message"] ?? "No details available.";
+
+    return _buildCard(
+      context,
+      color: Colors.blue[50],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("$title Recommendation",
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: screenWidth * 0.034)),
+          const Divider(),
+          Text(recTitle,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, color: Colors.blue)),
+          const SizedBox(height: 5),
+          Text(recMessage),
+        ],
+      ),
+    );
+  }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart';
 import 'report.dart'; // This must be the detailed report screen
@@ -89,28 +90,35 @@ class _ReportHistoryScreenState extends State<ReportHistoryScreen> {
                       padding: const EdgeInsets.all(16),
                       itemCount: reports.length,
                       itemBuilder: (context, index) {
-                        final report = reports[index];
-                        final date = report["date"] ?? "Unknown";
-                        final time = report["time"] ?? "-";
-                        final severity = report["severity"] ?? "Unknown";
+                      final report = reports[index];
+                      final sessionEnd = DateTime.parse(report["session_end"]).toLocal();
+                      final formattedDate = DateFormat("yyyy-MM-dd").format(sessionEnd);
+                      final formattedTime = DateFormat("HH:mm").format(sessionEnd);
+                      final severity = report["severity"] ?? "Unknown";
 
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            title: Text("Session: $date @ $time"),
-                            subtitle: Text("Severity: $severity"),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => PatientReport(reportData: report),
-                                ),
-                              );
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          title: Text("Session: $formattedDate  $formattedTime"),
+                          subtitle: Text("Severity: $severity"),
+                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                          onTap: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PatientReport(reportData: report),
+                              ),
+                            );
+
+                            if (result == true) {
+                              // User deleted the report, so refresh the list
+                              fetchReports();
+                            }
                             },
-                          ),
-                        );
-                      },
+
+                        ),
+                      );
+                    },
                     ),
             ),
           ],

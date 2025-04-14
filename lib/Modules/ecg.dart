@@ -21,8 +21,9 @@ class ECGScreen extends StatefulWidget {
 
 class ECGPainter extends CustomPainter {
   final List<Offset> points;
+  final double graphWidth; // New parameter for width
 
-  ECGPainter(this.points);
+  ECGPainter(this.points, this.graphWidth);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -67,7 +68,11 @@ class ECGPainter extends CustomPainter {
 
       path.moveTo(points.first.dx, normalize(points.first.dy));
       for (var point in points) {
-        path.lineTo(point.dx, normalize(point.dy));
+        if (point.dx <= graphWidth) { // Use graphWidth instead of size.width
+          path.lineTo(point.dx, normalize(point.dy));
+        } else {
+          break; // Stop drawing if point exceeds the canvas width
+        }
       }
     }
     canvas.drawPath(path, paint);
@@ -97,6 +102,8 @@ class _ECGScreenState extends State<ECGScreen> {
   bool hasShownECGAlert = false;
   bool showFindings = false;
   ECGSegment? segmentData;
+
+  bool showFullScreen = false;
 
   @override
   void initState() {
@@ -157,7 +164,7 @@ class _ECGScreenState extends State<ECGScreen> {
       });
     });
   }
- 
+
   void _startStabilizationCountdown() {
     stabilizationRefreshTimer = Timer.periodic(Duration(seconds: 1), (_) {
       if (mounted && !SensorController().hasStabilized) {
@@ -167,15 +174,16 @@ class _ECGScreenState extends State<ECGScreen> {
   }
 
   Future<void> loadLatestECGStatus() async {
-    if (!SensorController().hasStabilized || SensorController().stabilizationStartTime == null) {
-    setState(() {
-      latestBPM = "-";
-      ecgStatus = "Sensor Not Connected";
-      statusColor = Colors.grey;
-    });
-    return;
-  }
-  
+    if (!SensorController().hasStabilized ||
+        SensorController().stabilizationStartTime == null) {
+      setState(() {
+        latestBPM = "-";
+        ecgStatus = "Sensor Not Connected";
+        statusColor = Colors.grey;
+      });
+      return;
+    }
+
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? patientId = prefs.getString("patient_id");
 
@@ -185,40 +193,44 @@ class _ECGScreenState extends State<ECGScreen> {
 
     if (result != null) {
       setState(() {
-      String rawBpm = result["bpm"].toString();
-      if (double.tryParse(rawBpm) != null &&
-          double.parse(rawBpm) >= 40 &&
-          double.parse(rawBpm) <= 180) {
-        latestBPM = rawBpm;
-      } else {
-        latestBPM = "-";
-      }
+        String rawBpm = result["bpm"].toString();
+        bool isValidBPM = double.tryParse(rawBpm) != null &&
+                          double.parse(rawBpm) >= 40 &&
+                          double.parse(rawBpm) <= 180;
 
-      ecgStatus = result["ecgstatus"];
+        latestBPM = isValidBPM ? rawBpm : "-";
+        ecgStatus = result["ecgstatus"];
 
-      switch (ecgStatus) {
-        case "Normal":
-          statusColor = Colors.green;
-          break;
-        case "Low":
-          statusColor = Colors.orange;
-          break;
-        case "High":
-          statusColor = Colors.red;
-          break;
-        default:
+        // ❗ Override ecgStatus if BPM is invalid
+        if (!isValidBPM) {
+          ecgStatus = "Unknown";
           statusColor = Colors.grey;
-      }
+        } else {
+          // Set status color only if BPM is valid
+          switch (ecgStatus) {
+            case "Normal":
+              statusColor = Colors.green;
+              break;
+            case "Low":
+              statusColor = Colors.orange;
+              break;
+            case "High":
+              statusColor = Colors.red;
+              break;
+            default:
+              statusColor = Colors.grey;
+          }
+        }
 
-      // 🔔 Trigger alert if needed
-      if ((ecgStatus == "Low" || ecgStatus == "High") && 
-        !hasShownECGAlert &&
-        SensorController().hasStabilized) {
-      hasShownECGAlert = true;
-      _showECGAlertDialog(ecgStatus);
-    }
-
-    });
+        // 🔔 Only alert if BPM is valid AND status is Low or High
+        if (isValidBPM &&
+            (ecgStatus == "Low" || ecgStatus == "High") &&
+            !hasShownECGAlert &&
+            SensorController().hasStabilized) {
+          hasShownECGAlert = true;
+          _showECGAlertDialog(ecgStatus);
+        }
+      });
 
     }
   }
@@ -228,9 +240,11 @@ class _ECGScreenState extends State<ECGScreen> {
     String? patientId = prefs.getString("patient_id");
     if (patientId == null) return;
 
-    final result = await apiClient.getLatestECGSegments(patientId); 
+    final result = await apiClient.getLatestECGSegments(patientId);
 
-    if (result != null && result['bpm'] != null && double.tryParse(result['bpm'].toString()) != null) {
+    if (result != null &&
+        result['bpm'] != null &&
+        double.tryParse(result['bpm'].toString()) != null) {
       setState(() {
         segmentData = ECGSegment.fromJson(result);
       });
@@ -287,233 +301,282 @@ class _ECGScreenState extends State<ECGScreen> {
 
   @override
   Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.of(context).size.width;
     return Scaffold(
       backgroundColor: const Color(0xFFEFF2E6),
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: MediaQuery.of(context).size.width * 0.04, // 4% of width
-            vertical: MediaQuery.of(context).size.height * 0.02, // 2% of height
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Section
-              Padding(
-                padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).size.height * 0.05),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: Icon(Icons.arrow_back,
-                          size: MediaQuery.of(context).size.width * 0.06,
-                          color: Colors.black),
-                    ),
-                    SizedBox(
-                        width: MediaQuery.of(context).size.width *
-                            0.02), // 2% of screen width
-                    Container(
-                      margin: EdgeInsets.only(
-                          left: MediaQuery.of(context).size.width *
-                              0.04), // 4% of screen width
-                      child: Text(
-                        "ECG",
-                        style: GoogleFonts.poppins(
-                          fontSize: MediaQuery.of(context).size.width *
-                              0.05, // 5% of screen width
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal:
+                    MediaQuery.of(context).size.width * 0.04, // 4% of width
+                vertical:
+                    MediaQuery.of(context).size.height * 0.02, // 2% of height
               ),
-
-              if (!SensorController().hasStabilized &&
-                  SensorController().stabilizationStartTime != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Column(
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 8),
-                      Text(
-                        "Sensor Stabilizing... (${SensorController().getSecondsRemaining()}s left)",
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: MediaQuery.of(context).size.width * 0.04),
-                      ),
-                    ],
-                  ),
-                )
-              else if (SensorController().stabilizationStartTime == null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Column(
-                    children: [
-                      Text("No ECG readings available!",
-                          style: TextStyle(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Section
+                  Padding(
+                    padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).size.height * 0.05),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.pop(context);
+                          },
+                          child: Icon(Icons.arrow_back,
+                              size: MediaQuery.of(context).size.width * 0.06,
+                              color: Colors.black),
+                        ),
+                        SizedBox(
+                            width: MediaQuery.of(context).size.width *
+                                0.02), // 2% of screen width
+                        Container(
+                          margin: EdgeInsets.only(
+                              left: MediaQuery.of(context).size.width *
+                                  0.04), // 4% of screen width
+                          child: Text(
+                            "ECG",
+                            style: GoogleFonts.poppins(
+                              fontSize: MediaQuery.of(context).size.width *
+                                  0.05, // 5% of screen width
                               fontWeight: FontWeight.bold,
-                              fontSize: MediaQuery.of(context).size.width * 0.04)),
-                      SizedBox(height: 4),
-                      Text("Check if your ESP32 is connected.",
-                          style: TextStyle(
-                              color: Colors.red,
-                              fontSize: MediaQuery.of(context).size.width * 0.035)),
-                    ],
-                  ),
-                ),
-
-              // ECG Graph Section
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color.fromARGB(255, 200, 215, 160),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(4, 4),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                padding:
-                    EdgeInsets.all(MediaQuery.of(context).size.width * 0.03),
-                child: Column(
-                  children: [
-                    // Inner Box for ECG Graph
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
-                            offset: const Offset(4, 4),
+                  ),
+
+                  if (!SensorController().hasStabilized &&
+                      SensorController().stabilizationStartTime != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Column(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 8),
+                          Text(
+                            "Sensor Stabilizing... (${SensorController().getSecondsRemaining()}s left)",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize:
+                                    MediaQuery.of(context).size.width * 0.04),
                           ),
                         ],
                       ),
-                      padding: EdgeInsets.all(
-                          MediaQuery.of(context).size.width * 0.025),
-                      child: SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.25,
-                        width: MediaQuery.of(context).size.width * 0.9,
-                        child: CustomPaint(
-                          size: Size(MediaQuery.of(context).size.width * 0.9,
-                              400), // ECG plot size
-                          painter: ECGPainter(points),
-                        ),
+                    )
+                  else if (SensorController().stabilizationStartTime == null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Column(
+                        children: [
+                          Text("No ECG readings available!",
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: MediaQuery.of(context).size.width *
+                                      0.04)),
+                          SizedBox(height: 4),
+                          Text("Check if your ESP32 is connected.",
+                              style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: MediaQuery.of(context).size.width *
+                                      0.035)),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
 
-              // Gender, Age, Weight Section
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                  // ECG Graph Section
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(255, 200, 215, 160),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(4, 4),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(12),
-                
-                child: 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _infoCard(gender, "Gender"),
-                    _infoCard(age, "Age"),
-                    _infoCard(weight, "Weight"),
-                  ],
-                ),
-              ),
-
-              // SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-              Padding(
-                padding: const EdgeInsets.only(top: 16.0),
-                child: Column(
-                  children: [
-                    // Toggle Buttons
-                    _toggleTabBar(),
-                    SizedBox(height: 16),
-
-                    // View: either Rhythm or Findings
-                    if (!showFindings)
-                      Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _infoCard(
-                                (latestBPM == '-' || latestBPM == 'null' || latestBPM.isEmpty) ? '—' : latestBPM,
-                                "BPM"
+                    padding: EdgeInsets.all(
+                        MediaQuery.of(context).size.width * 0.03),
+                    child: Column(
+                      children: [
+                        // Inner Box for ECG Graph
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(4, 4),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Row(
+                          padding: EdgeInsets.all(
+                              MediaQuery.of(context).size.width * 0.025),
+                          child: Stack(
+                            children: [
+                              SizedBox(
+                                height:
+                                    MediaQuery.of(context).size.height * 0.25,
+                                width: MediaQuery.of(context).size.width * 0.9,
+                                child: CustomPaint(
+                                  size: Size(
+                                    MediaQuery.of(context).size.width * 0.9,
+                                    400,
+                                  ), // ECG plot size
+                                  painter: ECGPainter(points,MediaQuery.of(context).size.width * 0.9),
+                                ),
+                              ),
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: IconButton(
+                                  icon: Icon(Icons.fullscreen,
+                                      color: Colors.grey[800]),
+                                  onPressed: () {
+                                    setState(() {
+                                      showFullScreen = true;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+
+                  // Gender, Age, Weight Section
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _infoCard(gender, "Gender"),
+                        _infoCard(age, "Age"),
+                        _infoCard(weight, "Weight"),
+                      ],
+                    ),
+                  ),
+
+                  // SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: Column(
+                      children: [
+                        // Toggle Buttons
+                        _toggleTabBar(),
+                        SizedBox(height: 16),
+
+                        // View: either Rhythm or Findings
+                        if (!showFindings)
+                          Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _infoCard(
+                                      (latestBPM == '-' ||
+                                              latestBPM == 'null' ||
+                                              latestBPM.isEmpty)
+                                          ? '—'
+                                          : latestBPM,
+                                      "BPM"),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                      child:
+                                          _statusCard(ecgStatus, statusColor)),
+                                ],
+                              ),
+                            ],
+                          )
+                        else if (segmentData != null)
+                          _segmentCard(segmentData!),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // ✅ Fullscreen ECG Overlay — moved here to be over the entire screen
+          if (showFullScreen)
+            Positioned.fill(
+              child: Container(
+                color: const Color.fromARGB(171, 0, 0, 0),
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.only(
+                            top: MediaQuery.of(context).size.height *
+                                0.01), // 2% of screen height
+                        child: Row(
                           children: [
-                            Expanded(child: _statusCard(ecgStatus, statusColor)),
+                            IconButton(
+                              icon: Icon(
+                                Icons.close,
+                                color: Color.fromARGB(255, 255, 255, 255),
+                                size: screenWidth * 0.056,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  showFullScreen = false;
+                                });
+                              },
+                            ),
+                            Text(
+                              "Live ECG (Fullscreen)",
+                              style: TextStyle(
+                                  color: Color.fromARGB(255, 255, 255, 255),
+                                  fontSize: screenWidth * 0.055),
+                            ),
                           ],
                         ),
-                        ],
-                      )
-                    else if (segmentData != null)
-                      _segmentCard(segmentData!),
-                  ],
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.all(
+                              MediaQuery.of(context).size.width *
+                                  0.04), // 4% of screen width as padding
+                          child: RotatedBox(
+                            quarterTurns: 1,
+                            child: FullScreenECGWidget(points: points),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-
-
-              // SizedBox(height: MediaQuery.of(context).size.height * 0.04),
-              // // View Trends Button
-              // if (role != 'specialist')
-              //   Center(
-              //     child: ElevatedButton(
-              //       style: ElevatedButton.styleFrom(
-              //         backgroundColor: Colors.brown[300],
-              //         padding: EdgeInsets.symmetric(
-              //           horizontal: MediaQuery.of(context).size.width * 0.12,
-              //           vertical: MediaQuery.of(context).size.height * 0.017),
-              //         shape: RoundedRectangleBorder(
-              //           borderRadius: BorderRadius.circular(13),
-              //         ),
-              //       ),
-              //       onPressed: () {
-              //         Navigator.push(
-              //           context,
-              //           MaterialPageRoute(
-              //             builder: (context) => ECGChartScreen(
-              //               patientId: null, // Uses current logged-in patient from prefs
-              //               showDrawer: false,
-              //             ),
-              //           ),
-              //         );
-              //       },
-              //       child: Text(
-              //         "View Trends",
-              //         style: GoogleFonts.poppins(
-              //           fontSize: MediaQuery.of(context).size.width * 0.04,
-              //           color: Colors.white,
-              //         ),
-              //       ),
-              //     ),
-              //   ),
-            ],
-          ),
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -576,108 +639,107 @@ class _ECGScreenState extends State<ECGScreen> {
     );
   }
 
-Widget _toggleTabBar() {
-  return Container(
-    decoration: BoxDecoration(
-      color: Colors.grey[300],
-      borderRadius: BorderRadius.circular(30),
-    ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _pillButton("Rhythm", !showFindings),
-        _pillButton("Findings", showFindings),
-      ],
-    ),
-  );
-}
+  Widget _toggleTabBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _pillButton("Rhythm", !showFindings),
+          _pillButton("Findings", showFindings),
+        ],
+      ),
+    );
+  }
 
-Widget _pillButton(String label, bool isActive) {
-  return Expanded(
-    child: GestureDetector(
-      onTap: () {
-        setState(() {
-          showFindings = label == "Findings";
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.green[800] : Colors.transparent,
-          borderRadius: BorderRadius.circular(30),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.black,
-            fontWeight: FontWeight.bold,
+  Widget _pillButton(String label, bool isActive) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            showFindings = label == "Findings";
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.green[800] : Colors.transparent,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.black,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-Widget _segmentCard(ECGSegment data) {
-  final segments = [
-    ["HR", "${data.hr} BPM"],
-    ["HRV", "${data.hrv} ms"],
-    ["RR", "${data.rr} ms"],
-    ["P", "${data.p} ms"],
-    ["PR", "${data.pr} ms"],
-    ["QRS", "${data.qrs} ms"],
-    ["QT", "${data.qt} ms"],
-    ["QTc", "${data.qtc} ms"],
-  ];
+  Widget _segmentCard(ECGSegment data) {
+    final segments = [
+      ["HR", "${data.hr} BPM"],
+      ["HRV", "${data.hrv} ms"],
+      ["RR", "${data.rr} ms"],
+      ["P", "${data.p} ms"],
+      ["PR", "${data.pr} ms"],
+      ["QRS", "${data.qrs} ms"],
+      ["QT", "${data.qt} ms"],
+      ["QTc", "${data.qtc} ms"],
+    ];
 
-  return Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(top: 16),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 6,
-          offset: const Offset(0, 3),
-        ),
-      ],
-    ),
-    child: Table(
-      columnWidths: const {
-        0: FlexColumnWidth(1),
-        1: FlexColumnWidth(1),
-      },
-      children: List.generate(segments.length ~/ 2, (i) {
-        final left = segments[i * 2];
-        final right = segments[i * 2 + 1];
-        return TableRow(
-          children: [
-            _segmentTableCell(left[0], left[1]),
-            _segmentTableCell(right[0], right[1]),
-          ],
-        );
-      }),
-    ),
-  );
-}
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Table(
+        columnWidths: const {
+          0: FlexColumnWidth(1),
+          1: FlexColumnWidth(1),
+        },
+        children: List.generate(segments.length ~/ 2, (i) {
+          final left = segments[i * 2];
+          final right = segments[i * 2 + 1];
+          return TableRow(
+            children: [
+              _segmentTableCell(left[0], left[1]),
+              _segmentTableCell(right[0], right[1]),
+            ],
+          );
+        }),
+      ),
+    );
+  }
 
-Widget _segmentTableCell(String label, String value) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold)),
-        Flexible(child: Text(value)),
-      ],
-    ),
-  );
-}
-
+  Widget _segmentTableCell(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold)),
+          Flexible(child: Text(value)),
+        ],
+      ),
+    );
+  }
 }
 
 class ECGSegment {
@@ -708,8 +770,8 @@ class ECGSegment {
       hr: finalBpm,
       hrv: json['hrv'] ?? '-',
       rr: json['rr'] != null && double.tryParse(json['rr'].toString()) != null
-        ? double.parse(json['rr'].toString()).round().toString()
-        : '-',
+          ? double.parse(json['rr'].toString()).round().toString()
+          : '-',
       pr: json['pr'] ?? '-',
       p: json['p'] ?? '-',
       qrs: json['qrs'] ?? '-',
@@ -717,6 +779,88 @@ class ECGSegment {
       qtc: json['qtc'] ?? '-',
     );
   }
-
 }
+// Make sure to import ECGScreen
 
+class FullScreenECGWidget extends StatelessWidget {
+  final List<Offset> points;
+  const FullScreenECGWidget({super.key, required this.points});
+
+  @override
+  Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    double screenHeight = MediaQuery.of(context).size.height;
+
+    double graphHeight = screenHeight * 0.5;
+    double minValue = 1700;
+    double maxValue = 2300;
+
+    // Determine how many steps for Y labels (you can change this)
+    int divisions = 4;
+    double step = (maxValue - minValue) / divisions;
+
+    // Generate labels from maxValue to minValue
+    List<double> yLabels =
+        List.generate(divisions + 1, (index) => maxValue - index * step);
+
+    // Limit X-axis points to 700 max
+    
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color.fromARGB(242, 255, 255, 255),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.grey.shade400,
+          width: 1.5,
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        screenWidth * 0.016,
+        screenHeight * 0.02,
+        screenWidth * 0.016,
+        screenHeight * 0.015,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Y-axis labels
+          Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: yLabels
+                .map((label) => Text(
+                      label.toInt().toString(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black,
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(width: 8),
+
+          // ECG Graph
+          // ECG Graph with rounded border
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.grey.shade400,
+                  width: 1.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: CustomPaint(
+                  size: Size(screenWidth * 0.9, graphHeight),
+                  painter: ECGPainter(points, screenWidth * 0.9),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

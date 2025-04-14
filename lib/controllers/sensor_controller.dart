@@ -38,7 +38,7 @@ class SensorController {
 
     final success = await webSocketService.connect(
       onRealtimeUpdate: (data) {
-        print("📡 Real-time data received in SensorController: $data");
+        // print("📡 Real-time data received in SensorController: $data");
 
         PatientDashboardState.instance?.lastSuccessfulFetch = DateTime.now();
         PatientInsightsScreenState.instance?.lastSuccessfulFetch = DateTime.now();
@@ -115,50 +115,111 @@ class SensorController {
   void dispose(BuildContext context) {
     _stabilizationTimer?.cancel();
 
-    if (hasStabilized) {
-      generateReportOnDisconnect(context);
-    }
-
     webSocketService.disconnect();
   }
-
-  void generateReportOnDisconnect(BuildContext context) async {
+  
+  Future<void> endMonitoringSession(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     final patientId = prefs.getString("patient_id");
     final smartshirtId = prefs.getString("smartshirt_id");
-    final sessionStart = stabilizationStartTime ?? DateTime.now().subtract(Duration(minutes: 1));
-    final sessionEnd = DateTime.now();
+
+    if (patientId == null || smartshirtId == null) {
+      print("❌ Missing patient or shirt ID");
+      return;
+    }
+
+    final sessionStart = stabilizationStartTime ?? DateTime.now().subtract(const Duration(minutes: 1));
 
     try {
-      final response = await ApiClient().generateReport(
-        patientId: patientId!,
-        smartshirtId: smartshirtId!,
+      await webSocketService.disconnect();
+      await ApiClient().endMonitoringSession(
+        patientId: patientId,
+        smartshirtId: smartshirtId,
         sessionStart: sessionStart,
-        sessionEnd: sessionEnd,
       );
 
-      if (response["status"] == "success") {
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text("Monitoring Ended"),
-            content: const Text("Report generated successfully."),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PatientReport(reportData: response),
-                  ),
-                ),
-                child: const Text("View Report"),
-              ),
-            ],
-          ),
-        );
-      }
+      showDialog(
+        context: context,
+        builder: (_) => const AlertDialog(
+          title: Text("Session Ended"),
+          content: Text("Your report will be generated shortly."),
+        ),
+      );
+
+      // 🕓 Now poll for the report
+      await waitForReportAndNotify(context, patientId);
+
     } catch (e) {
-      print("⚠️ Error generating report: $e");
+      print("⚠️ Failed to finalize session: $e");
+      showDialog(
+        context: context,
+        builder: (_) => const AlertDialog(
+          title: Text("Error"),
+          content: Text("Failed to end session. Try again."),
+        ),
+      );
+    }
+  }
+
+  Future<void> waitForReportAndNotify(BuildContext context, String patientId) async {
+    int retries = 12; // wait up to 60 seconds
+    while (retries-- > 0) {
+      await Future.delayed(const Duration(seconds: 5));
+      try {
+        final reports = await ApiClient().getReports(patientId, range: "24h");
+        if (reports.isNotEmpty) {
+          final recentReport = reports.first;
+          final sessionEnd = DateTime.parse(recentReport["session_end"]).toLocal(); 
+          print("🕒 Raw session_end: ${recentReport["session_end"]}");
+
+          final diff = DateTime.now().difference(sessionEnd).inMinutes;
+
+          print("⌛ Diff: $diff mins");
+
+          if (diff <= 5) {
+            print("📥 Found report with session_end: $sessionEnd");
+
+            // Show a success prompt
+            if (context.mounted) {
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text("Report Ready"),
+                  content: const Text("Your monitoring report has been generated."),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context); // Dismiss the dialog first
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PatientReport(reportData: recentReport),
+                          ),
+                        );
+                      },
+                      child: const Text("View Report"),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return;
+          }
+        }
+      } catch (e) {
+        print("⚠️ Failed to poll report: $e");
+      }
+    }
+
+    // Optional: timeout notice
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        builder: (_) => const AlertDialog(
+          title: Text("Report Delayed"),
+          content: Text("Report generation is taking longer than expected."),
+        ),
+      );
     }
   }
 

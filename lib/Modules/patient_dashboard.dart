@@ -50,6 +50,7 @@ class PatientDashboardState extends State<PatientDashboard> {
   DateTime? lastSuccessfulFetch;
   Timer? stabilizationRefreshTimer;
   bool wasDisconnected = false;
+  bool sessionEnded = false;
 
   double x = 0;
   Timer? timer;
@@ -303,6 +304,12 @@ class PatientDashboardState extends State<PatientDashboard> {
         showNoReadings = isNowDisconnected;
         showReconnecting = false;
       });
+
+      // ✅ Trigger end session + report when disconnected for first time
+      if (isNowDisconnected && !wasDisconnected) {
+        SensorController().endMonitoringSession(context);
+      }
+
       wasDisconnected = isNowDisconnected;
     }
   }
