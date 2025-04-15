@@ -8,8 +8,8 @@ from db_utils import modify_data
 ecg_buffers = {}
 
 # Config
-ECG_BUFFER_SIZE = 500
-ECG_SAMPLING_RATE = 11
+ECG_BUFFER_SIZE = 1710
+ECG_SAMPLING_RATE = 35
 
 # === Wavelet Denoising ===
 def wavelet_denoise(signal, wavelet='db6', level=2):
@@ -67,10 +67,39 @@ def process_ecg_buffer(smartshirt_id, age, gender):
         
         signal = np.array(ecg_buffers[smartshirt_id])
         ecg_mv = (signal - 2048) / 200.0
+        print(f"Converted mV range: min={ecg_mv.min():.3f}, max={ecg_mv.max():.3f}")
+
         ecg_denoised = wavelet_denoise(ecg_mv)
+        # print(f"🔧 Denoised ECG shape: {ecg_denoised.shape}")
+
+        # # Ensure fixed length
+        # if len(ecg_denoised) > ECG_BUFFER_SIZE:
+        #     ecg_denoised = ecg_denoised[:ECG_BUFFER_SIZE]
+        # elif len(ecg_denoised) < ECG_BUFFER_SIZE:
+        #     ecg_denoised = np.pad(ecg_denoised, (0, ECG_BUFFER_SIZE - len(ecg_denoised)), mode='edge')
+
+        print(f"🔁 Resized ECG length: {len(ecg_denoised)}")
 
         ecg_cleaned = nk.ecg_clean(ecg_denoised, sampling_rate=ECG_SAMPLING_RATE)
+
+        # Basic stats
+        print("📏 ECG cleaned min:", np.min(ecg_cleaned))
+        print("📏 ECG cleaned max:", np.max(ecg_cleaned))
+        print("📏 ECG cleaned mean:", np.mean(ecg_cleaned))
+        print("📏 ECG cleaned std:", np.std(ecg_cleaned))
+        print("📏 ECG cleaned shape:", ecg_cleaned.shape)
+
+        # Try manual peak detection
+        _, info_temp = nk.ecg_peaks(ecg_cleaned, sampling_rate=ECG_SAMPLING_RATE)
+        r_peaks_pre = info_temp.get("ECG_R_Peaks", [])
+        print(f"🔍 Detected R-peaks before ecg_process: {len(r_peaks_pre)} → {r_peaks_pre[:10]}")
+
         signals, info = nk.ecg_process(ecg_cleaned, sampling_rate=ECG_SAMPLING_RATE)
+        print("signals", signals)
+
+        print(f"📦 neurokit2 info keys: {list(info.keys())}")
+        print(f"🔎 Detected R-peaks: {len(info.get('ECG_R_Peaks', []))}")
+        print(f"📊 ECG_Rate preview: {signals['ECG_Rate'].head()}")
 
         r_peaks = info.get("ECG_R_Peaks", [])
         print(f"🔎 Detected R-peaks: {len(r_peaks)}")
@@ -80,12 +109,16 @@ def process_ecg_buffer(smartshirt_id, age, gender):
             return
 
         # HR & HRV
-        hr_raw = np.mean(signals["ECG_Rate"])
-        hr = round(hr_raw, 1) if not np.isnan(hr_raw) else "-"
-        hrv_raw = nk.hrv_time(signals, sampling_rate=ECG_SAMPLING_RATE)["HRV_MeanNN"][0]
-        hrv = round(hrv_raw, 1) if not np.isnan(hrv_raw) else "-"
-        rr_raw = np.mean(np.diff(r_peaks)) / ECG_SAMPLING_RATE * 1000
-        rr = round(rr_raw, 1) if not np.isnan(rr_raw) else "-"
+        # hr_raw = np.mean(signals["ECG_Rate"])
+        # hr = round(hr_raw, 1) if not np.isnan(hr_raw) else "-"
+        # hrv_raw = nk.hrv_time(signals, sampling_rate=ECG_SAMPLING_RATE)["HRV_MeanNN"][0]
+        # hrv = round(hrv_raw, 1) if not np.isnan(hrv_raw) else "-"
+        # rr_raw = np.mean(np.diff(r_peaks)) / ECG_SAMPLING_RATE * 1000
+        # rr = round(rr_raw, 1) if not np.isnan(rr_raw) else "-"
+
+        hr = round(np.mean(signals["ECG_Rate"]), 1)
+        hrv = round(nk.hrv_time(signals, sampling_rate=ECG_SAMPLING_RATE)["HRV_MeanNN"][0], 1)
+        rr = round(np.mean(np.diff(r_peaks)) / ECG_SAMPLING_RATE * 1000, 1)
 
         if hr == "-":
             print("⚠️ Invalid HR (NaN) — skipping classification.")
@@ -96,22 +129,46 @@ def process_ecg_buffer(smartshirt_id, age, gender):
             start = info.get(start_key)
             end = info.get(end_key)
             if isinstance(start, (list, np.ndarray)) and isinstance(end, (list, np.ndarray)):
-                durations = [(e - s) for s, e in zip(start, end) if e > s]
-                return round(np.mean(durations) * 1000 / ECG_SAMPLING_RATE, 1) if durations else "-"
-            return "-"
+                pairs = zip(start, end)
+                durations = [(e - s) for s, e in pairs if e > s]
+                return round(np.mean(durations) * 1000 / ECG_SAMPLING_RATE, 1) if durations else "nan"
+            return "nan"
 
         # ECG Durations
         pr = duration_ms("ECG_P_Onsets", "ECG_R_Onsets")
         p_dur = duration_ms("ECG_P_Onsets", "ECG_P_Offsets")
         qrs = duration_ms("ECG_R_Onsets", "ECG_R_Offsets")
+        qrs_dur = duration_ms("ECG_R_Onsets", "ECG_R_Offsets")
         qt = duration_ms("ECG_Q_Peaks", "ECG_T_Offsets")
+        qt_int = duration_ms("ECG_Q_Peaks", "ECG_T_Offsets")
+        pr_int = duration_ms("ECG_P_Onsets", "ECG_R_Onsets")
 
-        # QTc (Bazett's)
+         # QTc (Bazett)
         try:
-            rr_sec = rr / 1000 if rr != "-" else None
-            qtc = round(qt / (rr_sec ** 0.5), 1) if qt != "-" and rr_sec > 0 else "-"
-        except Exception:
-            qtc = "-"
+            rr_sec = rr / 1000
+            qtc = round(qt_int / (rr_sec ** 0.5), 1) if qt_int != "nan" and rr_sec > 0 else "nan"
+        except:
+            print(f"⚠️ QTc calculation failed: {ex}")
+            qtc = "nan"
+
+
+        print("📈 ECG Metrics:")
+        print(f"   HR (BPM): {hr}")
+        print(f"   HRV MeanNN: {hrv}")
+        print(f"   RR Interval: {rr} ms")
+        print(f"   PR Interval: {pr_int} ms")
+        print(f"   P Duration: {p_dur} ms")
+        print(f"   QRS Duration: {qrs_dur} ms")
+        print(f"   QT Interval: {qt_int} ms")
+        print(f"   QTc (Bazett): {qtc} ms")
+
+        # HR from peaks
+        rr_intervals = np.diff(r_peaks) / ECG_SAMPLING_RATE
+        bpm_rr = round(60 / np.mean(rr_intervals), 1)
+        bpm_count = round(60 * len(r_peaks) / (len(ecg_denoised) / ECG_SAMPLING_RATE), 1)
+
+        print(f"📊 R-peaks: {len(r_peaks)} | Duration: {len(ecg_denoised)/ECG_SAMPLING_RATE:.2f}s")
+        print(f"✅ BPM (RR method): {bpm_rr} | BPM (count-based): {bpm_count}")
 
         # Classification
         bpm = hr

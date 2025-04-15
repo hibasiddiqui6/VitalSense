@@ -201,6 +201,11 @@ def ecg_batch():
 def register_patient():
     data = request.json
     try:
+        required_fields = ["fullname", "email", "password", "gender", "age", "contact", "weight"]
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
+
         # Always store email in lowercase
         email = data['email'].lower()  
 
@@ -991,7 +996,7 @@ def get_latest_ecg_segments(patient_id):
         query = """
             SELECT e.bpm, e.hrv, e.rr, e.pr, e.p, e.qrs, e.qt, e.qtc, e.ecgstatus
             FROM ecg e
-            JOIN health_vitals hv ON e.healthvitalsid = hv.id
+            JOIN health_vitals hv ON e.smartshirtid = hv.smartshirtid
             WHERE hv.patientID = %s
             ORDER BY hv.timestamp DESC
             LIMIT 1
@@ -1027,7 +1032,7 @@ def get_ecg_trends():
     query = """
         SELECT hv.timestamp, e.bpm, e.ecgstatus
         FROM health_vitals hv
-        JOIN ecg e ON hv.id = e.healthvitalsid
+        JOIN ecg e ON hv.smartshirtid = e.smartshirtid
         WHERE hv.patientID = %s AND hv.timestamp >= %s
         ORDER BY hv.timestamp ASC
     """
@@ -1096,7 +1101,7 @@ def generate_report_logic(patient_id, smartshirt_id, session_start, session_end)
             t.temperature, t.temperaturestatus,
             r.respiration, r.respirationstatus
         FROM health_vitals hv
-        LEFT JOIN ecg e ON e.healthvitalsid = hv.id
+        LEFT JOIN ecg e ON e.smartshirtid = hv.smartshirtid
         LEFT JOIN temperature t ON t.healthvitalsid = hv.id
         LEFT JOIN respiration r ON r.healthvitalsid = hv.id
         JOIN patients p ON hv.patientid = p.patientid
