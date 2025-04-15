@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../widgets/patient_drawer.dart';
 import '../widgets/specialist_drawer.dart'; // Importing specialist drawer
 import 'package:shared_preferences/shared_preferences.dart';
@@ -116,80 +115,14 @@ class _AboutUsState extends State<AboutUs> {
             Text(
               "Welcome to VitalSense",
               style: TextStyle(
-                  fontSize: screenWidth * 0.04, fontWeight: FontWeight.bold),
+                  fontSize: screenWidth * 0.06, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: screenHeight * 0.02),
             Text(
-              "Your go-to app for real-time health monitoring. Developed by UIT University's Software Engineering students, VitaSense connects with a smart shirt to track ECG, respiration, and temperature, delivering continuous health insights. "
-              "Our app offers secure data storage, AI-driven alerts, and dual access for healthcare providers, making proactive health management easy and accessible.",
+              "Your go-to app for real-time health monitoring. Developed by UIT University's Software Engineering students, VitalSense connects with a smart shirt to track ECG, respiration, and temperature, delivering continuous health insights. "
+              "Our app offers secure data storage, health alerts and reports along with recommendations, trends and history analysis, and dual access for healthcare providers, making proactive health management easy and accessible.",
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: screenWidth * 0.028),
-            ),
-
-            SizedBox(height: screenWidth * 0.04),
-
-            // Contact and Follow Us section in a Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Contact Details (Left)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "+92-033000332",
-                      style: TextStyle(
-                          fontSize: screenWidth * 0.028,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      "vitalsense@gmail.com",
-                      style: TextStyle(
-                          fontSize: screenWidth * 0.028,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      "Karachi, Pakistan",
-                      style: TextStyle(
-                          fontSize: screenWidth * 0.028,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-
-                // Follow Us (Right)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Follow us:",
-                      style: TextStyle(
-                          fontSize: screenWidth * 0.028,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: screenHeight * 0.016),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: FaIcon(FontAwesomeIcons.facebook,
-                              color: Colors.black54, size: screenWidth * 0.056),
-                          onPressed: () {},
-                        ),
-                        IconButton(
-                          icon: FaIcon(FontAwesomeIcons.twitter,
-                              color: Colors.black54, size: screenWidth * 0.056),
-                          onPressed: () {},
-                        ),
-                        IconButton(
-                          icon: FaIcon(FontAwesomeIcons.instagram,
-                              color: Colors.black54, size: screenWidth * 0.056),
-                          onPressed: () {},
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
+              style: TextStyle(fontSize: screenWidth * 0.030),
             ),
           ],
         ),

@@ -1,16 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:flutter/rendering.dart';
 
 void main() {
   runApp(const MyApp());
@@ -65,45 +61,29 @@ class PatientReportState extends State<PatientReport> {
     switch (action) {
       case "Download":
         try {
-          RenderRepaintBoundary boundary = reportKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-          ui.Image image = await boundary.toImage(pixelRatio: 3.5);
-          ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-          Uint8List pngBytes = byteData!.buffer.asUint8List();
-
-          final pdf = pw.Document();
-          final imageProvider = pw.MemoryImage(pngBytes);
-
-          pdf.addPage(
-            pw.Page(
-              pageFormat: PdfPageFormat.a4,
-              build: (pw.Context context) {
-                return pw.Center(
-                  child: pw.Image(
-                    imageProvider,
-                    fit: pw.BoxFit.contain,
-                    width: PdfPageFormat.a4.width,
-                  ),
-                );
-              },
-            ),
-          );
-
-          // Save PDF to device
-          final directory = await getTemporaryDirectory(); // or getApplicationDocumentsDirectory()
+          final id = widget.reportData?["id"];
+          if (id == null) {
+            Fluttertoast.showToast(msg: "❌ Report ID not found");
+            return;
+          }
+          final pdfBytes = await ApiClient().downloadReportPdf(id);
+          final directory = await getApplicationDocumentsDirectory();
           final filePath = '${directory.path}/health_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
           final file = File(filePath);
-          await file.writeAsBytes(await pdf.save());
+          await file.writeAsBytes(pdfBytes);
 
           Fluttertoast.showToast(msg: "📄 PDF saved to: $filePath");
 
-          // Share the file
           await Share.shareXFiles([XFile(file.path)], text: "📄 Here's my health report");
 
         } catch (e) {
-          print("❌ Error generating PDF: $e");
+          if (kDebugMode) {
+            print("❌ Error downloading PDF: $e");
+          }
           Fluttertoast.showToast(msg: "❌ Failed to export PDF");
         }
         break;
+
       case "Delete":
       final id = widget.reportData?["id"];
       if (id != null) {
@@ -153,7 +133,9 @@ class PatientReportState extends State<PatientReport> {
             formattedDate = DateFormat("yyyy-MM-dd").format(sessionEnd);
             formattedTime = DateFormat("HH:mm").format(sessionEnd);
           } catch (e) {
-            print("❌ Failed to parse session_end: $e");
+            if (kDebugMode) {
+              print("❌ Failed to parse session_end: $e");
+            }
           }
         }
 
@@ -185,23 +167,14 @@ class PatientReportState extends State<PatientReport> {
     }
 
 
-  void _showToast(String message) {
-    Fluttertoast.showToast(
-      msg: message,
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      backgroundColor: const Color.fromARGB(255, 207, 212, 216),
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
-  }
-
   Future<void> fetchUserProfile() async {
     try {
       final data = await ApiClient().getPatientProfile();
 
       if (data.containsKey("error")) {
-        print("⚠ Error fetching user profile: ${data['error']}");
+        if (kDebugMode) {
+          print("⚠ Error fetching user profile: ${data['error']}");
+        }
         return;
       }
 
@@ -220,7 +193,9 @@ class PatientReportState extends State<PatientReport> {
         await prefs.setString("weight", weight);
       }
     } catch (e) {
-      print("Failed to fetch user profile: $e");
+      if (kDebugMode) {
+        print("Failed to fetch user profile: $e");
+      }
     }
   }
 

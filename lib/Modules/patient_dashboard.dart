@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:vitalsense/controllers/sensor_controller.dart';
 import 'dart:async';
@@ -163,13 +164,19 @@ class PatientDashboardState extends State<PatientDashboard> {
         );
 
         if (success) {
-          print("✅ WebSocket initialized successfully.");
+          if (kDebugMode) {
+            print("✅ WebSocket initialized successfully.");
+          }
           break;
         } else {
-          print("❌ WebSocket connect() returned false. Retrying...");
+          if (kDebugMode) {
+            print("❌ WebSocket connect() returned false. Retrying...");
+          }
         }
       } else {
-        print("❌ Missing patientId/smartshirtId or IP. Retrying...");
+        if (kDebugMode) {
+          print("❌ Missing patientId/smartshirtId or IP. Retrying...");
+        }
       }
 
       await Future.delayed(Duration(seconds: 5));
@@ -218,7 +225,9 @@ class PatientDashboardState extends State<PatientDashboard> {
       final data = await ApiClient().getPatientProfile();
 
       if (data.containsKey("error")) {
-        print("⚠ Error fetching user profile: ${data['error']}");
+        if (kDebugMode) {
+          print("⚠ Error fetching user profile: ${data['error']}");
+        }
         return;
       }
 
@@ -237,7 +246,9 @@ class PatientDashboardState extends State<PatientDashboard> {
         await prefs.setString("weight", weight);
       }
     } catch (e) {
-      print("Failed to fetch user profile: $e");
+      if (kDebugMode) {
+        print("Failed to fetch user profile: $e");
+      }
     }
   }
 

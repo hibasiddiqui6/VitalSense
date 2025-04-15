@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:vitalsense/controllers/sensor_controller.dart';
@@ -147,13 +148,19 @@ class PatientInsightsScreenState extends State<PatientInsightsScreen> {
         );
 
         if (success) {
-          print("✅ WebSocket initialized for Specialist View.");
+          if (kDebugMode) {
+            print("✅ WebSocket initialized for Specialist View.");
+          }
           break;
         } else {
-          print("❌ WebSocket failed. Retrying...");
+          if (kDebugMode) {
+            print("❌ WebSocket failed. Retrying...");
+          }
         }
       } else {
-        print("❌ Missing patientId/smartshirtId/ip. Retrying...");
+        if (kDebugMode) {
+          print("❌ Missing patientId/smartshirtId/ip. Retrying...");
+        }
       }
 
       await Future.delayed(Duration(seconds: 5));
@@ -242,7 +249,9 @@ class PatientInsightsScreenState extends State<PatientInsightsScreen> {
       final data = await ApiClient().getSpecificPatientInsights(widget.patientId);
 
       if (data.containsKey("error")) {
-        print("⚠ Error: ${data['error']}");
+        if (kDebugMode) {
+          print("⚠ Error: ${data['error']}");
+        }
         return;
       }
 
@@ -253,7 +262,9 @@ class PatientInsightsScreenState extends State<PatientInsightsScreen> {
         weight = data['weight']?.toString() ?? "-";
       });
     } catch (e) {
-      print("Failed to fetch patient profile: $e");
+      if (kDebugMode) {
+        print("Failed to fetch patient profile: $e");
+      }
     }
   }
 
@@ -271,7 +282,9 @@ class PatientInsightsScreenState extends State<PatientInsightsScreen> {
         await prefs.setString("full_name", specialistFullName);
       }
     } catch (e) {
-      print("Failed to fetch user profile: $e");
+      if (kDebugMode) {
+        print("Failed to fetch user profile: $e");
+      }
     }
   }
 

@@ -56,7 +56,7 @@ class _PatientTrendsState extends State<PatientTrends> {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF9F4),
+      backgroundColor: const Color.fromARGB(255, 239, 238, 229),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -78,7 +78,7 @@ class _PatientTrendsState extends State<PatientTrends> {
               child: Text(
                 'Trends and History',
                 style: TextStyle(
-                  fontSize: screenWidth * 0.048,
+                  fontSize: screenWidth * 0.06,
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
                 ),
@@ -158,8 +158,9 @@ class CustomButtonStyle {
     double screenHeight = MediaQuery.of(context).size.height;
 
     return ElevatedButton.styleFrom(
-      backgroundColor: const Color.fromARGB(255, 90, 145, 85), // Button color
-      foregroundColor: Colors.white, // Text color
+      backgroundColor: const Color.fromARGB(255, 224, 233, 217),
+
+      foregroundColor: Colors.black, // Text color
       padding: EdgeInsets.symmetric(
           horizontal: screenWidth * 0.04,
           vertical: screenHeight * 0.024), // Padding

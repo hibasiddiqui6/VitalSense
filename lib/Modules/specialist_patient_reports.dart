@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vitalsense/Modules/reports_history.dart';
 import '../services/api_client.dart';
 import '../widgets/specialist_drawer.dart';
-import 'specialist_patient_insights.dart'; // Import the insights screen
 
-class MyPatientsScreen extends StatefulWidget {
-  const MyPatientsScreen({super.key});
+class Specialist_Patients_Reports extends StatefulWidget {
+  const Specialist_Patients_Reports({super.key});
 
   @override
-  State<MyPatientsScreen> createState() => _MyPatientsScreenState();
+  State<Specialist_Patients_Reports> createState() => _Specialist_Patients_ReportsState();
 }
 
-class _MyPatientsScreenState extends State<MyPatientsScreen> {
+class _Specialist_Patients_ReportsState extends State<Specialist_Patients_Reports> {
   List<Map<String, dynamic>> patients = [];
   List<Map<String, dynamic>> filteredPatients = [];
   bool isLoading = true;
@@ -97,7 +97,7 @@ class _MyPatientsScreenState extends State<MyPatientsScreen> {
               boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6, spreadRadius: 1)],
             ),
             child: const Text(
-              "My Patients",
+              "Patients Reports",
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
             ),
@@ -197,12 +197,11 @@ class _MyPatientsScreenState extends State<MyPatientsScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => PatientInsightsScreen(
-                        patientId: patient['patientid'],
-                      ),
+                      builder: (context) => ReportHistoryScreen(patientId: patient['patientid'], patientName: patient['fullname'],),
                     ),
                   );
                 },
+
               ),
             ),
           );

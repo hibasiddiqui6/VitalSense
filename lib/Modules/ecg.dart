@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
@@ -151,7 +152,9 @@ class _ECGScreenState extends State<ECGScreen> {
       // print("📦 ECG Buffer Length: ${ECGController.instance?.buffer.length}");
       if (ecgVal == null) return;
 
-      print("📊 ECG value popped: $ecgVal");
+      if (kDebugMode) {
+        print("📊 ECG value popped: $ecgVal");
+      }
 
       setState(() {
         points.add(Offset(x, ecgVal));
@@ -279,7 +282,9 @@ class _ECGScreenState extends State<ECGScreen> {
                   const SnackBar(content: Text("Contacts notified")),
                 );
               } catch (e) {
-                print("Error sending alert: $e");
+                if (kDebugMode) {
+                  print("Error sending alert: $e");
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Failed to send alert")),
                 );

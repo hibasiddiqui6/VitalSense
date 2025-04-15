@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async'; // For delayed navigation
 import 'specialist_dashboard.dart'; // Import the page where you want to navigate after registration
@@ -377,7 +378,9 @@ class _RegistrationFormState extends State<RegistrationForm> {
                               });
                             }
                           } catch (e) {
-                            print('Error: $e');
+                            if (kDebugMode) {
+                              print('Error: $e');
+                            }
                             setState(() {
                               _isLoading =
                                   false; // Ensure loading stops on error

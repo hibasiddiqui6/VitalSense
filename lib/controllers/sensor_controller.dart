@@ -75,14 +75,14 @@ class SensorController {
         double? ecgRaw = double.tryParse(data['ecg_raw'].toString());
 
         if (temp != null) {
-          print("👈 Adding temp: $temp");
+          // print("👈 Adding temp: $temp");
           TemperatureController.instance?.updateFromRealtime(temp);
           DashboardController.instance?.updateTemperatureLive(temp);
           PatientInsightsController.instance?.updateTemperatureLive(temp);
         }
 
         if (resp != null) {
-          print("👈 Adding resp: $resp");
+          // print("👈 Adding resp: $resp");
           RespirationController.instance?.updateFromRealtime(resp);
           DashboardController.instance?.updateRespirationLive(resp);
           PatientInsightsController.instance?.updateRespirationLive(resp);

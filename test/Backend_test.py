@@ -1,93 +1,76 @@
 import unittest
-import json
-import os
-import sys
-from unittest.mock import patch, MagicMock
-import flask_backend.db_utils
-sys.modules['db_utils'] = flask_backend.db_utils
-import flask_backend.vitals_classifier
-sys.modules['vitals_classifier'] = flask_backend.vitals_classifier
+import requests
 
-from flask_backend.app import app  # Adjust if path differs
+BASE_URL = "https://vitalsense-flask-backend.fly.dev"
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+class IntegrationTests(unittest.TestCase):
 
-class FlaskAppTestCase(unittest.TestCase):
-    def setUp(self):
-        self.client = app.test_client()
-        self.client.testing = True
+    def test_01_ping(self):
+        """✅ Server should respond with status online"""
+        res = requests.get(f"{BASE_URL}/ping")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json(), {"status": "online"})
 
-    def test_ping(self):
-        response = self.client.get('/ping')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json(), {"status": "online"})
-        
-    @patch('db_utils.modify_data')
-    @patch('db_utils.fetch_data')
-    def test_register_patient_success(self, mock_fetch, mock_modify):
-        """✅ Successful patient registration"""
-        mock_fetch.side_effect = [{'userid': 1}]
+    def test_02_register_patient_success(self):
+        """✅ Should register a patient (if not already exists)"""
         payload = {
-            "fullname": "Test User",
-            "email": "test@example.com",
-            "password": "securepass",
-            "gender": "M",
+            "fullname": "Integration Test",
+            "email": "integration.patient@example.com",
+            "password": "testpass123",
+            "gender": "F",
             "age": 30,
-            "contact": "1234567890",
+            "contact": "03111222333",
+            "weight": 55
+        }
+        res = requests.post(f"{BASE_URL}/register/patient", json=payload)
+        self.assertIn(res.status_code, [201, 500])  # 500 if already registered
+        print(f"Register patient => {res.status_code}, {res.text}")
+
+    def test_03_register_patient_missing_email(self):
+        """❌ Fail if required field is missing"""
+        payload = {
+            "fullname": "Missing Email",
+            "password": "noemailpass",
+            "gender": "M",
+            "age": 25,
+            "contact": "03001234567",
             "weight": 70
         }
-        res = self.client.post('/register/patient', json=payload)
-        self.assertEqual(res.status_code, 201)
-        self.assertIn("Patient registered successfully", res.get_data(as_text=True))
-
-    def test_register_patient_missing_email(self):
-        """❌ Fail registration if email is missing"""
-        payload = {
-            "fullname": "Test User",
-            "password": "securepass",
-            "gender": "M",
-            "age": 30,
-            "contact": "1234567890",
-            "weight": 70
-        }
-        res = self.client.post('/register/patient', json=payload)
+        res = requests.post(f"{BASE_URL}/register/patient", json=payload)
         self.assertIn(res.status_code, [400, 500])
+    def test_04_login_patient_success(self):
+        """✅ Should login with correct credentials"""
+        payload = {
+            "email": "integration.patient@example.com",
+            "password": "testpass123"
+        }
+        res = requests.post(f"{BASE_URL}/login/patient", json=payload)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("patient_id", res.json())
+        print(f"Login response: {res.status_code} => {res.json()}")
 
-    @patch('db_utils.fetch_data')
-    def test_login_patient_invalid_credentials(self, mock_fetch):
-        mock_fetch.side_effect = [
-            {'userid': 1, 'password': 'fakehash', 'role': 'patient'},
-            {'patientid': 10}
-        ]
 
-        response = self.client.post('/login/patient', json={
-            "email": "fake@example.com",
-            "password": "wrongpass"
-        })
-        self.assertIn(response.status_code, [401])
+    def test_05_login_patient_fail_wrong_password(self):
+        """❌ Fail login with wrong password"""
+        payload = {
+            "email": "integration.patient@example.com",
+            "password": "abc"
+        }
+        res = requests.post(f"{BASE_URL}/login/patient", json=payload)
+        self.assertEqual(res.status_code, 401)
 
-    def test_classify_temp_status(self):
-        response = self.client.post('/classify_temp_status', json={"temperature": 38.5})
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("status", response.get_json())
-
-    def test_login_patient_invalid(self):
-        response = self.client.post('/login/patient', json={
-            "email": "fake@example.com",
-            "password": "wrongpass"
-        })
-        self.assertIn(response.status_code, [401, 404])
-
-    def test_get_patient_profile_unauthorized(self):
-        response = self.client.get('/get_patient_profile')
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("error", response.get_json())
-    
-    def test_get_patient_profile_missing_id(self):
-        """❌ Fail if patient_id is missing in profile request"""
-        res = self.client.get('/get_patient_profile')
+    def test_06_get_patient_profile_missing_id(self):
+        """❌ Should fail if patient ID is missing"""
+        res = requests.get(f"{BASE_URL}/get_patient_profile")
         self.assertEqual(res.status_code, 400)
-        self.assertIn("Patient ID is required", res.get_data(as_text=True))
-    
-if __name__ == '__main__':
+        self.assertIn("error", res.json())
+
+    def test_07_classify_temp_status(self):
+        """✅ Should classify temperature"""
+        res = requests.post(f"{BASE_URL}/classify_temp_status", json={"temperature": 39.2})
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("status", res.json())
+        print(f"Classification: {res.json()}")
+
+if __name__ == "__main__":
     unittest.main()

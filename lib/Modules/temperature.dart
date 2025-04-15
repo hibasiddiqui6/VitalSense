@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_client.dart'; // Import API client
@@ -156,11 +157,15 @@ class TemperaturePageState extends State<TemperaturePage> {
 
             try {
               final contactsList = await ApiClient().getTrustedContacts();
-              print("✅ Contacts fetched: $contactsList");
+              if (kDebugMode) {
+                print("✅ Contacts fetched: $contactsList");
+              }
 
               await notifyContacts(status, contactsList);
             } catch (e) {
-              print("❌ Error fetching contacts or notifying: $e");
+              if (kDebugMode) {
+                print("❌ Error fetching contacts or notifying: $e");
+              }
             }
           },
           child: const Text("OK"),

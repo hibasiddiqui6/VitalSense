@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart';
@@ -60,7 +61,9 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
       await prefs.setString("profession", profession);
       await prefs.setString("speciality", speciality);
     } catch (e) {
-      print("Failed to fetch profile: $e");
+      if (kDebugMode) {
+        print("Failed to fetch profile: $e");
+      }
     }
   }
 
@@ -106,10 +109,9 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
-    return Scaffold(
-      extendBodyBehindAppBar:
-          true, // This allows the body to go under the AppBar
 
+    return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(0, 238, 64, 64),
         elevation: 0,
@@ -118,52 +120,57 @@ class _SpecialistDashboardState extends State<SpecialistDashboard> {
       drawer: SizedBox(
         width: screenWidth * 0.6,
         child: SpecialistDrawer(
-          fullName: fullName, // fetched and stored in State
-          email: email, // fetched and stored in State
+          fullName: fullName,
+          email: email,
         ),
       ),
       backgroundColor: const Color.fromARGB(255, 255, 254, 250),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Stack(
+      body: Stack(
+        children: [
+          // Background + Main Content in a scroll view
+          SingleChildScrollView(
+            child: Column(
               children: [
-                // -Background Circles
-                Positioned(
-                  top: screenHeight * -0.15, // 15% of screen height
-                  left: screenWidth * 0.45, // 45% of screen width
-                  child: Container(
-                    width: screenWidth * 0.9, // 90% of screen width
-                    height: screenHeight * 0.5, // 50% of screen height
-                    decoration: const BoxDecoration(
-                      color: Color.fromARGB(120, 219, 237, 219),
-                      shape: BoxShape.circle,
+                Stack(
+                  children: [
+                    Positioned(
+                      top: screenHeight * -0.15,
+                      left: screenWidth * 0.45,
+                      child: Container(
+                        width: screenWidth * 0.9,
+                        height: screenHeight * 0.5,
+                        decoration: const BoxDecoration(
+                          color: Color.fromARGB(120, 219, 237, 219),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Positioned(
-                  bottom: screenHeight * -0.1, // 10% of screen height
-                  left: screenWidth * -0.25, // 25% of screen width
-                  child: Container(
-                    width: screenWidth * 0.6, // 60% of screen width
-                    height: screenHeight * 0.3, // 30% of screen height
-                    decoration: const BoxDecoration(
-                      color: Color.fromARGB(120, 219, 237, 219),
-                      shape: BoxShape.circle,
+                    Positioned(
+                      bottom: screenHeight * -0.1,
+                      left: screenWidth * -0.25,
+                      child: Container(
+                        width: screenWidth * 0.6,
+                        height: screenHeight * 0.3,
+                        decoration: const BoxDecoration(
+                          color: Color.fromARGB(120, 219, 237, 219),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                     ),
-                  ),
+                    _buildMainContent(context),
+                  ],
                 ),
-                // -Main Scrollable Content
-                _buildMainContent(context),
               ],
             ),
-            // -Search Dropdown if Searching
-            if (isSearching) _buildSearchDropdown(),
-          ],
-        ),
+          ),
+
+          // Search dropdown overlay
+          if (isSearching) _buildSearchDropdown(),
+        ],
       ),
     );
   }
+
 
   Widget _buildMainContent(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;

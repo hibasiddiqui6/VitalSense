@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,7 +38,9 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
       final data = await ApiClient().getPatientProfile();
 
       if (data.containsKey("error")) {
-        print("⚠ Error fetching user profile: ${data['error']}");
+        if (kDebugMode) {
+          print("⚠ Error fetching user profile: ${data['error']}");
+        }
         return;
       }
 
@@ -51,7 +54,9 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
         await prefs.setString("email", email);
       }
     } catch (e) {
-      print("Failed to fetch user profile: $e");
+      if (kDebugMode) {
+        print("Failed to fetch user profile: $e");
+      }
     }
   }
 
@@ -82,16 +87,22 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
     while (true) {
       final elapsed = DateTime.now().difference(startTime);
       if (elapsed > maxWait) {
-        print("⏱ Timed out waiting for ESP32 connection after ${elapsed.inSeconds} seconds.");
+        if (kDebugMode) {
+          print("⏱ Timed out waiting for ESP32 connection after ${elapsed.inSeconds} seconds.");
+        }
         isMonitoringESP = false;
         return;
       }
 
       try {
-        print("🔄 Checking if ESP32 is already connected...");
+        if (kDebugMode) {
+          print("🔄 Checking if ESP32 is already connected...");
+        }
         final connected = await checkESP32Connection(context); 
         if (connected) {
-          print("✅ ESP32 online! Registering SmartShirt...");
+          if (kDebugMode) {
+            print("✅ ESP32 online! Registering SmartShirt...");
+          }
           await registerSmartShirt(context);
 
           if (context.mounted) {
@@ -104,7 +115,9 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
           return;
         }
       } catch (e) {
-        print("❌ ESP32 not responding: $e");
+        if (kDebugMode) {
+          print("❌ ESP32 not responding: $e");
+        }
       }
 
       await Future.delayed(const Duration(seconds: 3));
@@ -121,7 +134,9 @@ class _PatientWifiSetupState extends State<PatientWifiSetup> {
         await launchUrl(Uri.parse('App-Prefs:root=WIFI'));
       }
     } catch (e) {
-      print("Failed to open Wi-Fi settings: $e");
+      if (kDebugMode) {
+        print("Failed to open Wi-Fi settings: $e");
+      }
     }
   }
 

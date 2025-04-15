@@ -17,6 +17,8 @@ class ShirtWebSocketService {
   final String smartshirtId;
   String ip;
   late Function(Map<String, dynamic>) _onRealtimeUpdate;
+  DateTime? _startTimestamp; // To track the start time when data begins
+  DateTime? _bufferReachedTimestamp; // To track the time when buffer reaches 500
 
   ShirtWebSocketService({
     required this.patientId,
@@ -42,6 +44,12 @@ class ShirtWebSocketService {
           final timestamp = decoded['timestamp'];
           final ecg = decoded['ecg_raw'].toString();
 
+          // Set the start timestamp when the first reading is received
+          if (_startTimestamp == null) {
+            _startTimestamp = DateTime.now();
+            print("⏱️ Start time recorded: $_startTimestamp");
+          }
+
           final isDuplicate = _sensorBuffer.any((entry) =>
               entry['timestamp'] == timestamp && entry['ecg_raw'].toString() == ecg);
 
@@ -59,11 +67,12 @@ class ShirtWebSocketService {
             // flushToBackend();
           }
 
-          if (_sensorBuffer.length >= 50) {
+          if (_sensorBuffer.length == 100) {
             print("🚿 Auto-flushing large batch");
-            // flushToBackend();
+            flushToBackend();
+
           }
-          if (_ecgBuffer.length == 1000) {
+          if (_ecgBuffer.length == 500) {
             print("📡 ECG Buffer full — sending for classification");
             flushEcgBuffer();
           }
@@ -98,7 +107,7 @@ class ShirtWebSocketService {
     });
 
     // ⏰ Start auto-flush every 5 seconds
-    // _flushTimer = Timer.periodic(Duration(seconds: 5), (_) => flushToBackend());
+    _flushTimer = Timer.periodic(Duration(seconds: 5), (_) => flushToBackend());
 
     return completer.future.timeout(Duration(seconds: 5), onTimeout: () {
       print("⌛ WebSocket handshake timed out.");
@@ -140,48 +149,59 @@ class ShirtWebSocketService {
     }
   }
 
-  // Future<void> flushToBackend() async {
-  //   if (_sensorBuffer.isEmpty) return;
+  Future<void> flushToBackend() async {
+    if (_sensorBuffer.isEmpty) return;
 
-  //   _sensorBuffer.sort((a, b) => DateTime.parse(a['timestamp']).compareTo(DateTime.parse(b['timestamp'])));
+    _sensorBuffer.sort((a, b) => DateTime.parse(a['timestamp']).compareTo(DateTime.parse(b['timestamp'])));
 
-  //   print("🚀 [Batch Flush] Sending ${_sensorBuffer.length} readings...");
+    print("🚀 [Batch Flush] Sending ${_sensorBuffer.length} readings...");
 
-  //   final url = Uri.parse("https://vitalsense-flask-backend.fly.dev/sensor");
-  //   final prefs = await SharedPreferences.getInstance();
-  //   final gender = prefs.getString("gender") ?? "Male";
-  //   final age = int.tryParse(prefs.getString("age") ?? "0") ?? 0;
+    final url = Uri.parse("https://vitalsense-flask-backend.fly.dev/sensor");
+    final prefs = await SharedPreferences.getInstance();
+    final gender = prefs.getString("gender") ?? "Male";
+    final age = int.tryParse(prefs.getString("age") ?? "0") ?? 0;
 
-  //   final batchPayload = _sensorBuffer.map((reading) {
-  //     return {
-  //       ...reading,
-  //       "patient_id": patientId,
-  //       "smartshirt_id": smartshirtId,
-  //       "age": age,
-  //       "gender": gender
-  //     };
-  //   }).toList();
+    final batchPayload = _sensorBuffer.map((reading) {
+      return {
+        ...reading,
+        "patient_id": patientId,
+        "smartshirt_id": smartshirtId,
+        "age": age,
+        "gender": gender
+      };
+    }).toList();
 
-  //   try {
-  //     final response = await http.post(
-  //       url,
-  //       headers: {"Content-Type": "application/json"},
-  //       body: jsonEncode(batchPayload),
-  //     );
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(batchPayload),
+      );
 
-  //     if (response.statusCode == 200) {
-  //       print("✅ [Batch Flush] Success (${batchPayload.length} entries)");
-  //       _sensorBuffer.clear();
-  //     } else {
-  //       print("❌ [Batch Flush] Failed: ${response.body}");
-  //     }
-  //   } catch (e) {
-  //     print("⚠️ [Batch Flush] Network error: $e");
-  //   }
-  // }
+      if (response.statusCode == 200) {
+        print("✅ [Batch Flush] Success (${batchPayload.length} entries)");
+        _sensorBuffer.clear();
+      } else {
+        print("❌ [Batch Flush] Failed: ${response.body}");
+      }
+    } catch (e) {
+      print("⚠️ [Batch Flush] Network error: $e");
+    }
+  }
 
   Future<void> flushEcgBuffer() async {
     if (_ecgBuffer.isEmpty) return;
+
+    // Track the time when buffer reaches 500
+    if (_ecgBuffer.length == 500 && _bufferReachedTimestamp == null) {
+      _bufferReachedTimestamp = DateTime.now();
+      
+      // Calculate the time difference from the start time
+      if (_startTimestamp != null) {
+        final timeElapsed = _bufferReachedTimestamp!.difference(_startTimestamp!);
+        print("🕒 Time taken to fill buffer: ${timeElapsed.inSeconds} seconds");
+      }
+    }
 
     print("🚀 [ECG Flush] Sending ${_ecgBuffer.length} ECG readings...");
 

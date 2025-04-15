@@ -9,7 +9,7 @@ ecg_buffers = {}
 
 # Config
 ECG_BUFFER_SIZE = 500
-ECG_SAMPLING_RATE = 25
+ECG_SAMPLING_RATE = 11
 
 # === Wavelet Denoising ===
 def wavelet_denoise(signal, wavelet='db6', level=2):

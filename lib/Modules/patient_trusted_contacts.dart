@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart';
@@ -33,7 +34,9 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
         contacts = contactsList;
       });
     } catch (e) {
-      print("❌ Error fetching contacts: $e");
+      if (kDebugMode) {
+        print("❌ Error fetching contacts: $e");
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -164,101 +167,97 @@ class _TrustedContactsScreenState extends State<TrustedContactsScreen> {
   Widget build(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
+      backgroundColor: Color.fromARGB(255, 239, 238, 229),
+      appBar: AppBar(
+        backgroundColor: Color.fromARGB(255, 239, 238, 229),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
       drawer: SizedBox(
         width: screenWidth * 0.6,
         child: PatientDrawer(fullName: fullName, email: email),
       ),
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Menu Icon instead of back button
-                Padding(
-                  padding: EdgeInsets.all(screenWidth*0.02),
-                  child: Builder(
-                    builder: (context) => IconButton(
-                      icon: Icon(Icons.menu, color: Colors.black54, size: screenWidth*0.048),
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                    ),
-                  ),
-                ),
-                Center(
-                  child: Text(
-                    'Trusted Contacts',
-                    style: TextStyle(
-                        fontSize: screenWidth*0.045,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black),
-                  ),
-                ),
-                SizedBox(height: screenHeight*0.01),
-
-                // Add Button
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: screenWidth*0.04),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.add, color: Colors.black54, size: screenWidth*0.048),
-                        onPressed: _addContact,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // List or Loading or Empty
-                Expanded(
-                  child: isLoading
-                      ? Center(child: CircularProgressIndicator())
-                      : contacts.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.contacts_outlined,
-                                      size: screenWidth*0.9, color: Colors.grey[400]),
-                                  Text(
-                                    "No trusted contacts added.",
-                                    style: TextStyle(
-                                        fontSize: screenWidth*0.032, color: Colors.grey),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: EdgeInsets.all(screenWidth*0.032),
-                              itemCount: contacts.length,
-                              itemBuilder: (context, index) =>
-                                  _buildContactRow(contacts[index]),
-                            ),
-                ),
-              ],
-            ),
-          ),
-          if (isSaving) // Saving overlay
-            Container(
-              color: Colors.black.withOpacity(0.5),
-              child: const Center(
-                child: CircularProgressIndicator(
-                    color: Colors.green, strokeWidth: 5),
+      body: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: screenWidth * 0.032,
+          vertical: screenHeight * 0.02,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              "Trusted Contacts",
+              style: TextStyle(
+                fontSize: screenWidth * 0.06,
+                fontWeight: FontWeight.bold,
               ),
             ),
-        ],
+            SizedBox(height: screenHeight * 0.01),
+
+            // Add Button
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.add, color: Colors.black54, size: screenWidth * 0.1),
+                    onPressed: _addContact,
+                  ),
+                ],
+              ),
+            ),
+
+            // List or Loading or Empty
+            Expanded(
+              child: isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : contacts.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.contacts_outlined, size: screenWidth * 0.9, color: Colors.grey[400]),
+                              Text(
+                                "No trusted contacts added.",
+                                style: TextStyle(fontSize: screenWidth * 0.032, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: EdgeInsets.all(screenWidth * 0.032),
+                          itemCount: contacts.length,
+                          itemBuilder: (context, index) => _buildContactRow(contacts[index]),
+                        ),
+            ),
+          ],
+        ),
       ),
+      // Saving overlay with a condition
+      floatingActionButton: isSaving 
+          ? Container(
+              color: Colors.black.withOpacity(0.5), // Semi-transparent black background
+              child: const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.green, // Green color for the progress indicator
+                  strokeWidth: 5, // Thickness of the progress indicator
+                ),
+              ),
+            )
+          : SizedBox.shrink(), // Empty widget when not saving
     );
   }
+
 
   /// Build Contact Row
   Widget _buildContactRow(Map<String, dynamic> contact) {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
     return Card(
-      color: const Color.fromARGB(255, 224, 233, 217), // Light green background
+      color: const Color.fromARGB(255, 224, 233, 217),
       elevation: 3, // Elevation for subtle shadow
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(screenWidth*0.03), // Rounded corners

@@ -1,5 +1,6 @@
 
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 // import 'package:firebase_database/firebase_database.dart';
@@ -908,6 +909,7 @@ class ApiClient {
 
   Future<List<Map<String, dynamic>>> getReports(String patientId, {String range = "24h"}) async {
     final url = Uri.parse('$baseUrl/get_reports?patient_id=$patientId&range=$range');
+    print("report url $url");
 
     final response = await http.get(url);
     if (response.statusCode == 200) {
@@ -927,6 +929,17 @@ class ApiClient {
     } else {
       print("⚠️ Failed to delete report: ${response.body}");
       return false;
+    }
+  }
+
+  Future<Uint8List> downloadReportPdf(int reportId) async {
+    final url = Uri.parse('$baseUrl/download_report/$reportId');
+
+    final response = await http.get(url);
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    } else {
+      throw Exception("Failed to download PDF: ${response.body}");
     }
   }
 

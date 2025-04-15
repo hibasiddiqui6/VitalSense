@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vitalsense/widgets/patient_drawer.dart';
 import '../services/api_client.dart';
 import 'patient_wifi_setup.dart';
 
@@ -16,7 +18,6 @@ class _SmartShirtManagementScreenState extends State<SmartShirtManagementScreen>
   String fullName = "...";
   String email = "...";
   String patientId = "";
-  
 
   @override
   void initState() {
@@ -39,7 +40,9 @@ class _SmartShirtManagementScreenState extends State<SmartShirtManagementScreen>
     email = prefs.getString("email") ?? "example@example.com";
     patientId = prefs.getString("patient_id") ?? "";
 
-    print("🔍 Loaded patient_id in SmartShirt screen: $patientId");
+    if (kDebugMode) {
+      print("🔍 Loaded patient_id in SmartShirt screen: $patientId");
+    }
 
     setState(() {}); // optional: only if UI needs fullName/email refreshed
   }
@@ -52,16 +55,22 @@ class _SmartShirtManagementScreenState extends State<SmartShirtManagementScreen>
       final result = await ApiClient().getSmartShirts(patientId);
 
       if (result.containsKey("error")) {
-        print("❌ Error: ${result['error']}");
+        if (kDebugMode) {
+          print("❌ Error: ${result['error']}");
+        }
         smartShirts = [];
       } else {
         smartShirts = result['smartshirts'] ?? [];
       }
 
-      print("🧩 SmartShirts fetched: $smartShirts");
+      if (kDebugMode) {
+        print("🧩 SmartShirts fetched: $smartShirts");
+      }
       setState(() {}); // Refresh UI
     } catch (e) {
-      print("❌ Exception: $e");
+      if (kDebugMode) {
+        print("❌ Exception: $e");
+      }
       smartShirts = [];
       setState(() {});
     }
@@ -98,34 +107,6 @@ class _SmartShirtManagementScreenState extends State<SmartShirtManagementScreen>
     }
   }
 
-  void _resetWifiFromBackend(String ip) async {
-    final url = Uri.parse("http://$ip/reset_wifi");
-
-    final status = await ApiClient.simpleGetRequest(url);
-    if (status == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ ESP32 Wi-Fi reset triggered.")),
-      );
-
-      // Clear flag from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool("smartshirt_registered", false);
-
-      // Navigate to Wi-Fi setup screen
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const PatientWifiSetup()),
-          (route) => false,
-        );
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("❌ Failed to reset ESP32 Wi-Fi.")),
-      );
-    }
-  }
-
   void _confirmDeleteSmartShirt(String macAddress) {
     showDialog(
       context: context,
@@ -146,76 +127,86 @@ class _SmartShirtManagementScreenState extends State<SmartShirtManagementScreen>
     );
   }
 
-  void _showWifiResetFallbackDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Can't reach ESP32"),
-        content: const Text(
-            "If your ESP32 is not responding and the original Wi-Fi is unavailable:\n\n"
-            "🔌 Unplug and replug your SmartShirt.\n"
-            "📶 Wait for it to create a Wi-Fi hotspot named 'ESP32_Setup'.\n"
-            "📲 Reconnect to that network and configure your Wi-Fi again."),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("OK")),
-        ],
+  @override
+  Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double screenHeight = MediaQuery.of(context).size.height;
+
+    return Scaffold(
+      backgroundColor: Color.fromARGB(255, 239, 238, 229),
+      appBar: AppBar(
+        backgroundColor: Color.fromARGB(255, 239, 238, 229),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
+      drawer: SizedBox(
+        width: screenWidth * 0.6,
+        child: PatientDrawer(fullName: fullName, email: email),
+      ),
+      body: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: screenWidth * 0.032,
+          vertical: screenHeight * 0.02,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              "My SmartShirts",
+              style: TextStyle(
+                fontSize: screenWidth * 0.06,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: screenHeight * 0.04),
+            Expanded(
+              child: smartShirts == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : smartShirts!.isEmpty
+                      ? const Center(child: Text("No SmartShirts connected."))
+                      : ListView.builder(
+                          itemCount: smartShirts!.length,
+                          itemBuilder: (context, index) {
+                            final shirt = smartShirts![index];
+                            final mac = shirt["deviceMac"] ?? "Unknown";
+                            final status = shirt["shirtStatus"] == true ? "Connected" : "Disconnected";
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              color: const Color.fromARGB(255, 224, 233, 217),
+                              child: ListTile(
+                                dense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                title: Text(
+                                  "Device MAC: $mac",
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                                subtitle: Text(
+                                  "Status: $status",
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                trailing: PopupMenuButton<String>(
+                                  onSelected: (value) {
+                                    if (value == 'delete') {
+                                      _confirmDeleteSmartShirt(mac);
+                                    }
+                                  },
+                                  itemBuilder: (context) => const [
+                                    PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text("Remove Device"),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+
+          ],
+        ),
       ),
     );
   }
-
-  @override
-  
-  Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("My SmartShirts"),
-        backgroundColor: const Color.fromARGB(255, 193, 219, 188),
-      ),
-      body: smartShirts == null
-        ? const Center(child: CircularProgressIndicator())  // still loading
-        : smartShirts!.isEmpty
-            ? const Center(child: Text("No SmartShirts connected."))
-            : ListView.builder(
-                padding: EdgeInsets.all(screenWidth * 0.04),
-                itemCount: smartShirts!.length,
-                itemBuilder: (context, index) {
-                  final shirt = smartShirts![index];
-                  return Card(
-                    elevation: 3,
-                    color: const Color.fromARGB(255, 224, 233, 217),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(screenWidth * 0.03),
-                    ),
-                    child: ListTile(
-                      title: Text(
-                        "MAC: ${shirt['deviceMac'] ?? 'Unknown'}",
-                        style: const TextStyle(fontSize: 14), // You can tweak this size
-                      ),
-                      subtitle: Text("Status: ${shirt['shirtStatus'] == true ? 'Connected' : 'Disconnected'}"),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (value) {
-                          if (value == 'delete') {
-                            _confirmDeleteSmartShirt(shirt['deviceMac']);
-                          } else if (value == 'reset') {
-                            final ip = shirt['ip_address'];
-                            if (ip != null && ip.toString().isNotEmpty) {
-                              _resetWifiFromBackend(ip);
-                            } else {
-                              _showWifiResetFallbackDialog();
-                            }
-                          }
-                        },
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(value: 'delete', child: Text("Remove Device")),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-      }
-  }
+}

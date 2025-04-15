@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -57,14 +58,18 @@ class _RespChartScreenState extends State<RespChartScreen> {
     final patientId = widget.patientId ?? prefs.getString("patient_id");
 
     if (patientId == null) {
-      print("❌ Patient ID missing");
+      if (kDebugMode) {
+        print("❌ Patient ID missing");
+      }
       setState(() => isLoading = false);
       return;
     }
 
     final data = await ApiClient().getRespirationTrends(selectedTime, patientId: patientId);
 
-    print("Fetched ${data.length} respiration records for $selectedTime");
+    if (kDebugMode) {
+      print("Fetched ${data.length} respiration records for $selectedTime");
+    }
 
     final uniqueData = {
       for (var e in data) e['timestamp']: e

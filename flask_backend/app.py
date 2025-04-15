@@ -62,7 +62,6 @@ def insert_postgres_only(sensor_data, ids):
         print(f"[SUCCESS] Inserted ECG record into Postgres with id={hv_id}")
 
         # Only classify if insert succeeded
-        gevent.spawn_later(2, add_ecg_sample, ids["smartshirt_id"], int(sensor_data["ecg"]), hv_id, ids["age"], ids["gender"])
         gevent.spawn_later(2, classify_and_insert_temp_status, sensor_data["temperature"], hv_id)
         gevent.spawn_later(2, classify_and_insert_resp_status, sensor_data["respiration"], hv_id)
 
@@ -978,7 +977,7 @@ def get_latest_ecg_status():
     query = """
         SELECT e.bpm, e.ecgstatus
         FROM ecg e
-        JOIN health_vitals hv ON hv.id = e.healthvitalsid
+        JOIN health_vitals hv ON hv.smartshirtid = e.smartshirtid
         WHERE hv.patientID = %s
         ORDER BY hv.timestamp DESC
         LIMIT 1

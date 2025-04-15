@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:wifi_iot/wifi_iot.dart';
 import 'package:http/http.dart' as http;
@@ -10,7 +11,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// **Check if ESP32 is already connected to Home Wi-Fi**
 Future<bool> checkESP32Connection(BuildContext context) async {
-  print("Checking if ESP32 is already connected...");
+  if (kDebugMode) {
+    print("Checking if ESP32 is already connected...");
+  }
 
   final fetchIpUrl = Uri.parse("${ApiClient.baseUrl}/get_latest_mac_ip");
 
@@ -101,20 +104,28 @@ void proceedToProvisioning(BuildContext context) async {
       if (await canLaunchUrl(provisionerUri)) {
         await launchUrl(provisionerUri, mode: LaunchMode.externalApplication);
       } else {
-        print("Could not open provisioning page at $ip");
+        if (kDebugMode) {
+          print("Could not open provisioning page at $ip");
+        }
       }
     } else {
-      print("Failed to get ESP32 IP from backend. Status code: ${response.statusCode}");
+      if (kDebugMode) {
+        print("Failed to get ESP32 IP from backend. Status code: ${response.statusCode}");
+      }
     }
   } catch (e) {
-    print("Error fetching dynamic IP from backend: $e");
+    if (kDebugMode) {
+      print("Error fetching dynamic IP from backend: $e");
+    }
     return;
   }
 
   // Monitor for reconnection to home Wi-Fi
   Timer.periodic(const Duration(seconds: 5), (timer) async {
     String? currentSSID = await WiFiForIoTPlugin.getSSID();
-    print("Checking Wi-Fi: Currently connected to: $currentSSID");
+    if (kDebugMode) {
+      print("Checking Wi-Fi: Currently connected to: $currentSSID");
+    }
 
     if (currentSSID != null && currentSSID != "ESP32_Setup") {
       timer.cancel();

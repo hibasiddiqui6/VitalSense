@@ -10,6 +10,7 @@ import '../Modules/about_us.dart';
 import '../Modules/patient_wifi_setup.dart';
 import '../Modules/patient_smartshirt_manager.dart';
 import '../Modules/reports_history.dart';
+import '../Modules/esp_help.dart';
 
 class PatientDrawer extends StatefulWidget {
   final String fullName;
@@ -53,7 +54,7 @@ class _PatientDrawerState extends State<PatientDrawer> {
             padding: EdgeInsets.symmetric(
                 horizontal: screenWidth * 0.04, vertical: screenHeight * 0.08),
             decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 193, 219, 188),
+              color: Color.fromARGB(255, 172, 186, 167),
             ),
             child: Row(
               children: [
@@ -143,6 +144,12 @@ class _PatientDrawerState extends State<PatientDrawer> {
 
                 _buildDrawerItem(Icons.info, "About", () {
                   _navigateTo(context, const AboutUs());
+                }),
+
+                _divider(),
+
+                _buildDrawerItem(Icons.help, "Help", () {
+                  _navigateTo(context, const EspHelp());
                 }),
 
                 const Divider(), // Separator

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:vitalsense/controllers/sensor_controller.dart';
@@ -144,11 +145,15 @@ class RespirationPageState extends State<RespirationPage> {
 
               try {
                 final contactsList = await ApiClient().getTrustedContacts();
-                print("✅ Contacts fetched: $contactsList");
+                if (kDebugMode) {
+                  print("✅ Contacts fetched: $contactsList");
+                }
 
                 await notifyContacts(disease, contactsList);
               } catch (e) {
-                print("❌ Error fetching contacts or notifying: $e");
+                if (kDebugMode) {
+                  print("❌ Error fetching contacts or notifying: $e");
+                }
               }
             },
             child: const Text("OK"),
