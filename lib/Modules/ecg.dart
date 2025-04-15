@@ -1,11 +1,9 @@
-// import 'package:fl_chart/fl_chart.dart';
-// import 'package:flutter/foundation.dart';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_client.dart'; // API for fetching ECG data
 import 'package:shared_preferences/shared_preferences.dart';
-// import 'dart:math';
 
 class ECGScreen extends StatefulWidget {
   final String? gender;
@@ -28,16 +26,17 @@ class ECGPainter extends CustomPainter {
     // Define the bounding box (ensures ECG stays within this area)
     Rect bounds = Rect.fromLTWH(0, 0, size.width, size.height);
     canvas.clipRect(bounds); // Clipping to prevent overflow
-// Paint for grid lines
+
+    // Paint for grid lines
     Paint gridPaint = Paint()
       ..color = Colors.grey.withOpacity(0.6) // Light gray for grid
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
-// Grid box size (adjust for ECG scaling)
+    // Grid box size (adjust for ECG scaling)
     double smallBoxSize = 5; // Small squares
 
-// Draw small grid (thin lines)
+    // Draw small grid (thin lines)
     for (double i = 0; i < size.width; i += smallBoxSize) {
       canvas.drawLine(Offset(i, 0), Offset(i, size.height), gridPaint);
     }
@@ -45,7 +44,7 @@ class ECGPainter extends CustomPainter {
       canvas.drawLine(Offset(0, j), Offset(size.width, j), gridPaint);
     }
 
-    // line paint
+    // Line paint for ECG path
     Paint paint = Paint()
       ..color = Colors.green
       ..strokeWidth = 2
@@ -56,12 +55,12 @@ class ECGPainter extends CustomPainter {
       double minValue = 1500; // ECG Min
       double maxValue = 2400; // ECG Max
       double canvasHeight = size.height * 0.8;
+
       double normalize(double value) {
         if (maxValue == minValue) {
           return size.height / 4; // Prevent division by zero
         }
-        return size.height -
-            ((value - minValue) / (maxValue - minValue)) * canvasHeight;
+        return size.height - ((value - minValue) / (maxValue - minValue)) * canvasHeight;
       }
 
       path.moveTo(points.first.dx, normalize(points.first.dy));
@@ -79,17 +78,12 @@ class ECGPainter extends CustomPainter {
 }
 
 class _ECGScreenState extends State<ECGScreen> {
-  // List<FlSpot> ecgData = [];
-  // double time = 0;
   List<Offset> points = [];
   double x = 0;
   Timer? ecgTimer;
   List<double> ecgBuffer = [];
 
   ApiClient apiClient = ApiClient();
-  // Timer? ecgTimer;
-  // double minY = 0, maxY = 4095; // Default range for 12-bit ADC
-  // int baseTime = 0; // Base time for X-axis labels
 
   // Patient details
   String gender = "-";
@@ -123,62 +117,24 @@ class _ECGScreenState extends State<ECGScreen> {
 
   /// **Fetch real-time ECG data every 2ms**
   Future<void> startECGStreaming() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? patientId = prefs.getString("patient_id");
-
-    if (patientId == null) {
-      print("⚠️ Patient ID not found.");
-      return;
-    }
-
-    // Listen to Firebase updates
-    apiClient.getFirebaseECGStream(patientId).listen((String ecgValue) {
-      if (ecgValue.isNotEmpty) {
-        double? parsed = double.tryParse(ecgValue.trim());
-        if (parsed != null) ecgBuffer.add(parsed);
-      }
-    }, onError: (error) {
-      print("❌ ECG Stream Error: $error");
-    });
-
-    // Timer to consume buffer at fixed interval (e.g., 20ms = 50 FPS)
-    ecgTimer?.cancel(); // avoid multiple timers
-    ecgTimer = Timer.periodic(Duration(milliseconds: 0), (_) {
-      if (!mounted || ecgBuffer.isEmpty) return;
-
-      double ecg = ecgBuffer.removeAt(0);
-
+    // Replace with actual API call
+    ecgTimer = Timer.periodic(Duration(milliseconds: 2), (timer) async {
+      double ecgValue = await fetchECGDataFromCloud();
       setState(() {
-        points.add(Offset(x, ecg));
-        x += 5;
-
-        if (points.length > 100) points.removeAt(0);
-        if (x >= 350) {
-          x = 0;
-          points.clear();
+        x += 1;
+        ecgBuffer.add(ecgValue);
+        if (ecgBuffer.length > 300) {
+          ecgBuffer.removeAt(0); // Keep only the latest 300 values
         }
-        print("Updated Points: $points");
+        points = List.generate(ecgBuffer.length, (i) => Offset(i.toDouble(), ecgBuffer[i]));
       });
     });
   }
-    
-//   // **Mock Function** to fetch ECG values from a cloud database
-//   Future<double> fetchECGDataFromCloud() async {
-//   return 50 + 30 * sin(x / 20); // Simulated ECG signal with smooth waves
-// }
 
-  /// Auto-Adjust Y-Axis based on incoming data
-  // void _updateYAxisRange() {
-  //   if (ecgData.isNotEmpty) {
-  //     double minVal = ecgData.map((e) => e.y).reduce((a, b) => a < b ? a : b);
-  //     double maxVal = ecgData.map((e) => e.y).reduce((a, b) => a > b ? a : b);
-
-  //     setState(() {
-  //       minY = minVal - 100;
-  //       maxY = maxVal + 100;
-  //     });
-  //   }
-  // }
+  /// **Mock Function** to fetch ECG values from a cloud database
+  Future<double> fetchECGDataFromCloud() async {
+    return 50 + 30 * sin(x / 20); // Simulated ECG signal with smooth waves
+  }
 
   @override
   void dispose() {
@@ -341,11 +297,9 @@ class _ECGScreenState extends State<ECGScreen> {
     return Expanded(
       child: Container(
         margin: EdgeInsets.symmetric(
-            horizontal:
-                MediaQuery.of(context).size.width * 0.01), // 1% of screen width
+            horizontal: MediaQuery.of(context).size.width * 0.01), // 1% of screen width
         padding: EdgeInsets.symmetric(
-            vertical: MediaQuery.of(context).size.height *
-                0.015), // 1.5% of screen height
+            vertical: MediaQuery.of(context).size.height * 0.015), // 1.5% of screen height
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -365,8 +319,7 @@ class _ECGScreenState extends State<ECGScreen> {
                     fontWeight: FontWeight.bold)), // 4.5% of screen width
             Text(label,
                 style: GoogleFonts.poppins(
-                    fontSize: MediaQuery.of(context).size.width *
-                        0.04, // 4% of screen width
+                    fontSize: MediaQuery.of(context).size.width * 0.04, // 4% of screen width
                     color: Colors.grey)),
           ],
         ),
