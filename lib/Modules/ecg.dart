@@ -1,11 +1,13 @@
-// import 'package:fl_chart/fl_chart.dart';
-// import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:vitalsense/controllers/sensor_controller.dart';
+import 'package:vitalsense/services/alert.dart';
 import '../services/api_client.dart'; // API for fetching ECG data
 import 'package:shared_preferences/shared_preferences.dart';
-// import 'dart:math';
+import '../controllers/ecg_controller.dart';
+// import 'ecg_trends.dart';
 
 class ECGScreen extends StatefulWidget {
   final String? gender;
@@ -20,8 +22,9 @@ class ECGScreen extends StatefulWidget {
 
 class ECGPainter extends CustomPainter {
   final List<Offset> points;
+  final double graphWidth; // New parameter for width
 
-  ECGPainter(this.points);
+  ECGPainter(this.points, this.graphWidth);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -53,9 +56,9 @@ class ECGPainter extends CustomPainter {
 
     Path path = Path();
     if (points.isNotEmpty) {
-      double minValue = 1500; // ECG Min
-      double maxValue = 2400; // ECG Max
-      double canvasHeight = size.height * 0.8;
+      double minValue = 1000; // ECG Min
+      double maxValue = 3000; // ECG Max
+      double canvasHeight = size.height * 1;
       double normalize(double value) {
         if (maxValue == minValue) {
           return size.height / 4; // Prevent division by zero
@@ -66,7 +69,11 @@ class ECGPainter extends CustomPainter {
 
       path.moveTo(points.first.dx, normalize(points.first.dy));
       for (var point in points) {
-        path.lineTo(point.dx, normalize(point.dy));
+        if (point.dx <= graphWidth) { // Use graphWidth instead of size.width
+          path.lineTo(point.dx, normalize(point.dy));
+        } else {
+          break; // Stop drawing if point exceeds the canvas width
+        }
       }
     }
     canvas.drawPath(path, paint);
@@ -79,28 +86,35 @@ class ECGPainter extends CustomPainter {
 }
 
 class _ECGScreenState extends State<ECGScreen> {
-  // List<FlSpot> ecgData = [];
-  // double time = 0;
   List<Offset> points = [];
   double x = 0;
   Timer? ecgTimer;
   List<double> ecgBuffer = [];
-
+  Timer? stabilizationRefreshTimer;
   ApiClient apiClient = ApiClient();
-  // Timer? ecgTimer;
-  // double minY = 0, maxY = 4095; // Default range for 12-bit ADC
-  // int baseTime = 0; // Base time for X-axis labels
-
   // Patient details
   String gender = "-";
   String age = "-";
   String weight = "-";
+  String role = "-";
+  String latestBPM = "-";
+  String ecgStatus = "-";
+  Color statusColor = Colors.grey;
+  bool hasShownECGAlert = false;
+  bool showFindings = false;
+  ECGSegment? segmentData;
+
+  bool showFullScreen = false;
 
   @override
   void initState() {
     super.initState();
-    startECGStreaming();
-    _loadUserDetailsOrUseParams(); // Load dynamic patient details
+    _loadUserDetailsOrUseParams();
+    _loadUserRole();
+    _startECGStream();
+    _startStabilizationCountdown();
+    loadLatestECGStatus();
+    loadLatestECGSegments();
   }
 
   /// Load gender, age, weight from params or SharedPreferences
@@ -121,216 +135,472 @@ class _ECGScreenState extends State<ECGScreen> {
     }
   }
 
-  /// **Fetch real-time ECG data every 2ms**
-  Future<void> startECGStreaming() async {
+  Future<void> _loadUserRole() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? patientId = prefs.getString("patient_id");
-
-    if (patientId == null) {
-      print("⚠️ Patient ID not found.");
-      return;
-    }
-
-    // Listen to Firebase updates
-    apiClient.getFirebaseECGStream(patientId).listen((String ecgValue) {
-      if (ecgValue.isNotEmpty) {
-        double? parsed = double.tryParse(ecgValue.trim());
-        if (parsed != null) ecgBuffer.add(parsed);
-      }
-    }, onError: (error) {
-      print("❌ ECG Stream Error: $error");
+    final savedRole = prefs.getString("role") ?? "-";
+    if (!mounted) return;
+    setState(() {
+      role = savedRole;
     });
+  }
 
-    // Timer to consume buffer at fixed interval (e.g., 20ms = 50 FPS)
-    ecgTimer?.cancel(); // avoid multiple timers
-    ecgTimer = Timer.periodic(Duration(milliseconds: 0), (_) {
-      if (!mounted || ecgBuffer.isEmpty) return;
+  void _startECGStream() {
+    ecgTimer = Timer.periodic(Duration(milliseconds: 20), (_) {
+      if (!mounted) return;
 
-      double ecg = ecgBuffer.removeAt(0);
+      double? ecgVal = ECGController.instance?.popNextPoint();
+      // print("📦 ECG Buffer Length: ${ECGController.instance?.buffer.length}");
+      if (ecgVal == null) return;
+
+      if (kDebugMode) {
+        print("📊 ECG value popped: $ecgVal");
+      }
 
       setState(() {
-        points.add(Offset(x, ecg));
+        points.add(Offset(x, ecgVal));
         x += 5;
-
         if (points.length > 100) points.removeAt(0);
         if (x >= 350) {
           x = 0;
           points.clear();
         }
-        print("Updated Points: $points");
       });
     });
   }
-    
-//   // **Mock Function** to fetch ECG values from a cloud database
-//   Future<double> fetchECGDataFromCloud() async {
-//   return 50 + 30 * sin(x / 20); // Simulated ECG signal with smooth waves
-// }
 
-  /// Auto-Adjust Y-Axis based on incoming data
-  // void _updateYAxisRange() {
-  //   if (ecgData.isNotEmpty) {
-  //     double minVal = ecgData.map((e) => e.y).reduce((a, b) => a < b ? a : b);
-  //     double maxVal = ecgData.map((e) => e.y).reduce((a, b) => a > b ? a : b);
+  void _startStabilizationCountdown() {
+    stabilizationRefreshTimer = Timer.periodic(Duration(seconds: 1), (_) {
+      if (mounted && !SensorController().hasStabilized) {
+        setState(() {}); // UI refresh
+      }
+    });
+  }
 
-  //     setState(() {
-  //       minY = minVal - 100;
-  //       maxY = maxVal + 100;
-  //     });
-  //   }
-  // }
+  Future<void> loadLatestECGStatus() async {
+    if (!SensorController().hasStabilized ||
+        SensorController().stabilizationStartTime == null) {
+      setState(() {
+        latestBPM = "-";
+        ecgStatus = "Sensor Not Connected";
+        statusColor = Colors.grey;
+      });
+      return;
+    }
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
+
+    if (patientId == null) return;
+
+    final result = await apiClient.getLatestECGStatus(patientId);
+
+    if (result != null) {
+      setState(() {
+        String rawBpm = result["bpm"].toString();
+        bool isValidBPM = double.tryParse(rawBpm) != null &&
+                          double.parse(rawBpm) >= 40 &&
+                          double.parse(rawBpm) <= 180;
+
+        latestBPM = isValidBPM ? rawBpm : "-";
+        ecgStatus = result["ecgstatus"];
+
+        // ❗ Override ecgStatus if BPM is invalid
+        if (!isValidBPM) {
+          ecgStatus = "Unknown";
+          statusColor = Colors.grey;
+        } else {
+          // Set status color only if BPM is valid
+          switch (ecgStatus) {
+            case "Normal":
+              statusColor = Colors.green;
+              break;
+            case "Low":
+              statusColor = Colors.orange;
+              break;
+            case "High":
+              statusColor = Colors.red;
+              break;
+            default:
+              statusColor = Colors.grey;
+          }
+        }
+
+        // 🔔 Only alert if BPM is valid AND status is Low or High
+        if (isValidBPM &&
+            (ecgStatus == "Low" || ecgStatus == "High") &&
+            !hasShownECGAlert &&
+            SensorController().hasStabilized) {
+          hasShownECGAlert = true;
+          _showECGAlertDialog(ecgStatus);
+        }
+      });
+
+    }
+  }
+
+  Future<void> loadLatestECGSegments() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? patientId = prefs.getString("patient_id");
+    if (patientId == null) return;
+
+    final result = await apiClient.getLatestECGSegments(patientId);
+
+    if (result != null &&
+        result['bpm'] != null &&
+        double.tryParse(result['bpm'].toString()) != null) {
+      setState(() {
+        segmentData = ECGSegment.fromJson(result);
+      });
+    } else {
+      setState(() {
+        segmentData = null;
+      });
+    }
+  }
+
+  void _showECGAlertDialog(String condition) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("⚠️ ECG Alert"),
+        content: Text(
+          "Detected condition: $condition\nWould you like to notify trusted contacts?",
+          style: const TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                final contacts = await ApiClient().getTrustedContacts();
+                await notifyContacts(condition, contacts); // Assume this exists
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Contacts notified")),
+                );
+              } catch (e) {
+                if (kDebugMode) {
+                  print("Error sending alert: $e");
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Failed to send alert")),
+                );
+              }
+            },
+            child: const Text("Notify"),
+          )
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
+    stabilizationRefreshTimer?.cancel();
     ecgTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.of(context).size.width;
     return Scaffold(
       backgroundColor: const Color(0xFFEFF2E6),
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: MediaQuery.of(context).size.width * 0.04, // 4% of width
-            vertical: MediaQuery.of(context).size.height * 0.02, // 2% of height
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Section
-              Padding(
-                padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).size.height * 0.05),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: Icon(Icons.arrow_back,
-                          size: MediaQuery.of(context).size.width * 0.06,
-                          color: Colors.black),
-                    ),
-                    SizedBox(
-                        width: MediaQuery.of(context).size.width *
-                            0.02), // 2% of screen width
-                    Container(
-                      margin: EdgeInsets.only(
-                          left: MediaQuery.of(context).size.width *
-                              0.04), // 4% of screen width
-                      child: Text(
-                        "ECG",
-                        style: GoogleFonts.poppins(
-                          fontSize: MediaQuery.of(context).size.width *
-                              0.05, // 5% of screen width
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal:
+                    MediaQuery.of(context).size.width * 0.04, // 4% of width
+                vertical:
+                    MediaQuery.of(context).size.height * 0.02, // 2% of height
               ),
-
-              // ECG Graph Section
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color.fromARGB(255, 200, 215, 160),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(4, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Section
+                  Padding(
+                    padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).size.height * 0.05),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.pop(context);
+                          },
+                          child: Icon(Icons.arrow_back,
+                              size: MediaQuery.of(context).size.width * 0.06,
+                              color: Colors.black),
+                        ),
+                        SizedBox(
+                            width: MediaQuery.of(context).size.width *
+                                0.02), // 2% of screen width
+                        Container(
+                          margin: EdgeInsets.only(
+                              left: MediaQuery.of(context).size.width *
+                                  0.04), // 4% of screen width
+                          child: Text(
+                            "ECG",
+                            style: GoogleFonts.poppins(
+                              fontSize: MediaQuery.of(context).size.width *
+                                  0.05, // 5% of screen width
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                padding:
-                    EdgeInsets.all(MediaQuery.of(context).size.width * 0.03),
-                child: Column(
-                  children: [
-                    // Inner Box for ECG Graph
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
-                            offset: const Offset(4, 4),
+                  ),
+
+                  if (!SensorController().hasStabilized &&
+                      SensorController().stabilizationStartTime != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Column(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 8),
+                          Text(
+                            "Sensor Stabilizing... (${SensorController().getSecondsRemaining()}s left)",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize:
+                                    MediaQuery.of(context).size.width * 0.04),
                           ),
                         ],
                       ),
-                      padding: EdgeInsets.all(
-                          MediaQuery.of(context).size.width * 0.025),
-                      child: SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.25,
-                        width: MediaQuery.of(context).size.width * 0.9,
-                        child: CustomPaint(
-                          size: Size(MediaQuery.of(context).size.width * 0.9,
-                              400), // ECG plot size
-                          painter: ECGPainter(points),
-                        ),
+                    )
+                  else if (SensorController().stabilizationStartTime == null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Column(
+                        children: [
+                          Text("No ECG readings available!",
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: MediaQuery.of(context).size.width *
+                                      0.04)),
+                          SizedBox(height: 4),
+                          Text("Check if your ESP32 is connected.",
+                              style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: MediaQuery.of(context).size.width *
+                                      0.035)),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
 
-              // Gender, Age, Weight Section
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _infoCard(gender, "Gender"),
-                    _infoCard(age, "Age"),
-                    _infoCard(weight, "Weight"),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-
-              // View Trends Button
-              Center(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: EdgeInsets.symmetric(
-                        horizontal: MediaQuery.of(context).size.width *
-                            0.12, // 12% of screen width
-                        vertical: MediaQuery.of(context).size.height *
-                            0.017), // 1.7% of screen height
-                    shape: RoundedRectangleBorder(
+                  // ECG Graph Section
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(255, 200, 215, 160),
                       borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(4, 4),
+                        ),
+                      ],
+                    ),
+                    padding: EdgeInsets.all(
+                        MediaQuery.of(context).size.width * 0.03),
+                    child: Column(
+                      children: [
+                        // Inner Box for ECG Graph
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(4, 4),
+                              ),
+                            ],
+                          ),
+                          padding: EdgeInsets.all(
+                              MediaQuery.of(context).size.width * 0.025),
+                          child: Stack(
+                            children: [
+                              SizedBox(
+                                height:
+                                    MediaQuery.of(context).size.height * 0.25,
+                                width: MediaQuery.of(context).size.width * 0.9,
+                                child: CustomPaint(
+                                  size: Size(
+                                    MediaQuery.of(context).size.width * 0.9,
+                                    400,
+                                  ), // ECG plot size
+                                  painter: ECGPainter(points,MediaQuery.of(context).size.width * 0.9),
+                                ),
+                              ),
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: IconButton(
+                                  icon: Icon(Icons.fullscreen,
+                                      color: Colors.grey[800]),
+                                  onPressed: () {
+                                    setState(() {
+                                      showFullScreen = true;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  onPressed: () {},
-                  child: Text(
-                    "View Trends",
-                    style: GoogleFonts.poppins(
-                      fontSize: MediaQuery.of(context).size.width * 0.04,
+
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+
+                  // Gender, Age, Weight Section
+                  Container(
+                    decoration: BoxDecoration(
                       color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _infoCard(gender, "Gender"),
+                        _infoCard(age, "Age"),
+                        _infoCard(weight, "Weight"),
+                      ],
+                    ),
+                  ),
+
+                  // SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: Column(
+                      children: [
+                        // Toggle Buttons
+                        _toggleTabBar(),
+                        SizedBox(height: 16),
+
+                        // View: either Rhythm or Findings
+                        if (!showFindings)
+                          Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _infoCard(
+                                      (latestBPM == '-' ||
+                                              latestBPM == 'null' ||
+                                              latestBPM.isEmpty)
+                                          ? '—'
+                                          : latestBPM,
+                                      "BPM"),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                      child:
+                                          _statusCard(ecgStatus, statusColor)),
+                                ],
+                              ),
+                            ],
+                          )
+                        else if (segmentData != null)
+                          _segmentCard(segmentData!),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // ✅ Fullscreen ECG Overlay — moved here to be over the entire screen
+          if (showFullScreen)
+            Positioned.fill(
+              child: Container(
+                color: const Color.fromARGB(171, 0, 0, 0),
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.only(
+                            top: MediaQuery.of(context).size.height *
+                                0.01), // 2% of screen height
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.close,
+                                color: Color.fromARGB(255, 255, 255, 255),
+                                size: screenWidth * 0.056,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  showFullScreen = false;
+                                });
+                              },
+                            ),
+                            Text(
+                              "Live ECG (Fullscreen)",
+                              style: TextStyle(
+                                  color: Color.fromARGB(255, 255, 255, 255),
+                                  fontSize: screenWidth * 0.055),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.all(
+                              MediaQuery.of(context).size.width *
+                                  0.04), // 4% of screen width as padding
+                          child: RotatedBox(
+                            quarterTurns: 1,
+                            child: FullScreenECGWidget(points: points),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusCard(String status, Color color) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Center(
+        child: Text(
+          status == "Sensor Not Connected" ? "No Signal" : "Status: $status",
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
       ),
@@ -370,6 +640,231 @@ class _ECGScreenState extends State<ECGScreen> {
                     color: Colors.grey)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _toggleTabBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _pillButton("Rhythm", !showFindings),
+          _pillButton("Findings", showFindings),
+        ],
+      ),
+    );
+  }
+
+  Widget _pillButton(String label, bool isActive) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            showFindings = label == "Findings";
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.green[800] : Colors.transparent,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.black,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _segmentCard(ECGSegment data) {
+    final segments = [
+      ["HR", "${data.hr} BPM"],
+      ["HRV", "${data.hrv} ms"],
+      ["RR", "${data.rr} ms"],
+      ["P", "${data.p} ms"],
+      ["PR", "${data.pr} ms"],
+      ["QRS", "${data.qrs} ms"],
+      ["QT", "${data.qt} ms"],
+      ["QTc", "${data.qtc} ms"],
+    ];
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Table(
+        columnWidths: const {
+          0: FlexColumnWidth(1),
+          1: FlexColumnWidth(1),
+        },
+        children: List.generate(segments.length ~/ 2, (i) {
+          final left = segments[i * 2];
+          final right = segments[i * 2 + 1];
+          return TableRow(
+            children: [
+              _segmentTableCell(left[0], left[1]),
+              _segmentTableCell(right[0], right[1]),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _segmentTableCell(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold)),
+          Flexible(child: Text(value)),
+        ],
+      ),
+    );
+  }
+}
+
+class ECGSegment {
+  final String hr, hrv, rr, pr, p, qrs, qt, qtc;
+
+  ECGSegment({
+    required this.hr,
+    required this.hrv,
+    required this.rr,
+    required this.pr,
+    required this.p,
+    required this.qrs,
+    required this.qt,
+    required this.qtc,
+  });
+
+  factory ECGSegment.fromJson(Map<String, dynamic> json) {
+    String rawBpm = json['bpm']?.toString() ?? '-';
+    String finalBpm = '-';
+
+    if (double.tryParse(rawBpm) != null &&
+        double.parse(rawBpm) >= 40 &&
+        double.parse(rawBpm) <= 180) {
+      finalBpm = rawBpm;
+    }
+
+    return ECGSegment(
+      hr: finalBpm,
+      hrv: json['hrv'] ?? '-',
+      rr: json['rr'] != null && double.tryParse(json['rr'].toString()) != null
+          ? double.parse(json['rr'].toString()).round().toString()
+          : '-',
+      pr: json['pr'] ?? '-',
+      p: json['p'] ?? '-',
+      qrs: json['qrs'] ?? '-',
+      qt: json['qt'] ?? '-',
+      qtc: json['qtc'] ?? '-',
+    );
+  }
+}
+// Make sure to import ECGScreen
+
+class FullScreenECGWidget extends StatelessWidget {
+  final List<Offset> points;
+  const FullScreenECGWidget({super.key, required this.points});
+
+  @override
+  Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    double screenHeight = MediaQuery.of(context).size.height;
+
+    double graphHeight = screenHeight * 0.5;
+    double minValue = 1700;
+    double maxValue = 2300;
+
+    // Determine how many steps for Y labels (you can change this)
+    int divisions = 4;
+    double step = (maxValue - minValue) / divisions;
+
+    // Generate labels from maxValue to minValue
+    List<double> yLabels =
+        List.generate(divisions + 1, (index) => maxValue - index * step);
+
+    // Limit X-axis points to 700 max
+    
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color.fromARGB(242, 255, 255, 255),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.grey.shade400,
+          width: 1.5,
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        screenWidth * 0.016,
+        screenHeight * 0.02,
+        screenWidth * 0.016,
+        screenHeight * 0.015,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Y-axis labels
+          Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: yLabels
+                .map((label) => Text(
+                      label.toInt().toString(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black,
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(width: 8),
+
+          // ECG Graph
+          // ECG Graph with rounded border
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.grey.shade400,
+                  width: 1.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: CustomPaint(
+                  size: Size(screenWidth * 0.9, graphHeight),
+                  painter: ECGPainter(points, screenWidth * 0.9),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

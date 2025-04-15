@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -9,9 +10,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class TempChartScreen extends StatefulWidget {
   final bool showDrawer;
+  final String? patientId;
   final String? patientName;
 
-  const TempChartScreen({super.key, this.showDrawer = false, this.patientName});
+  const TempChartScreen({
+    super.key,
+    this.showDrawer = false,
+    this.patientId,
+    this.patientName,
+  });
 
   @override
   _TempChartScreenState createState() => _TempChartScreenState();
@@ -46,24 +53,42 @@ class _TempChartScreenState extends State<TempChartScreen> {
   }
 
   Future<void> fetchTrends() async {
-  setState(() => isLoading = true);
-  final data = await ApiClient().getTemperatureTrends(selectedTime);
-  print("Fetched ${data.length} temperature records for $selectedTime");
-  for (var d in data) {
-    print("→ ${d['timestamp']} | ${d['temperature']}");
-  }
-  setState(() {
-    trendData = data;
-    trendData.sort((a, b) => DateTime.parse(a['timestamp']).compareTo(DateTime.parse(b['timestamp'])));
-    isLoading = false;
-  });
-  
-}
+    setState(() => isLoading = true);
 
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final patientId = widget.patientId ?? prefs.getString("patient_id");
+
+    if (patientId == null) {
+      if (kDebugMode) {
+        print("❌ Patient ID missing");
+      }
+      setState(() => isLoading = false);
+      return;
+    }
+
+    final data = await ApiClient().getTemperatureTrends(selectedTime, patientId: patientId);
+    if (kDebugMode) {
+      print("Fetched ${data.length} temperature records for $selectedTime");
+    }
+
+    final uniqueData = {
+      for (var e in data) e['timestamp']: e
+    }.values.toList();
+
+    setState(() {
+      trendData = uniqueData;
+      trendData.sort((a, b) => DateTime.parse(a['timestamp']).compareTo(DateTime.parse(b['timestamp'])));
+      isLoading = false;
+    });
+    
+  }
 
   List<Map<String, dynamic>> getFilteredData() {
+    if (trendData.isEmpty) return [];
+
+    final now = DateTime.parse(trendData.last['timestamp']).toLocal(); // Use last reading as now
+
     final cutoff = () {
-      final now = DateTime.now();
       if (selectedTime.toLowerCase() == "week") {
         return now.subtract(Duration(days: 7));
       } else if (selectedTime.toLowerCase() == "month") {
@@ -234,22 +259,24 @@ class _TempChartScreenState extends State<TempChartScreen> {
           lineBarsData: [
             LineChartBarData(
               isCurved: true,
+              curveSmoothness: 0.15,
               color: Colors.black,
-              barWidth: 1.5,
+              barWidth: 1.0,
               belowBarData: BarAreaData(
                 show: true,
                 gradient: LinearGradient(colors: [Color(0xFFE8C492).withOpacity(0.3), Color(0xFFC6D8C0).withOpacity(0.3)]),
               ),
               spots: spots,
               dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, barData, index) {
-                  final reading = filteredTrend[index];
-                  final status = reading['temperaturestatus'] ?? "";
-                  final isAbnormal = ["Fever", "Hyperthermia", "Hyperpyrexia", "Hypothermia"].contains(status);
-                  return FlDotCirclePainter(radius: 2.2, color: isAbnormal ? Colors.red : Colors.black, strokeWidth: 0);
-                },
-              ),
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                final status = (filteredTrend[index]['temperaturestatus'] ?? "").toString().trim().toLowerCase();
+                final isAbnormal = !["normal", "below normal"].contains(status);
+                return isAbnormal
+                    ? FlDotCirclePainter(radius: 1.0, color: Colors.red, strokeWidth: 0)
+                    : FlDotCirclePainter(radius: 0.0, color: Colors.transparent, strokeWidth: 0);
+              },
+            ),
             ),
           ],
         ),
@@ -375,10 +402,17 @@ class _TempChartScreenState extends State<TempChartScreen> {
         "time": label,
         "temp": "${avgTemp.toStringAsFixed(1)} F",
         "status": topStatus,
+        "rawTimestamp": entries.first['timestamp'], 
       });
+
     });
 
-    rows.sort((a, b) => a["time"]!.compareTo(b["time"]!)); // chronological order
+    rows.sort((a, b) {
+      final aTime = DateTime.tryParse(a["rawTimestamp"] ?? "") ?? DateTime.now();
+      final bTime = DateTime.tryParse(b["rawTimestamp"] ?? "") ?? DateTime.now();
+      return aTime.compareTo(bTime);
+    });
+
   }
 
   return Container(
@@ -413,16 +447,17 @@ String _formatTimeLabel(String timestamp) {
   final dt = toPKT(DateTime.parse(timestamp));
   switch (selectedTime.toLowerCase()) {
     case "week":
-      return DateFormat.E().format(dt); // Mon, Tue
+      return DateFormat('EEE, MMM d').format(dt); // Thu, Apr 4
     case "month":
-      return DateFormat.MMMd().format(dt); // Mar 31
+      return DateFormat('yyyy-MM-dd').format(dt); // 2025-04-04 (for sorting)
     default:
       return DateFormat('MMM d, hh:mm a').format(dt); // Apr 3, 01:55 AM
   }
 }
 
 Widget _tableRow(String time, String reading, String status) {
-  final isAbnormal = ["Fever", "Hyperthermia", "Hyperpyrexia", "Hypothermia"].contains(status);
+  final abnormalStatuses = ["low", "elevated", "high", "very high", "critical"];
+  final isAbnormal = abnormalStatuses.contains(status.toLowerCase());
 
   return Row(
     children: [

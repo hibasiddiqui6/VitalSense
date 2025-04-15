@@ -7,7 +7,7 @@ import '../Modules/specialist_patients.dart';
 import '../Modules/specialist_settings.dart';
 import '../Modules/about_us.dart';
 import '../Modules/specialist_patient_trends.dart';
-import '../Modules/patient_reports.dart';
+import '../Modules/specialist_patient_reports.dart';
 
 class SpecialistDrawer extends StatelessWidget {
   final String fullName;
@@ -33,7 +33,7 @@ class SpecialistDrawer extends StatelessWidget {
             padding: EdgeInsets.symmetric(
                 horizontal: screenWidth * 0.04, vertical: screenHeight * 0.08),
             decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 193, 219, 188),
+              color: Color.fromARGB(255, 154, 180, 154),
             ),
             child: Row(
               children: [
@@ -91,11 +91,11 @@ class SpecialistDrawer extends StatelessWidget {
                 _divider(),
 
                 _buildDrawerItem(Icons.timeline, "Trends and History", context,
-                    const Specialist_PatientsTrendsHistory()),
+                    const Specialist_Patients_TrendsHistory()),
                 _divider(),
 
                 _buildDrawerItem(Icons.insert_drive_file, "Reports", context,
-                    const PatientReportsScreen()),
+                    const Specialist_Patients_Reports()),
                 _divider(),
 
                 _buildDrawerItem(

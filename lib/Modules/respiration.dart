@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:vitalsense/controllers/sensor_controller.dart';
 import '../services/api_client.dart';
 import '../services/alert.dart'; 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'respiration_trends.dart';
 
 class RespirationPage extends StatefulWidget {
   final String? gender;
@@ -18,10 +21,11 @@ class RespirationPage extends StatefulWidget {
   });
 
   @override
-  _RespirationPageState createState() => _RespirationPageState();
+  RespirationPageState createState() => RespirationPageState();
 }
 
-class _RespirationPageState extends State<RespirationPage> {
+class RespirationPageState extends State<RespirationPage> {
+  static RespirationPageState? instance;
   String respirationRate = "Loading...";
   String respirationStatus = "Loading...";
   bool isFetching = true;
@@ -29,21 +33,46 @@ class _RespirationPageState extends State<RespirationPage> {
   String gender = "-";
   String age = "-";
   String weight = "-";
-  Timer? dataFetchTimer;
-  DateTime? startTime;
+  String role = "-";
   DateTime? lastSuccessfulFetch;
-  DateTime? lastRespFetch;
   double? lastValidResp;
-  int secondsRemaining = 30;
-  bool hasStabilized = false;
   bool hasShownAlert = false; 
 
   @override
   void initState() {
     super.initState();
+    instance = this;
+
     _loadUserDetailsOrUseParams();
-    _loadStabilizationTime();
-    _startRespirationFetchingLoop();
+    _loadUserRole();
+
+    // Check for connection timeout
+    Future.delayed(Duration(seconds: 5), () {
+      if (mounted && lastSuccessfulFetch == null) {
+        setState(() {
+          respirationRate = "-";
+          respirationStatus = "Sensor Not Connected";
+          isFetching = false;
+          showError = true;
+        });
+      }
+    });
+
+    // Periodically refresh stabilization state from SensorController
+    Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  Future<void> _loadUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedRole = prefs.getString("role") ?? "-";
+    if (!mounted) return;
+    setState(() {
+      role = savedRole;
+    });
   }
 
   Future<void> _loadUserDetailsOrUseParams() async {
@@ -55,135 +84,49 @@ class _RespirationPageState extends State<RespirationPage> {
     });
   }
 
-  Future<void> _loadStabilizationTime() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.containsKey("resp_stabilization_start_time")) {
-      final millis = prefs.getInt("resp_stabilization_start_time")!;
-      final savedTime = DateTime.fromMillisecondsSinceEpoch(millis);
-      final diff = DateTime.now().difference(savedTime).inSeconds;
+  
+  void updateFromRealtime(double respVal) async {
+    final now = DateTime.now();
 
-      if (diff >= 30) {
-        setState(() {
-          hasStabilized = true;
-          startTime = savedTime;
-          secondsRemaining = 0;
-        });
-      } else {
-        setState(() {
-          hasStabilized = false;
-          startTime = savedTime;
-          secondsRemaining = 30 - diff;
-        });
-      }
-    } else {
-      final now = DateTime.now();
-      await prefs.setInt("resp_stabilization_start_time", now.millisecondsSinceEpoch);
+    if (respVal < 5.0) {
       setState(() {
-        startTime = now;
+        respirationRate = "-";
+        respirationStatus = "Sensor Disconnected";
+        showError = true;
+        isFetching = false;
       });
+      return;
     }
-  }
 
-  void _startRespirationFetchingLoop() {
-    dataFetchTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      await fetchRespirationRate();
+    final formatted = "${respVal.toStringAsFixed(1)} °F";
 
-      // ⏱ Inactivity check (5 min gap)
-      if (lastRespFetch != null &&
-          DateTime.now().difference(lastRespFetch!).inSeconds > 300) {
-        setState(() {
-          hasStabilized = false;
-          hasShownAlert = false;
-          secondsRemaining = 30;
-          startTime = DateTime.now();
-        });
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt("resp_stabilization_start_time", DateTime.now().millisecondsSinceEpoch);
-      }
+    lastValidResp = respVal;
+    lastSuccessfulFetch = now;
 
-      if (!hasStabilized && startTime != null) {
-        final diff = DateTime.now().difference(startTime!).inSeconds;
-        if (diff >= 30) {
-          setState(() {
-            hasStabilized = true;
-            secondsRemaining = 0;
-          });
-        } else {
-          setState(() {
-            secondsRemaining = 30 - diff;
-          });
-        }
-      }
+    setState(() {
+      respirationRate = formatted;
+      isFetching = false;
+      showError = false;
     });
-  }
 
-  Future<void> fetchRespirationRate() async {
-    try {
-      final now = DateTime.now();
-      lastRespFetch = now;
+    if (SensorController().hasStabilized) {
+      final classification = await ApiClient().classifyRespiration(respVal);
+      final newStatus = classification['status'] ?? "Unknown";
+      final newDisease = classification['disease'];
 
-      final data = await ApiClient().getSensorData();
-      final rawResp = double.tryParse(data['respiration_rate'].toString()) ?? 0.0;
+      if (!mounted) return;
 
-      if (rawResp == 0.0) {
-        if (lastSuccessfulFetch != null &&
-            now.difference(lastSuccessfulFetch!).inSeconds <= 60 &&
-            lastValidResp != null) {
-          setState(() {
-            respirationRate = "${lastValidResp!.toStringAsFixed(1)} BPM";
-            respirationStatus = hasStabilized ? respirationStatus : "Stabilizing...";
-            isFetching = false;
-            showError = false;
-          });
-          return;
-        } else {
-          setState(() {
-            showError = true;
-            respirationRate = "-";
-            respirationStatus = "Sensor Error";
-          });
-          return;
-        }
-      }
-
-      lastSuccessfulFetch = now;
-      lastValidResp = rawResp;
-      final classification = await ApiClient().classifyRespiration(rawResp);
-      final status = classification['status'] ?? "Unknown";
-      final disease = classification['disease'];
-
-      // 🚨 Trigger alert if needed
-      if (disease != null && !hasShownAlert && hasStabilized) {
-        _showAlertNotification(context, disease);
+      if (newDisease != null && !hasShownAlert) {
+        _showAlertNotification(context, newDisease);
         hasShownAlert = true;
       }
 
       setState(() {
-        respirationRate = "${rawResp.toStringAsFixed(1)} BPM";
-        respirationStatus = hasStabilized ? status : "Stabilizing...";
-        isFetching = false;
-        showError = false;
+        respirationStatus = newStatus;
       });
-    } catch (e) {
-      print("❌ Failed to fetch respiration rate: $e");
-
-      final now = DateTime.now();
-      if (lastSuccessfulFetch != null &&
-          now.difference(lastSuccessfulFetch!).inSeconds <= 60 &&
-          lastValidResp != null) {
-        setState(() {
-          respirationRate = "${lastValidResp!.toStringAsFixed(1)} BPM";
-          respirationStatus = hasStabilized ? respirationStatus : "Stabilizing...";
-          isFetching = false;
-          showError = false;
-        });
-        return;
-      }
-
+    } else {
       setState(() {
-        showError = true;
-        respirationRate = "Error";
-        respirationStatus = "Unknown";
+        respirationStatus = "Stabilizing...";
       });
     }
   }
@@ -202,11 +145,15 @@ class _RespirationPageState extends State<RespirationPage> {
 
               try {
                 final contactsList = await ApiClient().getTrustedContacts();
-                print("✅ Contacts fetched: $contactsList");
+                if (kDebugMode) {
+                  print("✅ Contacts fetched: $contactsList");
+                }
 
                 await notifyContacts(disease, contactsList);
               } catch (e) {
-                print("❌ Error fetching contacts or notifying: $e");
+                if (kDebugMode) {
+                  print("❌ Error fetching contacts or notifying: $e");
+                }
               }
             },
             child: const Text("OK"),
@@ -218,7 +165,7 @@ class _RespirationPageState extends State<RespirationPage> {
 
   @override
   void dispose() {
-    dataFetchTimer?.cancel();
+    instance = null;
     super.dispose();
   }
 
@@ -226,6 +173,10 @@ class _RespirationPageState extends State<RespirationPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+
+    final bool hasStartedStabilizing = SensorController().stabilizationStartTime != null;
+    final bool isStabilizing = hasStartedStabilizing && !SensorController().hasStabilized;
+    final int secondsLeft = isStabilizing ? SensorController().getSecondsRemaining() : 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F2E9),
@@ -346,14 +297,16 @@ class _RespirationPageState extends State<RespirationPage> {
               Container(
                 padding: EdgeInsets.symmetric(vertical: screenHeight * 0.01),
                 decoration: BoxDecoration(
-                  color: Colors.brown[300],
+                  color: _statusColor(respirationStatus),
                   borderRadius: BorderRadius.circular(screenWidth * 0.04),
                 ),
                 child: Center(
                   child: Text(
-                    secondsRemaining > 0
-                        ? "Sensor Stabilizing... ($secondsRemaining s left)"
-                        : "Status: $respirationStatus",
+                    !hasStartedStabilizing
+                    ? "Waiting for connection..."
+                    : isStabilizing
+                      ? "Sensor Stabilizing... ($secondsLeft s left)"
+                      : "Status: $respirationStatus",
                     style: GoogleFonts.poppins(
                       fontSize: screenWidth * 0.04,
                       fontWeight: FontWeight.bold,
@@ -392,26 +345,33 @@ class _RespirationPageState extends State<RespirationPage> {
 
               const SizedBox(height: 16),
 
-              // View Trends Button
-              Center(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.brown[300],
-                    padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(screenWidth * 0.04),
+              // Conditionally render View Trends button
+              if (role != 'specialist')
+                Center(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.brown[300],
+                      padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(screenWidth * 0.04),
+                      ),
                     ),
-                  ),
-                  onPressed: () {},
-                  child: Text(
-                    "View Trends",
-                    style: GoogleFonts.poppins(
-                      fontSize: screenWidth * 0.04,
-                      color: Colors.white,
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const RespChartScreen()),
+                      );
+                    },
+                    child: Text(
+                      "View Trends",
+                      style: GoogleFonts.poppins(
+                        fontSize: screenWidth * 0.04,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -419,6 +379,7 @@ class _RespirationPageState extends State<RespirationPage> {
     );
   }
 
+  // Gender, Age, Weight Card
   Widget _infoCard(String value, String label) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
@@ -457,6 +418,23 @@ class _RespirationPageState extends State<RespirationPage> {
         ),
       ),
     );
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case "Slow":         // < 12 BPM
+        return Colors.orangeAccent;
+      case "Normal":       // 12–20 BPM
+        return Colors.green;
+      case "Rapid":        // > 20 BPM
+        return Colors.redAccent;
+      case "Sensor Disconnected":
+        return Colors.grey;
+      case "Stabilizing...":
+        return Colors.amber;
+      default:
+        return const Color.fromARGB(255, 189, 107, 77); // fallback
+    }
   }
 
   Widget _statusText(String title, String value) {

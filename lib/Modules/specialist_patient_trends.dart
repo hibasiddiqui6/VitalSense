@@ -1,46 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vitalsense/Modules/specialist_patient_insights.dart';
-import 'package:vitalsense/widgets/specialist_drawer.dart';
+import 'package:vitalsense/Modules/specialist_patient_trends_selector.dart';
 import '../services/api_client.dart';
+import '../widgets/specialist_drawer.dart';
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class Specialist_Patients_TrendsHistory extends StatefulWidget {
+  const Specialist_Patients_TrendsHistory({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: const Color.fromARGB(255, 118, 150, 108),
-        scaffoldBackgroundColor: Colors.grey.shade100,
-      ),
-      home: const Specialist_PatientsTrendsHistory(),
-    );
-  }
+  State<Specialist_Patients_TrendsHistory> createState() => _Specialist_Patients_TrendsHistoryState();
 }
 
-class Specialist_PatientsTrendsHistory extends StatefulWidget {
-  const Specialist_PatientsTrendsHistory({super.key});
-  @override
-  State<Specialist_PatientsTrendsHistory> createState() =>
-      _Specialist_PatientsTrendsHistoryState();
-}
-
-class _Specialist_PatientsTrendsHistoryState
-    extends State<Specialist_PatientsTrendsHistory> {
+class _Specialist_Patients_TrendsHistoryState extends State<Specialist_Patients_TrendsHistory> {
   List<Map<String, dynamic>> patients = [];
   List<Map<String, dynamic>> filteredPatients = [];
-  String role = "-";
-  String fullName = "";
-  String email = "";
+  bool isLoading = true;
+  String fullName = "...";
+  String email = "...";
+
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode(); // Focus for search
-  bool isLoading = true;
 
   @override
   void initState() {
@@ -66,65 +45,66 @@ class _Specialist_PatientsTrendsHistoryState
     });
   }
 
+  /// Filter patients as per search input
+  void _filterPatients(String query) {
+    final lowerQuery = query.toLowerCase();
+    setState(() {
+      filteredPatients = query.isEmpty
+          ? List.from(patients)
+          : patients.where((patient) {
+              final name = patient['fullname'].toString().toLowerCase();
+              return name.contains(lowerQuery);
+            }).toList();
+    });
+  }
+
+  /// Load specialist profile from shared preferences
   Future<void> _loadUserDetails() async {
-    final prefs = await SharedPreferences.getInstance();
+    SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       fullName = prefs.getString("full_name") ?? "Unknown User";
-      email = prefs.getString("email") ?? "example@example.com";
-      role = prefs.getString("role") ?? "-";
+      email = prefs.getString("email") ?? "-";
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
-      // Drawer width: 80% of the screen
       drawer: SizedBox(
-        width: screenWidth * 0.6,
+        width: MediaQuery.of(context).size.width * 0.8,
         child: SpecialistDrawer(fullName: fullName, email: email),
       ),
       appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 134, 170, 122),
+        backgroundColor: const Color.fromARGB(255, 154, 180, 154),
         elevation: 0,
         leading: Builder(
           builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            onPressed: () {
-              Scaffold.of(context).openDrawer();
-            },
+            icon: const Icon(Icons.menu, color: Colors.black),
+            onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
-        title: const SearchBarWidget(),
+        title: _buildSearchBar(),
       ),
       body: Column(
         children: [
           // Curved header
           Container(
-            width: screenWidth,
-            height: screenHeight * 0.07,
-            padding: EdgeInsets.all(screenWidth * 0.031),
+            width: double.infinity,
+            padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              color: const Color.fromARGB(255, 134, 170, 122),
-              borderRadius: BorderRadius.vertical(
-                  bottom: Radius.circular(screenWidth * 0.04)),
-              boxShadow: const [
-                BoxShadow(
-                    color: Colors.black26, blurRadius: 6, spreadRadius: 1),
-              ],
+              color: const Color.fromARGB(255, 154, 180, 154),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6, spreadRadius: 1)],
             ),
-            child: Text(
+            child: const Text(
               "Patient Trends and History",
               textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: screenWidth * 0.048,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white),
+              style: TextStyle(fontSize: 17.5, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ),
-          SizedBox(height: screenHeight * 0.02),
-          // List of Reports
+          const SizedBox(height: 10),
+
+          // List of Patients
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -142,41 +122,84 @@ class _Specialist_PatientsTrendsHistoryState
     );
   }
 
-  Widget _buildPatientList() {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double screenHeight = MediaQuery.of(context).size.height;
+  /// Search Bar Widget
+  Widget _buildSearchBar() {
     return Padding(
-      padding: EdgeInsets.all(screenWidth * 0.032),
+      padding: const EdgeInsets.only(right: 0.0),
+      child: Container(
+        width: MediaQuery.of(context).size.width * 1.0,
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 242, 244, 241),
+          borderRadius: BorderRadius.circular(30),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                focusNode: _searchFocusNode,
+                controller: _searchController,
+                onChanged: _filterPatients,
+                style: const TextStyle(color: Colors.black),
+                decoration: const InputDecoration(
+                  hintText: "Search patient...",
+                  hintStyle: TextStyle(color: Color.fromARGB(179, 103, 103, 103)),
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+            if (_searchController.text.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.clear, color: Colors.black),
+                onPressed: () {
+                  _searchController.clear();
+                  _filterPatients('');
+                  _searchFocusNode.unfocus();
+                },
+              ),
+            IconButton(
+              icon: const Icon(Icons.search, color: Color.fromARGB(179, 103, 103, 103)),
+              onPressed: () {
+                _filterPatients(_searchController.text);
+                _searchFocusNode.unfocus();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build List of Patients
+  Widget _buildPatientList() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
       child: ListView.builder(
         itemCount: filteredPatients.length,
         itemBuilder: (context, index) {
           final patient = filteredPatients[index];
           return Padding(
-            padding: EdgeInsets.symmetric(vertical: screenHeight * 0.016),
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: Material(
               elevation: 3,
-              borderRadius: BorderRadius.circular(screenWidth * 0.031),
+              borderRadius: BorderRadius.circular(15),
               child: ListTile(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(screenWidth * 0.031)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 tileColor: Colors.white,
                 leading: const Icon(Icons.timeline, color: Colors.black54),
                 title: Text(
                   patient['fullname'],
-                  style: TextStyle(
-                      fontSize: screenWidth * 0.032,
-                      fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
-                subtitle: Text(
-                    "ID: ${patient['patientid'].split('-').take(2).join('-')}"),
-                trailing: Icon(Icons.arrow_forward_ios,
-                            size: screenWidth * 0.036, color: Colors.black54),
+                subtitle: Text("ID: ${patient['patientid'].split('-').take(2).join('-')}"),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 18, color: Colors.black54),
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => PatientInsightsScreen(
+                      builder: (context) => SpecialistTrendsSelectorScreen(
                         patientId: patient['patientid'],
+                        patientName: patient['fullname'],
                       ),
                     ),
                   );
@@ -185,47 +208,6 @@ class _Specialist_PatientsTrendsHistoryState
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-///Search Field
-class SearchBarWidget extends StatelessWidget {
-  const SearchBarWidget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    //final double screenHeight = MediaQuery.of(context).size.height;
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 242, 244, 241),
-        borderRadius: BorderRadius.circular(screenWidth * 0.045),
-      ),
-      child: Container(
-        width: screenWidth * 0.7,
-        decoration: BoxDecoration(
-          color: const Color.fromARGB(255, 242, 244, 241),
-          borderRadius: BorderRadius.circular(30),
-        ),
-        padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.031),
-        child: Row(
-          children: [
-            const Expanded(
-              child: TextField(
-                style: TextStyle(color: Colors.black),
-                decoration: InputDecoration(
-                  hintText: "Search patient...",
-                  hintStyle:
-                      TextStyle(color: Color.fromARGB(179, 103, 103, 103)),
-                  border: InputBorder.none,
-                ),
-              ),
-            ),
-            Icon(Icons.search, color: Color.fromARGB(179, 103, 103, 103)),
-          ],
-        ),
       ),
     );
   }

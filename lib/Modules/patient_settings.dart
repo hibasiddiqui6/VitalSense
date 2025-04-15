@@ -56,9 +56,9 @@ class _PatientSettingsState extends State<PatientSettings> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF9F4),
+      backgroundColor: const Color.fromARGB(255, 239, 238, 229),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFAF9F4),
+        backgroundColor: const Color.fromARGB(255, 239, 238, 229),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black), // Hamburger color
       ),
@@ -143,7 +143,7 @@ class SettingTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 15),
       height: 50,
       decoration: BoxDecoration(
-        color: const Color(0xFFD1D6CA),
+        color: const Color.fromARGB(255, 199, 206, 194),
         borderRadius: BorderRadius.circular(5),
       ),
       child: Row(

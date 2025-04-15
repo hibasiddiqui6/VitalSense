@@ -119,7 +119,7 @@ class SettingTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 15),
       height: 50,
       decoration: BoxDecoration(
-        color: const Color(0xFFD1D6CA),
+        color: const Color.fromARGB(255, 199, 206, 194),
         borderRadius: BorderRadius.circular(5),
       ),
       child: Row(

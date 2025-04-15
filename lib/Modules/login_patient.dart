@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'register_patient.dart'; // Import the registration page
 import 'patient_wifi_setup.dart'; // Import the shirt_connection.dart page
@@ -75,7 +76,9 @@ class _PatientLoginState extends State<PatientLogin> {
       String? patientId = prefs.getString("patient_id");
 
       if (patientId != null) {
-        print("Patient ID: $patientId. Checking for registered SmartShirt...");
+        if (kDebugMode) {
+          print("Patient ID: $patientId. Checking for registered SmartShirt...");
+        }
 
         // 🔹 Check if a SmartShirt is registered for this patient
         final smartShirtResponse = await apiClient.getSmartShirts(patientId);
@@ -83,26 +86,35 @@ class _PatientLoginState extends State<PatientLogin> {
         SharedPreferences prefs = await SharedPreferences.getInstance();
 
         if (smartShirtResponse.containsKey("smartshirts") &&
-            smartShirtResponse["smartshirts"].isNotEmpty) {
-          print("SmartShirt found! Navigating to SensorDataScreen...");
+          smartShirtResponse["smartshirts"].isNotEmpty) {
+        
+        final selectedShirt = smartShirtResponse["smartshirts"][0]; // pick the first one
+        final smartshirtId = selectedShirt["smartshirtId"];
 
-          await prefs.setBool('smartshirt_registered', true);
+        if (kDebugMode) {
+          print("SmartShirt found! ID: $smartshirtId. Navigating to SensorDataScreen...");
+        }
 
-          Future.delayed(const Duration(seconds: 2), () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PatientDashboard(),
-              ),
-            );
-          });
-          return;
+        await prefs.setBool('smartshirt_registered', true);
+        await prefs.setString('smartshirt_id', smartshirtId.toString());
+
+        Future.delayed(const Duration(seconds: 0), () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PatientDashboard(),
+            ),
+          );
+        });
+        return;
         } else {
-          print(
+          if (kDebugMode) {
+            print(
               "⚠ No SmartShirt found. Proceeding to SmartShirt connection screen...");
+          }
           await prefs.setBool('smartshirt_registered', false);
 
-          Future.delayed(const Duration(seconds: 2), () {
+          Future.delayed(const Duration(seconds: 0), () {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => PatientWifiSetup()),
@@ -110,7 +122,9 @@ class _PatientLoginState extends State<PatientLogin> {
           });
         }
       } else {
-        print("Patient ID not found after login.");
+        if (kDebugMode) {
+          print("Patient ID not found after login.");
+        }
       }
     }
   }

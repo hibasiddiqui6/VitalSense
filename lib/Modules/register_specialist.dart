@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async'; // For delayed navigation
 import 'specialist_dashboard.dart'; // Import the page where you want to navigate after registration
@@ -377,7 +378,9 @@ class _RegistrationFormState extends State<RegistrationForm> {
                               });
                             }
                           } catch (e) {
-                            print('Error: $e');
+                            if (kDebugMode) {
+                              print('Error: $e');
+                            }
                             setState(() {
                               _isLoading =
                                   false; // Ensure loading stops on error
@@ -450,8 +453,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
             borderRadius: BorderRadius.circular(15),
           ),
           contentPadding: EdgeInsets.symmetric(
-            vertical: MediaQuery.of(context).size.height *
-                0.14, // Adjust height dynamically
+             // Adjust height dynamically
             horizontal: 16, // Keep horizontal padding fixed
           ),
           enabledBorder: OutlineInputBorder(
@@ -501,8 +503,8 @@ class _RegistrationFormState extends State<RegistrationForm> {
       child: DropdownButtonFormField<String>(
         value: value.isNotEmpty ? value : null,
         style: TextStyle(
-          fontSize:
-              MediaQuery.of(context).size.width * 0.045, // Responsive font size
+          fontSize: MediaQuery.of(context).size.width * 0.045,
+          color: Colors.black, // ✅ Ensures visible text
         ),
         decoration: InputDecoration(
           labelText: label,

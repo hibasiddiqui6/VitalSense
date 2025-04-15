@@ -14,6 +14,9 @@ def get_db_connection():
     except Exception as e:
         print(f"❌ Error: Unable to connect to the database. {e}")
         raise e
+    
+def get_connection():
+    return get_db_connection()  # alias for clarity in app.py
 
 # Execute SELECT query (single row)
 def fetch_data(query, params=None):
@@ -99,20 +102,3 @@ def fetch_latest_data(table, column, value):
         LIMIT 1
     """
     return fetch_data(sql, (value,))
-
-# --------------------- Firebase Connection ---------------------------
-
-import os
-import json
-import base64
-import firebase_admin
-from firebase_admin import credentials
-
-firebase_b64 = os.getenv("FIREBASE_CREDENTIALS_BASE64")
-if firebase_b64:
-    decoded = base64.b64decode(firebase_b64).decode("utf-8")
-    cred_dict = json.loads(decoded)
-    cred = credentials.Certificate(cred_dict)
-    firebase_admin.initialize_app(cred)
-else:
-    print("❌ Firebase credentials not found.")

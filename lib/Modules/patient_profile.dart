@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart';
@@ -33,7 +34,9 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
       final data = await ApiClient().getPatientProfile();
 
       if (data.containsKey("error")) {
-        print("⚠ Error fetching user profile: ${data['error']}");
+        if (kDebugMode) {
+          print("⚠ Error fetching user profile: ${data['error']}");
+        }
         return;
       }
 
@@ -57,7 +60,9 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
         await prefs.setString("weight", weight);
       }
     } catch (e) {
-      print("Failed to fetch user profile: $e");
+      if (kDebugMode) {
+        print("Failed to fetch user profile: $e");
+      }
     }
   }
 
@@ -142,7 +147,9 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
       });
 
       if (response.containsKey("error")) {
-        print("⚠ Error updating profile: ${response['error']}");
+        if (kDebugMode) {
+          print("⚠ Error updating profile: ${response['error']}");
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error: ${response['error']}")),
         );
@@ -169,7 +176,9 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
         );
       }
     } catch (e) {
-      print("❌ Error updating profile: $e");
+      if (kDebugMode) {
+        print("❌ Error updating profile: $e");
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text("Server unreachable. Check your connection.")),
@@ -198,9 +207,9 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Color.fromARGB(255, 239, 238, 229),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Color.fromARGB(255, 239, 238, 229),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
       ),
@@ -218,7 +227,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                 children: [
                   CircleAvatar(
                     radius: screenWidth * 0.15,
-                    backgroundColor: Colors.grey[300],
+                    backgroundColor: Color.fromARGB(255, 239, 238, 229),
                     backgroundImage:
                         _getAvatarImage(gender), // Set custom image
                   ),
@@ -234,17 +243,17 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                       GestureDetector(
                         onTap: _showEditDialog,
                         child: Icon(Icons.edit,
-                            size: screenWidth * 0.04, color: Colors.blueGrey),
+                            size: screenWidth * 0.06, color: Colors.blueGrey),
                       ),
                     ],
                   ),
                   Text('ID: ${patientId.split('-').take(2).join('-')}',
-                      style: TextStyle(color: Colors.grey)),
+                      style: TextStyle(color: const Color.fromARGB(255, 105, 105, 105))),
                   SizedBox(height: screenWidth * 0.04),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFFFFE0B2), Color(0xFFC8E6C9)],
+                        colors: [Color.fromARGB(255, 184, 195, 180), Color.fromARGB(255, 224, 233, 217)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),

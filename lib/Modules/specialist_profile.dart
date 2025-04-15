@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart';
@@ -43,7 +44,9 @@ class _SpecialistProfileScreenState extends State<SpecialistProfileScreen> {
       prefs.setString("full_name", fullName);
       prefs.setString("email", email);
     } catch (e) {
-      print("❌ Error: $e");
+      if (kDebugMode) {
+        print("❌ Error: $e");
+      }
     }
   }
 
@@ -234,7 +237,7 @@ class _SpecialistProfileScreenState extends State<SpecialistProfileScreen> {
                     GestureDetector(
                       onTap: _showEditDialog,
                       child: Icon(Icons.edit,
-                          color: Colors.blueGrey, size: screenWidth * 0.04),
+                          color: Colors.blueGrey, size: screenWidth * 0.08),
                     ),
                   ],
                 ),
