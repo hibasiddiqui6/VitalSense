@@ -5,7 +5,7 @@ bool isValidEmail(String email) {
 }
 
 bool isValidPassword(String password) {
-  return password.length >= 6;
+  return password.length >= 8;
 }
 
 void main() {

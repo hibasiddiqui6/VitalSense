@@ -31,7 +31,7 @@ void main() {
       ecgBuffer.add(sampleData);
       
       // Now intentionally fail this test by checking for a wrong value
-      expect(ecgBuffer[0], 60.0); // This should fail because we added 50.0
+      expect(ecgBuffer[0], 300.0); // This should fail because we added 50.0
     });
 
     test('ECG buffer size does not exceed 300 (PASS)', () {

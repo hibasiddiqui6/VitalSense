@@ -35,16 +35,16 @@ void main() {
       expect(results.length, greaterThan(0)); // ✅ should pass
     });
 
-    // ❌ Intentionally Failing Test Case
+    // Failing Test Case
     test('Failing: Respiration rate should not exceed 40', () {
       final int respirationRate = 45;
-      expect(respirationRate <= 40, isTrue); // ❌ should fail
+      expect(respirationRate <= 40, isTrue); // 
     });
 
-    // ❌ Another Intentionally Failing Test Case
+    // Failing Test Case
     test('Failing: Graph data should contain exactly 10 points', () {
       final List<double> graphData = [1.0, 2.1, 2.0];
-      expect(graphData.length, equals(10)); // ❌ should fail
+      expect(graphData.length, equals(10)); // 
     });
 
     // ✅ Optional: Back button or View Trends action (simulate success)

@@ -5,7 +5,7 @@ bool isValidEmail(String email) {
 }
 
 bool isValidPassword(String password) {
-  return password.length >= 6;
+  return password.length >= 8;
 }
 
 void main() {
@@ -19,14 +19,14 @@ void main() {
     });
 
     test('Invalid email: user@domain.c (domain too short)', () {
-      // ❌ Intentionally wrong expected value
+      //FAILED ETTS CASE
       expect(isValidEmail('user@domain.c'), true); // This will fail
     });
   });
 
   group('Password Validation Tests', () {
-    test('Valid password: 123456', () {
-      expect(isValidPassword('123456'), true);
+    test('Valid password: 12345678', () {
+      expect(isValidPassword('12345678'), true);
     });
 
     test('Invalid password: abc (too short)', () {
@@ -34,18 +34,18 @@ void main() {
     });
 
     test('Invalid password: 12345 (too short)', () {
-      // ❌ Intentionally wrong expected value
-      expect(isValidPassword('12345'), true); // This will fail
+      // FAILED TEST CASE
+      expect(isValidPassword('12345'), false); // This will fail
     });
   });
 
   group('Combined Email & Password Tests', () {
     test('Valid email and password', () {
-      expect(isValidEmail('user@example.com') && isValidPassword('123456'), true);
+      expect(isValidEmail('user@example.com') && isValidPassword('12345678'), true);
     });
 
     test('Invalid email and valid password', () {
-      // ❌ Intentionally wrong expected value
+      // FAILED TEST CASE
       expect(isValidEmail('userexample.com') && isValidPassword('123456'), true); // This will fail
     });
   });

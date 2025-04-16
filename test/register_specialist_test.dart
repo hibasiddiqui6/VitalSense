@@ -30,6 +30,7 @@ bool doPasswordsMatch(String password, String confirmPassword) {
 
 void main() {
   group('Logical Validation Tests', () {
+    // Passing test cases
     test('Full name is valid', () {
       expect(isValidFullName("Dr John Doe"), true); // ✅ Pass
     });
@@ -50,16 +51,26 @@ void main() {
       expect(isValidPassword("StrongPass@123"), true); // ✅ Pass
     });
 
-    test('Confirm password matches', () {
-      expect(doPasswordsMatch("StrongPass@123", "StrongPass@123"), true); // ✅ Pass
+    // Failing test cases
+
+    // Full name has a number, so it fails the regex
+    test('Full name is invalid (contains number)', () {
+      expect(isValidFullName("Dr John123 Doe"), true); // ❌ Fails because the name contains numbers
     });
 
+    // Profession is empty, so it fails
     test('Profession is not selected (should fail)', () {
-      expect(isValidProfession(""), true); // ❌ Fails because it's actually false
+      expect(isValidProfession(""), true); // ❌ Fails because profession is empty
     });
 
-    test('Password mismatch (should fail)', () {
-      expect(doPasswordsMatch("StrongPass@123", "WrongPass@123"), true); // ❌ Fails because they don't match
+    // Email is missing '@', so it fails
+    test('Email format is invalid (missing @)', () {
+      expect(isValidEmail("johndoegmail.com"), true); // ❌ Fails because email is missing '@'
+    });
+
+    // Password doesn't have an uppercase letter, so it fails
+    test('Password is invalid (missing uppercase)', () {
+      expect(isValidPassword("strongpass@123"), true); // ❌ Fails because the password is missing an uppercase letter
     });
   });
 }
