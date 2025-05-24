@@ -72,7 +72,7 @@ class ShirtWebSocketService {
             flushToBackend();
 
           }
-          if (_ecgBuffer.length == 500) {
+          if (_ecgBuffer.length == 750) {
             print("📡 ECG Buffer full — sending for classification");
             flushEcgBuffer();
           }
@@ -134,7 +134,7 @@ class ShirtWebSocketService {
       if (cachedIp != null) {
         ip = cachedIp;
       } else {
-        final result = await ApiClient().getLatestMacAndIP();
+        final result = await ApiClient().getLatestMacAndIP(forceRefresh: true);
         if (result.containsKey("ip_address")) {
           ip = result["ip_address"];
           await prefs.setString("latest_ip", ip);

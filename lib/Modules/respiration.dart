@@ -98,7 +98,7 @@ class RespirationPageState extends State<RespirationPage> {
       return;
     }
 
-    final formatted = "${respVal.toStringAsFixed(1)} °F";
+    final formatted = "${respVal.toStringAsFixed(1)} BPM";
 
     lastValidResp = respVal;
     lastSuccessfulFetch = now;
@@ -113,6 +113,8 @@ class RespirationPageState extends State<RespirationPage> {
       final classification = await ApiClient().classifyRespiration(respVal);
       final newStatus = classification['status'] ?? "Unknown";
       final newDisease = classification['disease'];
+
+      print("Respiration Status: $newStatus");
 
       if (!mounted) return;
 

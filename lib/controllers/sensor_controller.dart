@@ -89,7 +89,7 @@ class SensorController {
         }
 
         if (ecgRaw != null) {
-          print("👈 Adding ECG point: $ecgRaw");
+          // print("👈 Adding ECG point: $ecgRaw");
           ECGController.instance?.addPoint(ecgRaw);
         }
       },

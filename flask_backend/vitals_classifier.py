@@ -40,6 +40,8 @@ def classify_respiration(resp, age):
     Returns:
         dict: classification with status and disease label
     """
+    print("Respiration and age received:", resp, age)
+
     if resp <= 0:
         return {"status": "Sensor Disconnected", "disease": None}
 
@@ -58,7 +60,7 @@ def classify_respiration(resp, age):
         return {"status": "Rapid", "disease": "Tachypnea"}
     else:
         return {"status": "Normal", "disease": None}
-
+        
 def classify_ecg_bpm(bpm, age, gender):
     """
     Classify ECG heart rate based on age and gender.

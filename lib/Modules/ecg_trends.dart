@@ -69,6 +69,14 @@ class _ECGChartScreenState extends State<ECGChartScreen> {
     final data = await ApiClient().getECGTrends(selectedTime, patientId: patientId);
 
     if (kDebugMode) {
+        print("✅ Fetched ${data.length} ECG records for $selectedTime");
+
+        for (var record in data) {
+          print("🕒 ${record['timestamp']} | 💓 BPM: ${record['bpm']} | 📈 Status: ${record['ecgstatus']}");
+        }
+  }
+
+    if (kDebugMode) {
       print("Fetched ${data.length} ECG records for $selectedTime");
     }
 

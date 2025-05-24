@@ -281,7 +281,6 @@ Widget build(BuildContext context) {
                 arrhythmiaStatus: arrhythmiaStatus,
                 bpm: bpm,
                 recommendation: ecgRecommendation,
-                metrics: widget.reportData?["ecg_metrics"] ?? {},
               ),
               SizedBox(height: screenHeight * 0.02),
               Respiration(
@@ -416,13 +415,11 @@ class ECGInterpretation extends StatelessWidget {
   final String arrhythmiaStatus;
   final String bpm;
   final Map<String, dynamic> recommendation;
-  final Map<String, dynamic> metrics;
 
   const ECGInterpretation({
     required this.arrhythmiaStatus,
     required this.bpm,
     required this.recommendation,
-    required this.metrics,
     super.key,
   });
 
@@ -436,9 +433,8 @@ class ECGInterpretation extends StatelessWidget {
           Text("ECG Interpretation",
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const Divider(),
-          _infoRow(context, "Rate", bpm),
+          _infoRow(context, "Rate", "$bpm beats/min"),
           _infoRow(context, "Rhythm", arrhythmiaStatus),
-          ...metrics.entries.map((e) => _infoRow(context, e.key, e.value ?? "-")),
           const SizedBox(height: 10),
           VitalRecommendation(title: "ECG", data: recommendation),
         ],
@@ -505,7 +501,7 @@ class Temperature extends StatelessWidget {
               style: TextStyle(
                   fontWeight: FontWeight.bold, fontSize: screenWidth * 0.032)),
           const Divider(),
-          _infoRow(context, "Temperature", temperature),
+          _infoRow(context, "Temperature", "$temperature °F"),
           _infoRow(context, "Condition", temperatureCondition),
           const SizedBox(height: 10),
           VitalRecommendation(title: "Temperature", data: recommendation),

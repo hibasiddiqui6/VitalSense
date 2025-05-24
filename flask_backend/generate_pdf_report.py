@@ -1,8 +1,8 @@
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from io import BytesIO
-import datetime
 import json
+from datetime import datetime
 
 def create_pdf(report_data):
     buffer = BytesIO()
@@ -11,7 +11,7 @@ def create_pdf(report_data):
 
     # HEADER
     c.setFont("Helvetica-Bold", 16)
-    c.drawString(400, height - 40, datetime.datetime.now().strftime("%b %d, %Y"))
+    c.drawString(450, height - 40, datetime.now().strftime("%b %d, %Y"))
     c.setFont("Helvetica-Bold", 18)
     c.drawString(50, height - 80, "Patient Health Audit Report")
 
@@ -37,8 +37,10 @@ def create_pdf(report_data):
     y -= 20
 
     c.setFont("Helvetica", 11)
-    c.drawString(50, y, f"Session Start: {report_data.get('session_start', '-')}")
-    c.drawString(300, y, f"Session End: {report_data.get('session_end', '-')}")
+
+    # Session info formatting
+    c.drawString(50, y, f"Session Start: {format_datetime(report_data.get('session_start', '-'))}")
+    c.drawString(300, y, f"Session End: {format_datetime(report_data.get('session_end', '-'))}")
 
     # VITALS SUMMARY
     y -= 30
@@ -48,20 +50,20 @@ def create_pdf(report_data):
     y -= 20
 
     c.setFont("Helvetica", 11)
-    vitals = [
-        ("Avg BPM", report_data.get("avg_bpm", "-")),
-        ("Avg Temp", report_data.get("avg_temp", "-")),
-        ("Avg Resp", report_data.get("avg_resp", "-")),
-        ("Temperature Status", report_data.get("temp_status", "-")),
-        ("Respiration Status", report_data.get("resp_status", "-")),
-        ("ECG Status", report_data.get("ecg_status", "-")),
-    ]
+    # Left column: actual values
+    c.drawString(50, y, f"Average BPM(Beats per minute): {report_data.get('avg_bpm', '-')}")
+    y -= 16
+    c.drawString(50, y, f"Average Respiration: {report_data.get('avg_resp', '-')}")
+    y -= 16
+    c.drawString(50, y, f"Average Temperature: {report_data.get('avg_temp', '-')}")
 
-    for i in range(0, len(vitals), 2):
-        c.drawString(50, y, f"{vitals[i][0]}: {vitals[i][1]}")
-        if i + 1 < len(vitals):
-            c.drawString(300, y, f"{vitals[i + 1][0]}: {vitals[i + 1][1]}")
-        y -= 16
+    # Reset y for right column
+    y = y + 32  # move back up to align
+    c.drawString(300, y, f"ECG Status: {report_data.get('ecg_status', '-')}")
+    y -= 16
+    c.drawString(300, y, f"Respiration Status: {report_data.get('resp_status', '-')}")
+    y -= 16
+    c.drawString(300, y, f"Temperature Status: {report_data.get('temp_status', '-')}")
 
     # ASSESSMENT
     y -= 30
@@ -88,11 +90,13 @@ def create_pdf(report_data):
             recs = json.loads(recs)
 
         for vital, details in recs.items():
-            title = details.get("title", "-")
-            message = details.get("message", "-")
-            c.drawString(50, y, f"{vital.title()} Title: {title}")
+            findings = details.get("title", "-") 
+            recommendation = details.get("message", "-")  
+            
+            # Modify the text to make it more user-friendly
+            c.drawString(50, y, f"{vital.title()} Findings: {findings}")
             y -= 16
-            c.drawString(50, y, f"{vital.title()} Message: {message}")
+            c.drawString(50, y, f"{vital.title()} Recommendation: {recommendation}")
             y -= 20
     except Exception as e:
         c.drawString(50, y, f"Error parsing recommendations: {str(e)}")
@@ -102,3 +106,14 @@ def create_pdf(report_data):
     c.save()
     buffer.seek(0)
     return buffer
+
+# Function to format datetime strings for user readability
+def format_datetime(dt):
+    try:
+        if isinstance(dt, str):  # If dt is a string
+            dt = datetime.fromisoformat(dt)  # Convert string to datetime object
+        elif not isinstance(dt, datetime):  # If dt is neither string nor datetime
+            return "-"
+        return dt.strftime("%b %d, %Y %H:%M:%S")  # Format as 'Apr 13, 2025 23:32:30'
+    except ValueError:
+        return "-"

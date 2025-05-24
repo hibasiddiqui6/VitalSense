@@ -74,24 +74,6 @@ class _AboutUsState extends State<AboutUs> {
                 Column(
                   children: [
                     Image.asset(
-                      "assets/engineering.png",
-                      width: screenWidth * 0.3,
-                      height: screenHeight * 0.2,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Text("Image not found",
-                            style: TextStyle(color: Colors.red));
-                      },
-                    ),
-                    const Text(
-                      "Fabricated By",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                SizedBox(width: screenWidth * 0.08),
-                Column(
-                  children: [
-                    Image.asset(
                       "assets/uit.png",
                       width: screenWidth * 0.3,
                       height: screenHeight * 0.2,
@@ -106,11 +88,28 @@ class _AboutUsState extends State<AboutUs> {
                     ),
                   ],
                 ),
+                SizedBox(width: screenWidth * 0.08),
+                Column(
+                  children: [
+                    Image.asset(
+                      "assets/engineering.png",
+                      width: screenWidth * 0.3,
+                      height: screenHeight * 0.2,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Text("Image not found",
+                            style: TextStyle(color: Colors.red));
+                      },
+                    ),
+                    const Text(
+                      "In collaboration with",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                
               ],
             ),
-
             SizedBox(height: screenHeight * 0.04),
-
             // Description
             Text(
               "Welcome to VitalSense",
@@ -119,7 +118,7 @@ class _AboutUsState extends State<AboutUs> {
             ),
             SizedBox(height: screenHeight * 0.02),
             Text(
-              "Your go-to app for real-time health monitoring. Developed by UIT University's Software Engineering students, VitalSense connects with a smart shirt to track ECG, respiration, and temperature, delivering continuous health insights. "
+              "Your go-to app for real-time health monitoring. Developed by UIT University's 21B Software Engineering students Hiba, Zarnain, Raaif, Rubaisha, Urooj, VitalSense connects with a smart shirt to track ECG, respiration, and temperature, delivering continuous health insights. "
               "Our app offers secure data storage, health alerts and reports along with recommendations, trends and history analysis, and dual access for healthcare providers, making proactive health management easy and accessible.",
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: screenWidth * 0.030),

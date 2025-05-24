@@ -387,45 +387,46 @@ class ApiClient {
   }
 
   // Fetch latest ESP32 MAC + IP address from backend
-  Future<Map<String, dynamic>> getLatestMacAndIP({int retries = 3}) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+  Future<Map<String, dynamic>> getLatestMacAndIP({int retries = 3, bool forceRefresh = false}) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    // Try to use saved IP first
+  if (!forceRefresh) {
     String? savedIp = prefs.getString("latest_ip");
     String? savedMac = prefs.getString("latest_mac");
     if (savedIp != null && savedMac != null) {
       print("📦 Using cached IP: $savedIp");
       return {"ip_address": savedIp, "mac_address": savedMac};
     }
-
-    final url = Uri.parse('$baseUrl/get_latest_mac_ip');
-
-    for (int attempt = 0; attempt < retries; attempt++) {
-      try {
-        final response = await http.get(url);
-        print("🔁 GET /get_latest_mac_ip — Code: ${response.statusCode}");
-        print("🔁 Response Body: ${response.body}");
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          await prefs.setString("latest_ip", data["ip_address"]);
-          await prefs.setString("latest_mac", data["mac_address"]);
-          return data;
-        } else if (response.statusCode == 404) {
-          print("⚠️ MAC/IP not ready yet, retrying...");
-          await Future.delayed(const Duration(seconds: 2));
-          continue;
-        } else {
-          return {'error': 'Unexpected status: ${response.statusCode}'};
-        }
-      } catch (e) {
-        print("❌ Exception during MAC/IP fetch: $e");
-        return {'error': 'Failed to contact server: $e'};
-      }
-    }
-
-    return {'error': 'Max retries exceeded'};
   }
+
+  final url = Uri.parse('$baseUrl/get_latest_mac_ip');
+
+  for (int attempt = 0; attempt < retries; attempt++) {
+    try {
+      final response = await http.get(url);
+      print("🔁 GET /get_latest_mac_ip — Code: ${response.statusCode}");
+      print("🔁 Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        await prefs.setString("latest_ip", data["ip_address"]);
+        await prefs.setString("latest_mac", data["mac_address"]);
+        return data;
+      } else if (response.statusCode == 404) {
+        print("⚠️ MAC/IP not ready yet, retrying...");
+        await Future.delayed(const Duration(seconds: 2));
+        continue;
+      } else {
+        return {'error': 'Unexpected status: ${response.statusCode}'};
+      }
+    } catch (e) {
+      print("❌ Exception during MAC/IP fetch: $e");
+      return {'error': 'Failed to contact server: $e'};
+    }
+  }
+
+  return {'error': 'Max retries exceeded'};
+}
 
   // Patient Profile
   Future<Map<String, dynamic>> getPatientProfile() async {
@@ -833,22 +834,6 @@ class ApiClient {
       }
     } catch (e) {
       print("Exception while fetching ECG status: $e");
-    }
-    return null;
-  }
-
-  Future<Map<String, dynamic>?> getLatestECGSegments(String patientId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/latest-ecg-segments/$patientId'),
-      );
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        print("Failed to fetch ECG segments: ${response.body}");
-      }
-    } catch (e) {
-      print("Exception while fetching ECG segments: $e");
     }
     return null;
   }

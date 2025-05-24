@@ -473,14 +473,16 @@ def receive_mac():
 
     if not mac or not ip:
         return jsonify({"error": "Missing MAC or IP address"}), 400
-
+    
+    timestamp = datetime.now()
+    
     mac_ip_cache["latest"] = {
         "mac_address": mac,
         "ip_address": ip,
-        "timestamp": datetime.now()
+        "timestamp": timestamp
     }
 
-    print(f"✅ Received MAC: {mac}, IP: {ip}")
+    print(f"✅ Received MAC: {mac}, IP: {ip}, Timestamp {timestamp}")
     return jsonify({"status": "saved"}), 200
 
 @app.route('/get_latest_mac_ip', methods=['GET'])
@@ -488,6 +490,8 @@ def get_latest_mac_ip():
     latest = mac_ip_cache.get("latest")
     if not latest:
         return jsonify({"error": "No ESP32 MAC/IP available"}), 404
+    
+    print(latest["timestamp"])
 
     return jsonify({
         "mac_address": latest["mac_address"],
@@ -923,6 +927,8 @@ def classify_and_insert_resp_status(resp_str, hv_id):
         age = int(result["age"])
         resp = float(resp_str)
         result = classify_respiration(resp, age)
+        print("age", age)
+        print("resp", resp)
 
         status = result['status']
         disease = result['disease']
@@ -990,28 +996,6 @@ def get_latest_ecg_status():
     result = fetch_data(query, (patient_id,))
     return jsonify(result) if result else jsonify({"error": "No ECG found"}), 200
 
-@app.route("/latest-ecg-segments/<patient_id>", methods=["GET"])
-def get_latest_ecg_segments(patient_id):
-    try:
-        query = """
-            SELECT e.bpm, e.hrv, e.rr, e.pr, e.p, e.qrs, e.qt, e.qtc, e.ecgstatus
-            FROM ecg e
-            JOIN health_vitals hv ON e.smartshirtid = hv.smartshirtid
-            WHERE hv.patientID = %s
-            ORDER BY hv.timestamp DESC
-            LIMIT 1
-        """
-        row = fetch_data(query, (patient_id,))
-        if not row:
-            return jsonify({"error": "No ECG data found"}), 404
-
-        keys = ["bpm", "hrv", "rr", "pr", "p", "qrs", "qt", "qtc", "ecgstatus"]
-        result = dict(zip(keys, row[0]))
-        return jsonify(result), 200
-    except Exception as e:
-        print(f"❌ Error in /latest-ecg-segments: {e}")
-        return jsonify({"error": "Server error"}), 500
-
 @app.route('/ecg_trends', methods=['GET'])
 def get_ecg_trends():
     patient_id = request.args.get("patient_id")
@@ -1030,11 +1014,12 @@ def get_ecg_trends():
         start_time = now - timedelta(hours=24)
 
     query = """
-        SELECT hv.timestamp, e.bpm, e.ecgstatus
-        FROM health_vitals hv
-        JOIN ecg e ON hv.smartshirtid = e.smartshirtid
-        WHERE hv.patientID = %s AND hv.timestamp >= %s
-        ORDER BY hv.timestamp ASC
+        SELECT e.timestamp, e.bpm, e.ecgstatus
+        FROM ecg e
+        WHERE e.smartshirtID IN (
+            SELECT smartshirtID FROM health_vitals WHERE patientID = %s
+        ) AND e.timestamp >= %s
+        ORDER BY e.timestamp ASC
     """
     result = fetch_all_data(query, (patient_id, start_time))
 
@@ -1097,7 +1082,7 @@ def generate_report_logic(patient_id, smartshirt_id, session_start, session_end)
     query = """
         SELECT 
             u.fullname, p.age, p.gender, p.weight,
-            e.bpm, e.ecgstatus, e.pr, e.qrs, e.qt, e.rr, e.p, e.qtc, e.hrv,
+            e.bpm, e.ecgstatus,
             t.temperature, t.temperaturestatus,
             r.respiration, r.respirationstatus
         FROM health_vitals hv
@@ -1140,7 +1125,7 @@ def generate_report_logic(patient_id, smartshirt_id, session_start, session_end)
 
     # Fallbacks
     default_title = "No Recommendation"
-    default_msg = "Please consult your healthcare provider."
+    default_msg = "Please monitor the vitals for a longer duration for correct assessment."
 
     # Compose recommendations
     recommendation = {
