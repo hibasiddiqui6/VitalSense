@@ -4,10 +4,16 @@ import 'package:vitalsense/widgets/splash_screen.dart';
 import 'package:vitalsense/Modules/patient_dashboard.dart';
 import 'package:vitalsense/Modules/specialist_dashboard.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Disable Advertising ID collection
+  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(false);
+
   await Firebase.initializeApp();
+
   final homeScreen = await initApp();
   runApp(VitalSenseApp(home: homeScreen));
 }

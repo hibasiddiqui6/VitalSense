@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:876930758569:android:c47c63cc492afc2e6236b8",
         "android_client_info": {
-          "package_name": "com.example.vitalsense"
+          "package_name": "com.vitalsense.health"
         }
       },
       "oauth_client": [],

@@ -59,6 +59,7 @@ dependencies:
   fluttertoast: ^8.2.12
   android_intent_plus: ^4.0.0 
   firebase_core: ^2.27.0 # or latest stable version  
+  firebase_analytics: ^10.10.7
 
 dev_dependencies:
   flutter_test:
