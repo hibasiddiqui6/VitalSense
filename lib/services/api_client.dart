@@ -109,6 +109,8 @@ class ApiClient {
               print("gender saved: $gender");
 
               await prefs.setString("email", email.toLowerCase());
+              await prefs.setBool("isLoggedIn", true);
+
               // 🔹 Ensure DB commit before fetching patient ID
               await Future.delayed(const Duration(seconds: 1));
               await fetchAndSavePatientId(email.toLowerCase());
@@ -159,6 +161,7 @@ class ApiClient {
               print("gender saved: $gender");
 
               await prefs.setString("email", email.toLowerCase());
+              await prefs.setBool("isLoggedIn", true);
 
               // Fetch and Save patient_id
               await Future.delayed(const Duration(seconds: 1));

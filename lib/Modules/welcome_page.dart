@@ -33,7 +33,7 @@ class WelcomePage extends StatelessWidget {
                     Text(
                       'Welcome to VitalSense',
                       style: GoogleFonts.lato(
-                        fontSize: MediaQuery.of(context).size.width * 0.07,
+                        fontSize: MediaQuery.of(context).size.width * 0.06,
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,

@@ -113,13 +113,14 @@ class RespirationPageState extends State<RespirationPage> {
       final classification = await ApiClient().classifyRespiration(respVal);
       final newStatus = classification['status'] ?? "Unknown";
       final newDisease = classification['disease'];
+      final newReason = classification['reason'];
 
       print("Respiration Status: $newStatus");
 
       if (!mounted) return;
 
       if (newDisease != null && !hasShownAlert) {
-        _showAlertNotification(context, newDisease);
+        _showAlertNotification(context, newDisease, newReason);
         hasShownAlert = true;
       }
 
@@ -133,13 +134,14 @@ class RespirationPageState extends State<RespirationPage> {
     }
   }
 
-  void _showAlertNotification(BuildContext context, String disease) async {
+  void _showAlertNotification(BuildContext context, String disease, String reason) async {
+    const String alertText = "Abnormal respiration detected";
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("⚠️ Health Alert"),
         content: Text(
-            "Abnormal respiration detected: $disease.\nNotifying trusted contacts."),
+            "$alertText: $disease. $reason\nNotifying trusted contacts."),
         actions: [
           TextButton(
             onPressed: () async {
@@ -151,7 +153,7 @@ class RespirationPageState extends State<RespirationPage> {
                   print("✅ Contacts fetched: $contactsList");
                 }
 
-                await notifyContacts(disease, contactsList);
+                await notifyContacts(disease, contactsList, alertText, reason);
               } catch (e) {
                 if (kDebugMode) {
                   print("❌ Error fetching contacts or notifying: $e");

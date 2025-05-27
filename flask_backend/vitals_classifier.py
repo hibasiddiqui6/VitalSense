@@ -3,7 +3,7 @@ def classify_temp(tempF, age, gender):
     Classify temperature based on age and gender.
     """
     if tempF == -100.0:
-        return {"status": "Sensor Disconnected", "disease": None}
+        return {"status": "Sensor Disconnected", "disease": None, "reason": None}
 
     # Adjust baseline ranges
     if age >= 60:
@@ -16,19 +16,35 @@ def classify_temp(tempF, age, gender):
 
     # Classification logic
     if tempF < 95.0:
-        return {"status": "Low", "disease": "Hypothermia"}
+        return {
+            "status": "Low",
+            "disease": "Hypothermia",
+            "reason": "Unusually low body temperature, possibly due to long exposure to cold."
+        }
     elif tempF < normal_low:
-        return {"status": "Below Normal", "disease": None}
+        return {"status": "Below Normal", "disease": None, "reason": None}
     elif tempF <= normal_high:
-        return {"status": "Normal", "disease": None}
+        return {"status": "Normal", "disease": None, "reason": None}
     elif tempF <= 100.4:
-        return {"status": "Elevated", "disease": None}
+        return {"status": "Elevated", "disease": None, "reason": None}
     elif tempF <= 104.0:
-        return {"status": "High", "disease": "Fever"}
+        return {
+            "status": "High",
+            "disease": "Fever",
+            "reason": "Higher than normal temperature, possibly due to infection or illness."
+        }
     elif tempF <= 107.0:
-        return {"status": "Very High", "disease": "Hyperthermia"}
+        return {
+            "status": "Very High",
+            "disease": "Hyperthermia",
+            "reason": "Severely high temperature, often caused by heat or medical conditions."
+        }
     else:
-        return {"status": "Critical", "disease": "Hyperpyrexia"}
+        return {
+            "status": "Critical",
+            "disease": "Hyperpyrexia",
+            "reason": "Extremely high and dangerous temperature, needs urgent medical attention."
+        }
 
 def classify_respiration(resp, age):
     """
@@ -43,7 +59,7 @@ def classify_respiration(resp, age):
     print("Respiration and age received:", resp, age)
 
     if resp <= 0:
-        return {"status": "Sensor Disconnected", "disease": None}
+        return {"status": "Sensor Disconnected", "disease": None, "reason": None}
 
     # Define normal ranges based on age
     if age < 40:
@@ -55,11 +71,23 @@ def classify_respiration(resp, age):
 
     # Classification logic
     if resp < normal_low:
-        return {"status": "Slow", "disease": "Bradypnea"}
+        return {
+            "status": "Slow",
+            "disease": "Bradypnea",
+            "reason": "Breathing rate is lower than normal."
+        }
     elif resp > normal_high:
-        return {"status": "Rapid", "disease": "Tachypnea"}
+        return {
+            "status": "Rapid",
+            "disease": "Tachypnea",
+            "reason": "Breathing rate is higher than normal."
+        }
     else:
-        return {"status": "Normal", "disease": None}
+        return {
+            "status": "Normal",
+            "disease": None,
+            "reason": None
+        }
         
 def classify_ecg_bpm(bpm, age, gender):
     """
@@ -92,11 +120,20 @@ def classify_ecg_bpm(bpm, age, gender):
     for max_age, (low_thresh, high_thresh) in bpm_ranges[gender]:
         if age <= max_age:
             if bpm < low_thresh:
-                return {"status": "Low", "disease": "Bradycardia"}
+                return {
+                    "status": "Low",
+                    "disease": "Bradycardia"
+                }
             elif bpm > high_thresh:
-                return {"status": "High", "disease": "Tachycardia"}
+                return {
+                    "status": "High",
+                    "disease": "Tachycardia"
+                }
             else:
-                return {"status": "Normal", "disease": None}
+                return {
+                    "status": "Normal",
+                    "disease": None
+                }
 
     # Fallback
     return {"status": "Normal", "disease": None}

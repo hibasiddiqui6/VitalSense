@@ -104,11 +104,12 @@ class TemperaturePageState extends State<TemperaturePage> {
       final classification = await ApiClient().classifyTemperature(tempVal);
       final newStatus = classification['status'] ?? "Unknown";
       final newDisease = classification['disease'];
+      final newReason = classification['reason'];
 
       if (!mounted) return;
 
       if (newDisease != null && !hasShownAlert) {
-        _showAlertNotification(context, newDisease);
+        _showAlertNotification(context, newDisease, newReason);
         hasShownAlert = true;
       }
 
@@ -142,13 +143,14 @@ class TemperaturePageState extends State<TemperaturePage> {
     }
   }
 
-  void _showAlertNotification(BuildContext context, String status) async {
+  void _showAlertNotification(BuildContext context, String status, String reason) async {
+    const String alertText = "Abnormal temperature detected";
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text("⚠️ Health Alert"),
       content: Text(
-        "Abnormal temperature detected: $status.\nNotifying trusted contacts."
+        "$alertText : $status. $reason\nNotifying trusted contacts."
       ),
       actions: [
         TextButton(
@@ -161,7 +163,7 @@ class TemperaturePageState extends State<TemperaturePage> {
                 print("✅ Contacts fetched: $contactsList");
               }
 
-              await notifyContacts(status, contactsList);
+              await notifyContacts(status, contactsList, alertText, reason);
             } catch (e) {
               if (kDebugMode) {
                 print("❌ Error fetching contacts or notifying: $e");

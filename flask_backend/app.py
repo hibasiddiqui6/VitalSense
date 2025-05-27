@@ -458,6 +458,50 @@ def delete_smartshirt():
 
         if not mac:
             return jsonify({"error": "MAC address is required"}), 400
+        
+        # Get smartshirtid
+        smartshirt_row = fetch_data("SELECT smartshirtid FROM smartshirt WHERE devicemac = %s", (mac,))
+        if not smartshirt_row:
+            return jsonify({"error": "SmartShirt not found"}), 404
+
+        smartshirtid = smartshirt_row["smartshirtid"] 
+
+        # Get all related health_vitals
+        health_vitals = fetch_all_data("SELECT * FROM health_vitals WHERE smartshirtid = %s", (smartshirtid,))
+        for hv in health_vitals:
+            # Backup to health_vitals_backup
+            modify_data("""
+                INSERT INTO health_vitals_backup (id, timestamp, ecg, respiration_rate, temperature, patientid, smartshirtid)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING
+            """, hv)
+
+            # Backup respiration
+            resp = fetch_all_data("SELECT * FROM respiration WHERE healthvitalsid = %s", (hv[0],))
+            for r in resp:
+                modify_data("""
+                    INSERT INTO respiration_backup (id, healthvitalsid, respiration, respirationstatus, detecteddisease)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT DO NOTHING
+                """, r)
+
+            # Backup temperature
+            temp = fetch_all_data("SELECT * FROM temperature WHERE healthvitalsid = %s", (hv[0],))
+            for t in temp:
+                modify_data("""
+                    INSERT INTO temperature_backup (id, healthvitalsid, temperature, temperaturestatus, detecteddisease)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT DO NOTHING
+                """, t)
+
+        # Backup ecg
+        ecg_data = fetch_all_data("SELECT * FROM ecg WHERE smartshirtid = %s", (smartshirtid,))
+        for e in ecg_data:
+            modify_data("""
+                INSERT INTO ecg_backup (id, smartshirtid, bpm, ecgstatus, detecteddisease, timestamp)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING
+            """, e)
 
         # Delete SmartShirt entry
         modify_data("DELETE FROM smartshirt WHERE devicemac = %s", (mac,))

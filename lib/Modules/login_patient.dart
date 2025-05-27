@@ -99,13 +99,13 @@ class _PatientLoginState extends State<PatientLogin> {
         await prefs.setString('smartshirt_id', smartshirtId.toString());
 
         Future.delayed(const Duration(seconds: 0), () {
-          Navigator.pushReplacement(
+          Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(
-              builder: (context) => PatientDashboard(),
-            ),
+            MaterialPageRoute(builder: (context) => PatientDashboard()),
+            (Route<dynamic> route) => false, // removes all previous routes
           );
         });
+
         return;
         } else {
           if (kDebugMode) {

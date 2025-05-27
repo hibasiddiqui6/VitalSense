@@ -69,14 +69,13 @@ class _SpecialistState extends State<SpecialistLogin> {
     } else {
       _showPopup(context, "Success", "Login successful!");
       Future.delayed(const Duration(seconds: 3), () {
-        // Navigate to the specialist landing page
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(
-            builder: (context) => SpecialistDashboard(),
-          ),
+          MaterialPageRoute(builder: (context) => SpecialistDashboard()),
+          (Route<dynamic> route) => false,
         );
       });
+
     }
   }
 

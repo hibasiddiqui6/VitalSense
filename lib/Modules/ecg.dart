@@ -239,38 +239,43 @@ class _ECGScreenState extends State<ECGScreen> {
   }
 
   void _showECGAlertDialog(String condition) async {
+    const String alertText = "Abnormal heart rate detected";
+
+    // Define reason based on condition (only High or Low)
+    String reason;
+    if (condition == "Low") {
+      reason = "Heart rate is slower than normal.";
+    } else {
+      // Must be High
+      reason = "Heart rate is faster than normal.";
+    }
+
+    final String reasonText = "\nReason: $reason";
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("⚠️ ECG Alert"),
+        title: const Text("⚠️ Health Alert"),
         content: Text(
-          "Detected condition: $condition\nWould you like to notify trusted contacts?",
-          style: const TextStyle(fontSize: 16),
+          "$alertText. $reasonText\nNotifying trusted contacts."
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
               try {
-                final contacts = await ApiClient().getTrustedContacts();
-                await notifyContacts(condition, contacts); // Assume this exists
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Contacts notified")),
-                );
+                final contactsList = await ApiClient().getTrustedContacts();
+                if (kDebugMode) {
+                  print("✅ Contacts fetched: $contactsList");
+                }
+                await notifyContacts(condition, contactsList, alertText, reason);
               } catch (e) {
                 if (kDebugMode) {
-                  print("Error sending alert: $e");
+                  print("❌ Error fetching contacts or notifying: $e");
                 }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Failed to send alert")),
-                );
               }
             },
-            child: const Text("Notify"),
+            child: const Text("OK"),
           )
         ],
       ),

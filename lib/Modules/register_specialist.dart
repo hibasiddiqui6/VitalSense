@@ -369,13 +369,13 @@ class _RegistrationFormState extends State<RegistrationForm> {
 
                               // Navigate after success
                               Future.delayed(const Duration(seconds: 3), () {
-                                Navigator.pushReplacement(
+                                Navigator.pushAndRemoveUntil(
                                   context,
-                                  MaterialPageRoute(
-                                      builder: (context) =>
-                                          SpecialistDashboard()),
+                                  MaterialPageRoute(builder: (context) => SpecialistDashboard()),
+                                  (Route<dynamic> route) => false,
                                 );
                               });
+
                             }
                           } catch (e) {
                             if (kDebugMode) {

@@ -1,7 +1,7 @@
 import 'package:location/location.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-Future<void> notifyContacts(String alertStatus, List<Map<String, dynamic>> contacts) async {
+Future<void> notifyContacts(String alertStatus, List<Map<String, dynamic>> contacts, String alertText, String reason) async {
   try {
     final Location location = Location();
 
@@ -33,8 +33,12 @@ Future<void> notifyContacts(String alertStatus, List<Map<String, dynamic>> conta
 
     // 5. Build the message
     String message = Uri.encodeComponent(
-      "⚠️ Health Alert: $alertStatus detected.\n"
-      "Patient’s location: $locationUrl"
+      "⚠️ Health Alert:\n"
+      "$alertText.\n"
+      "Condition: $alertStatus.\n"
+      "Reason: $reason\n\n"
+      "Patient’s location: $locationUrl\n"
+      "📞 In case of serious condition, call 115."
     );
 
     // 6. Combine contact numbers
