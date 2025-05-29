@@ -58,8 +58,7 @@ dependencies:
   animated_splash_screen:
   fluttertoast: ^8.2.12
   android_intent_plus: ^4.0.0 
-  firebase_core: ^2.27.0 # or latest stable version  
-  firebase_analytics: ^10.10.7
+  
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +70,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -139,3 +139,9 @@ dependency_overrides:
   string_scanner: ^1.4.0
   test_api: ^0.7.4
   vm_service: ^15.0.0
+
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"

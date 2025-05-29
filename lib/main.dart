@@ -1,33 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:vitalsense/widgets/splash_screen.dart';
 import 'package:vitalsense/Modules/patient_dashboard.dart';
 import 'package:vitalsense/Modules/specialist_dashboard.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Disable Advertising ID collection
-  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(false);
-
-  await Firebase.initializeApp();
 
   final homeScreen = await initApp();
   runApp(VitalSenseApp(home: homeScreen));
 }
 
-  Future<Widget> initApp() async {
+Future<Widget> initApp() async {
   final prefs = await SharedPreferences.getInstance();
   final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
   final role = prefs.getString('role'); // e.g., 'patient' or 'specialist'
 
   if (isLoggedIn) {
     if (role == 'patient') {
-      return PatientDashboard(); 
+      return PatientDashboard();
     } else if (role == 'specialist') {
-      return SpecialistDashboard(); 
+      return SpecialistDashboard();
     }
   }
 
