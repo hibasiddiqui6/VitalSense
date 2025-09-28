@@ -1,16 +1,20 @@
-# vitalsense
+# VitalSense
 
-A new Flutter project.
+VitalSense is a mobile health monitoring app built with **Flutter** and backed by a **Flask API**.  
+It tracks **patient vitals and location** in real time, providing role-based access for patients and healthcare specialists.
 
-## Getting Started
+## Features
+- 📍 Real-time patient location tracking  
+- ❤️ Vitals monitoring (e.g., heart rate, temperature, etc.)  
+- 👨‍⚕️ Role-based access (patients & healthcare specialists)  
+- 🔗 Backend built with **Flask** and **PostgreSQL**  
+- ☁️ Hosted on **Fly.io** (backend) and **Render** (database)  
 
-This project is a starting point for a Flutter application.
+## Note
+This repository is for **academic showcase only**.  
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Tech Stack
+- **Frontend**: Flutter  
+- **Backend**: Flask (Python)  
+- **Database**: PostgreSQL  
+- **Hosting**: Fly.io + Render  
